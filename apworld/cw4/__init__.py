@@ -61,4 +61,7 @@ class CW4World(World):
         return items.get_filler_item_name(self)
 
     def fill_slot_data(self) -> Mapping[str, Any]:
-        return {}
+        data = dict(rules.requirement_groups())
+        data["starter_missions"] = ["story1"]
+        data["ern_per_item"] = 1
+        return data
