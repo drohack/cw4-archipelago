@@ -12,9 +12,22 @@ order. The goal is to beat the final mission, Ever After.
 
 ## Status
 
-Early development. The game-side mechanisms (unit locking, live item
-delivery, mission gating, in-game connection UI) are proven; the mod and the
-Archipelago world are being assembled from them. Not yet playable end to end.
+In development, and functional end to end. The mod connects to an Archipelago
+server from the main menu (with auto-connect), receives items and applies them
+live (unit unlocks appear mid-mission, ERNs spawn, missions unlock), sends
+location checks as you complete objectives and missions, and colors the
+mission map with the Archipelago tracker convention. Logic content (the exact
+per-mission requirements) is still being finalized - see the design doc.
+
+Covered so far:
+- Connect / auto-connect / reconnect with a per-slot offline cache
+- Items applied live: unit unlocks, mission unlocks, progressive ERNs, build limits
+- Location checks: per-objective and per-mission, with the finale as the goal
+- Mission gating: locked missions cannot be launched or save-loaded
+- Mission map tracker: red / yellow / green / orange / grey per Archipelago
+  convention, plus the native "?" for locked planets
+- Main menu slimmed to Farsite (SPAN hidden behind a config toggle) with the
+  connection panel shown only on the menu
 
 ## Install (players)
 

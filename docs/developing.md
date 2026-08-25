@@ -40,15 +40,27 @@ the local generator/server for testing:
 
 ## Testing
 
-The probe supports a file-command protocol: write commands to
-`<game>/BepInEx/probe-unlocks.txt` and read results from
-`<game>/BepInEx/LogOutput.log`. The batteries in `tools/` drive full
-game-launch regression runs on top of it (bash, e.g. via Git Bash):
+Three tiers:
 
-- `tools/battery2.sh` - 13-assert regression: whitelist enforcement, build
-  limits, mission gating, no-flash pane reveal, save/resume.
-- `tools/erntest.sh` - ERN spawn/grant/deny battery.
-- `tools/survey.sh` - campaign data survey (objectives, flags, enemy census).
+1. **Core unit tests** (no game): `dotnet test src/CW4Archipelago.Core.Tests`.
+   Pure C# logic - slot state, rules, tracker colors, persistence.
+2. **apworld tests** (in the Archipelago clone): `tools/ap-sync.ps1` then
+   `python -m unittest discover -s worlds/cw4/test -t .` from the clone.
+3. **Game integration battery**: `tools/apbattery.sh` starts a local AP server
+   from the clone, launches the game with AutoConnect + DebugCommands on (via
+   the BepInEx config), and asserts connect / live items / unit gate / location
+   checks / tracker colors / mission gating / offline flush from the log.
+
+The real mod exposes a config-gated file-command channel (enable
+`DebugCommands` in `BepInEx/config/com.droha.cw4archipelago.cfg`): write
+commands to `<game>/BepInEx/cw4ap-commands.txt`, read results from
+`LogOutput.log`. Commands: connect, disconnect, dump, units, item:<name>,
+check:<location>, boot:<storyN>, objective:<n>, win, ada:close, tracker:dump,
+story:open.
+
+The probe (`src/CW4APProbe`) keeps its own file-command protocol
+(`probe-unlocks.txt`) and older batteries (`tools/battery2.sh`,
+`tools/erntest.sh`, `tools/survey.sh`) for game-mechanism research.
 
 Scripts read the game location from `CW4_DIR` (defaults to the maintainer's
 path) and write outputs under `$TEMP`.

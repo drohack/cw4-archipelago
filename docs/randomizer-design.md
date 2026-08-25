@@ -24,10 +24,17 @@ campaign survey (probe v0.54, scratchpad/survey.sh).
 
 ## Locations
 
-- Per mission: one location per enabled objective (nullify / totems /
-  reclaim / hold / collect / custom - actual set per survey), ~4-6 each.
-- One "Mission Complete" location per mission.
-- Estimated total: ~100-130 locations vs ~50 items - healthy filler space.
+- CW4's six objective slots are fixed by TYPE (index 0 Nullify, 1 Totems,
+  2 Reclaim, 3 Hold, 4 Collect, 5 Custom - confirmed by the survey). One
+  location per REQUIRED objective, named "<Title> - <Type>" (e.g.
+  "Home - Nullify"); the client maps objective index -> type directly.
+- One "<Title> - Mission Complete" location per mission except the finale,
+  whose completion is the Victory event.
+- Total: 39 objective + 19 mission-complete = 58 locations (see
+  apworld/cw4/locations.py REQUIRED_OBJECTIVES for the per-mission table).
+
+Client/apworld contract (slot_data requirement groups, persistence, tracker
+colors, save archiving): see design/2026-08-25-mod-wiring-design.md.
 
 ## Regions and access
 

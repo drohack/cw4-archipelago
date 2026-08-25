@@ -46,7 +46,23 @@ player needs a yaml with `game: Creeper World 4`.
 Use the panel on the main menu: server address and port
 (e.g. `archipelago.gg:38281`), slot name, password if the room has one.
 On connect, mission availability and unit unlocks update to match your
-received items. Progress made while playing is sent live.
+received items. Progress made while playing is sent live. The panel appears
+only on the main menu; the level-select screen shows a small connection line.
+
+## Configuration
+
+Settings live in `BepInEx/config/com.droha.cw4archipelago.cfg` (created on
+first launch) and are also editable from the in-game panel:
+
+- `[Connection]` Host, Port, Slot, Password, AutoConnect - connection details;
+  AutoConnect joins automatically at the main menu.
+- `[Missions]` ShowSpan - show the SPAN Experiments button (off by default;
+  the randomizer covers the 20 Farsite missions).
+- `[Debug]` DebugCommands - a file-command channel for testing; leave off.
+
+Your received items and checked locations are cached per slot under
+`Documents/My Games/creeperworld4/archipelago/`, so a brief disconnect keeps
+your unlocks and re-sends any checks when the server returns.
 
 ## Troubleshooting
 
