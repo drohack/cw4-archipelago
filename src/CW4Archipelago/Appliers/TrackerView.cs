@@ -146,6 +146,33 @@ public sealed class TrackerView
 }
 
 /// <summary>
+/// Swallows clicks on a locked planet so the mission popup (with its
+/// non-functional Play button) never opens. Unlocked planets click normally.
+/// </summary>
+[HarmonyPatch(typeof(SpanNetworkPlanet), nameof(SpanNetworkPlanet.OnPointerClick))]
+public static class PlanetClickPatch
+{
+    [HarmonyPrefix]
+    public static bool Prefix(SpanNetworkPlanet __instance)
+    {
+        try
+        {
+            var title = TrackerView.TitleOf(__instance);
+            var mission = TrackerView.MissionByTitle(title);
+            if (mission == 0)
+                return true;   // not one of ours (e.g. the tutorial) - native behavior
+            if (!MissionRules.IsUnlocked(ModCore.Client.State, mission))
+            {
+                ModCore.Log.LogInfo($"PLANET CLICK IGNORED: '{title}' locked");
+                return false;  // skip the native click -> no popup
+            }
+        }
+        catch { }
+        return true;
+    }
+}
+
+/// <summary>
 /// Answers the map's display-time completion query from AP checked-state so the
 /// native completion indicators reflect the multiworld, not local save data.
 /// </summary>

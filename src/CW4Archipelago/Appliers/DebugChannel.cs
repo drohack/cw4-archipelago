@@ -76,6 +76,7 @@ public sealed class DebugChannel
         if (lower == "tracker:dump") { TrackerDump(); return; }
         if (lower == "units") { UnitsDump(); return; }
         if (lower == "story:open") { StoryOpen(); return; }
+        if (lower.StartsWith("clickplanet:")) { ClickPlanet(line.Substring(12).Trim()); return; }
 
         ModCore.Log.LogWarning($"DEBUG unknown command: {line}");
     }
@@ -173,5 +174,41 @@ public sealed class DebugChannel
         var btn = gg?.farsiteButton?.GetComponent<UnityEngine.UI.Button>();
         if (btn != null) { btn.onClick.Invoke(); ModCore.Log.LogInfo("DEBUG story:open"); }
         else ModCore.Log.LogWarning("story:open: no farsite button");
+    }
+
+    // Invoke a planet's click handler to test the locked-click block. Reports
+    // whether a mission popup is showing afterwards.
+    private static void ClickPlanet(string arg)
+    {
+        if (!CW4Archipelago.Core.MissionRules.TryParseSpecifier(arg, out var mission))
+        {
+            ModCore.Log.LogWarning($"clickplanet: bad specifier '{arg}'");
+            return;
+        }
+        var planets = UnityEngine.Object.FindObjectsOfType<SpanNetworkPlanet>();
+        if (planets == null) { ModCore.Log.LogWarning("clickplanet: no planets"); return; }
+        foreach (var p in planets)
+        {
+            if (!GameUtil.IsAlive(p)) continue;
+            var title = TrackerView.TitleOf(p);
+            var m = TrackerView.MissionByTitle(title);
+            if (m != mission) continue;
+            bool before = PopupShowing();
+            try { p.OnPointerClick(null); } catch (Exception e) { ModCore.Log.LogWarning($"clickplanet invoke: {e.Message}"); }
+            bool after = PopupShowing();
+            ModCore.Log.LogInfo($"CLICKPLANET {arg} '{title}' unlocked={CW4Archipelago.Core.MissionRules.IsUnlocked(ModCore.Client.State, m)} popupBefore={before} popupAfter={after}");
+            return;
+        }
+        ModCore.Log.LogWarning($"clickplanet: mission {arg} not found");
+    }
+
+    private static bool PopupShowing()
+    {
+        try
+        {
+            var gmp = UnityEngine.Object.FindObjectOfType<GalaxyMissionPanel>();
+            return gmp != null && gmp.gameObject.activeInHierarchy;
+        }
+        catch { return false; }
     }
 }

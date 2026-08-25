@@ -20,6 +20,7 @@ public class Plugin : BasePlugin
 
         Harmony.CreateAndPatchAll(typeof(Appliers.MissionGate), "com.droha.cw4archipelago");
         Harmony.CreateAndPatchAll(typeof(Appliers.FakeCompletePatch), "com.droha.cw4archipelago");
+        Harmony.CreateAndPatchAll(typeof(Appliers.PlanetClickPatch), "com.droha.cw4archipelago");
 
         ClassInjector.RegisterTypeInIl2Cpp<ModBehaviour>();
         AddComponent<ModBehaviour>();
