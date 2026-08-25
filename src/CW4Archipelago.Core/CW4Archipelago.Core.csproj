@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Pure C# slot state, rules and persistence for the CW4 Archipelago mod.
+       No Unity, BepInEx or interop references: unit-tested without the game
+       and shipped alongside the plugin DLL. -->
+
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <AssemblyName>CW4Archipelago.Core</AssemblyName>
+    <RootNamespace>CW4Archipelago.Core</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <GenerateDependencyFile>false</GenerateDependencyFile>
+  </PropertyGroup>
+
+</Project>
