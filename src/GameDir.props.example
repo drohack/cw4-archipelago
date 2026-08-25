@@ -1,0 +1,9 @@
+<!-- Copy this file to GameDir.props (same folder) and point GameDir at your
+     Creeper World 4 install. GameDir.props is gitignored - it is per-machine.
+     BepInEx must be installed in the game folder and the game launched once
+     so BepInEx generates the interop assemblies referenced by the projects. -->
+<Project>
+  <PropertyGroup>
+    <GameDir>C:\Program Files (x86)\Steam\steamapps\common\Creeper World 4</GameDir>
+  </PropertyGroup>
+</Project>

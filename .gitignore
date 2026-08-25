@@ -1,0 +1,26 @@
+# Upstream Archipelago clone (reference + local test host) - not ours
+/Archipelago/
+
+# Local AP test outputs
+/.aptest/
+
+# Release artifacts
+/dist/
+
+# Build output
+bin/
+obj/
+
+# Per-machine build configuration
+/src/GameDir.props
+
+# Editors / OS
+*.user
+*.suo
+.vs/
+Thumbs.db
+
+# Stray artifacts
+*.bak
+*.png
+*.log

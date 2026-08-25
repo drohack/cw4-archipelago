@@ -1,0 +1,52 @@
+# Creeper World 4 Archipelago
+
+An [Archipelago](https://archipelago.gg) multiworld randomizer for
+[Creeper World 4](https://knucklecracker.com/creeperworld4/cw4.php)'s
+Farsite Expedition campaign.
+
+Mission access, unit unlocks (cannon, mortar, terp, and the rest), and ERNs
+are shuffled into the multiworld item pool. Completing mission objectives and
+missions sends checks to other players; their checks send you your units.
+Missions are open: any mission whose unlock you hold is playable in any
+order. The goal is to beat the final mission, Ever After.
+
+## Status
+
+Early development. The game-side mechanisms (unit locking, live item
+delivery, mission gating, in-game connection UI) are proven; the mod and the
+Archipelago world are being assembled from them. Not yet playable end to end.
+
+## Install (players)
+
+1. **BepInEx**: unzip
+   [BepInEx-Unity.IL2CPP-win-x64-6.0.0-pre.2.zip](https://github.com/BepInEx/BepInEx/releases/tag/v6.0.0-pre.2)
+   into the Creeper World 4 install folder (the one containing `CW4.exe`).
+2. **First launch**: start the game, wait for the main menu, quit. The first
+   launch is slow - BepInEx is generating interop assemblies.
+3. **Mod**: unzip `CW4Archipelago-vX.Y.Z.zip` from the
+   [releases page](../../releases) into the same game folder.
+4. **Archipelago host**: put `cw4.apworld` (same release) into your
+   Archipelago installation's `custom_worlds/` folder.
+
+Details and troubleshooting: [docs/installation.md](docs/installation.md).
+
+## Connect
+
+Launch the game and use the Archipelago panel on the main menu: server
+address and port, slot name, password. Mission availability follows your
+received items.
+
+## Repository layout
+
+- `src/CW4Archipelago/` - the BepInEx mod (ships in releases)
+- `src/CW4APProbe/` - development probe used to verify game mechanisms
+- `apworld/cw4/` - the Archipelago world (Python)
+- `docs/` - design and research documentation
+- `tools/` - test batteries and release packaging
+
+Contributing and building: [docs/developing.md](docs/developing.md).
+Randomizer design: [docs/randomizer-design.md](docs/randomizer-design.md).
+
+## License
+
+MIT - see [LICENSE](LICENSE).
