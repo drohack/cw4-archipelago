@@ -20,7 +20,7 @@
     <Version>0.1.0</Version>
     <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <Nullable>disable</Nullable>
+    <Nullable>annotations</Nullable>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <!-- Copy NuGet dependency DLLs (Archipelago.MultiClient.Net and its
          dependencies) into the output so the release zip can include them. -->
@@ -30,6 +30,7 @@
 
   <ItemGroup>
     <PackageReference Include="Archipelago.MultiClient.Net" Version="6.7.1" />
+    <ProjectReference Include="..\CW4Archipelago.Core\CW4Archipelago.Core.csproj" />
   </ItemGroup>
 
   <ItemGroup>
