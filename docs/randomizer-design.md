@@ -3,6 +3,11 @@
 Status: draft, 2026-08-25. Data tables below are filled by the automated
 campaign survey (probe v0.54, scratchpad/survey.sh).
 
+See also: [AP feature comparison + recommendations](design/2026-08-26-ap-feature-comparison.md)
+- what other AP randomizers do and the designer's decisions on what to adopt
+  (name groups, idempotent replay, seed binding, and a traps feasibility test
+  next; logic tiers in this doc; star/token gating declined).
+
 ## Scope
 
 - Official Farsite Expedition campaign only: story1..story20 (story0
