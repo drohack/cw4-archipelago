@@ -66,8 +66,19 @@ public sealed class MenuUi
     {
         if (_compactText == null) return;
         var c = ModCore.Client;
-        _compactText.text = c.Connected ? $"Archipelago: connected as {c.State.Slot}" : "Archipelago: not connected";
-        _compactText.color = c.Connected ? new Color(0.45f, 0.85f, 0.5f, 1f) : new Color(0.85f, 0.6f, 0.35f, 1f);
+        _compactText.text = c.Status switch
+        {
+            ConnectionStatus.Connected => $"Archipelago: connected as {c.State.Slot}",
+            ConnectionStatus.Connecting => "Archipelago: " + c.StatusText,
+            _ => "Archipelago: " + c.StatusText,   // disconnected / retrying / failed
+        };
+        _compactText.color = c.Status switch
+        {
+            ConnectionStatus.Connected => new Color(0.45f, 0.85f, 0.5f, 1f),
+            ConnectionStatus.Connecting => new Color(0.9f, 0.85f, 0.4f, 1f),
+            ConnectionStatus.Failed => new Color(0.95f, 0.4f, 0.35f, 1f),
+            _ => new Color(0.85f, 0.6f, 0.35f, 1f),
+        };
     }
 
     public void OnGalaxyEntered()

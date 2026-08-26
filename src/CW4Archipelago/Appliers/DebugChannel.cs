@@ -77,6 +77,10 @@ public sealed class DebugChannel
         if (lower == "units") { UnitsDump(); return; }
         if (lower == "story:open") { StoryOpen(); return; }
         if (lower.StartsWith("clickplanet:")) { ClickPlanet(line.Substring(12).Trim()); return; }
+        if (lower.StartsWith("toast:")) { ModCore.EnqueueToast(line.Substring(6).Trim()); return; }
+        if (lower.StartsWith("limit:")) { LimitDump(line.Substring(6).Trim()); return; }
+        if (lower == "ern:status") { ErnStatus(); return; }
+        if (lower.StartsWith("gatecheck:")) { GateCheck(line.Substring(10).Trim()); return; }
 
         ModCore.Log.LogWarning($"DEBUG unknown command: {line}");
     }
@@ -166,6 +170,31 @@ public sealed class DebugChannel
         }
         catch { }
         ModCore.Log.LogInfo($"DEBUG UNITS: allowed=[{string.Join(",", allowed)}] structButtons={structButtons}");
+    }
+
+    private static void LimitDump(string unit)
+    {
+        var bum = GameSpace.instance?.buildUnitManager;
+        if (bum == null) { ModCore.Log.LogWarning("limit: no BuildUnitManager"); return; }
+        int lim = -999;
+        try { lim = bum.GetBuildCountLimit(unit); } catch { }
+        ModCore.Log.LogInfo($"DEBUG LIMIT: {unit}={lim}");
+    }
+
+    private static void ErnStatus()
+    {
+        int avail = -1;
+        try { avail = UnitManager.GetAvailableERNCount(); } catch { }
+        int ernUnits = -1;
+        try { var e = UnityEngine.Object.FindObjectsOfType<ERN>(); ernUnits = e == null ? 0 : e.Length; } catch { }
+        ModCore.Log.LogInfo($"DEBUG ERN: availableCount={avail} ernUnits={ernUnits}");
+    }
+
+    private static void GateCheck(string spec)
+    {
+        // Same decision used by both the launch and the save-load gates.
+        bool allowed = MissionGate.Allowed(spec);
+        ModCore.Log.LogInfo($"DEBUG GATECHECK: '{spec}' allowed={allowed}");
     }
 
     private static void StoryOpen()

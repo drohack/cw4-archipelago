@@ -138,6 +138,11 @@ public sealed class UnitGate
         {
             if (!_baseLimits.TryGetValue(kv.Key, out var baseLimit))
                 continue;
+            // A negative base is the game's "unlimited" sentinel - a +N to
+            // unlimited is meaningless, and setting a concrete value would
+            // actually CAP a unit that had no cap. Leave those alone.
+            if (baseLimit < 0)
+                continue;
             try { bum.SetBuildCountLimit(kv.Key, baseLimit + kv.Value); } catch { }
         }
     }

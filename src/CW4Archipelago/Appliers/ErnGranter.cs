@@ -15,6 +15,7 @@ public sealed class ErnGranter
     private IntPtr _lastGameSpace = IntPtr.Zero;
     private int _granted;         // ERNs spawned so far this mission
     private int _grantCountdown;
+    private int _lastLoggedTarget = -1;
 
     // Pull-based: each tick the target is ErnRules.ErnCount (grows as ERN items
     // arrive live); we spawn until granted catches up. No event coupling.
@@ -28,10 +29,15 @@ public sealed class ErnGranter
         {
             _lastGameSpace = gs.Pointer;
             _granted = 0;
-            ModCore.Log.LogInfo($"ERN: target {ErnRules.ErnCount(ModCore.Client.State)} this mission");
+            _lastLoggedTarget = -1;
         }
 
         var target = ErnRules.ErnCount(ModCore.Client.State);
+        if (target != _lastLoggedTarget)
+        {
+            _lastLoggedTarget = target;
+            ModCore.Log.LogInfo($"ERN: target {target} this mission");
+        }
         if (_granted >= target) return;
         if (--_grantCountdown > 0) return;
         _grantCountdown = 30;

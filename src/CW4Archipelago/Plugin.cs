@@ -1,3 +1,4 @@
+using System;
 using BepInEx;
 using BepInEx.Unity.IL2CPP;
 using HarmonyLib;
@@ -18,13 +19,36 @@ public class Plugin : BasePlugin
         var config = new ModConfig(Config);
         ModCore.Init(Log, config);
 
-        Harmony.CreateAndPatchAll(typeof(Appliers.MissionGate), "com.droha.cw4archipelago");
-        Harmony.CreateAndPatchAll(typeof(Appliers.FakeCompletePatch), "com.droha.cw4archipelago");
-        Harmony.CreateAndPatchAll(typeof(Appliers.PlanetClickPatch), "com.droha.cw4archipelago");
+        // Each patch is applied independently and guarded: if a future game
+        // update changes one patched method, that feature degrades but the
+        // rest of the mod (connection, items, checks) still loads.
+        TryPatch("MissionGate", typeof(Appliers.MissionGate));
+        TryPatch("FakeComplete", typeof(Appliers.FakeCompletePatch));
+        TryPatch("PlanetClick", typeof(Appliers.PlanetClickPatch));
 
-        ClassInjector.RegisterTypeInIl2Cpp<ModBehaviour>();
-        AddComponent<ModBehaviour>();
+        try
+        {
+            ClassInjector.RegisterTypeInIl2Cpp<ModBehaviour>();
+            AddComponent<ModBehaviour>();
+        }
+        catch (Exception e)
+        {
+            Log.LogError($"FATAL: could not install the mod behaviour: {e.Message}");
+            return;
+        }
 
         Log.LogInfo("CW4 Archipelago loaded");
+    }
+
+    private void TryPatch(string name, Type patchType)
+    {
+        try
+        {
+            Harmony.CreateAndPatchAll(patchType, "com.droha.cw4archipelago");
+        }
+        catch (Exception e)
+        {
+            Log.LogError($"Harmony patch '{name}' failed (feature disabled, mod continues): {e.Message}");
+        }
     }
 }
