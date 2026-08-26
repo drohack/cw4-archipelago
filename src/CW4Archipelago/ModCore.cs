@@ -167,6 +167,20 @@ public static class ModCore
                 Connect();
             }
         }
+        if (scene == "Game" && Client.Connected)
+        {
+            // Seed guard: the live saves/farsite is stamped for the connected
+            // seed/slot on login. A mismatch means a save set from another seed
+            // (offline play / manual file move) - warn rather than corrupt it.
+            try
+            {
+                if (!Appliers.SaveArchiver.SeedMatches(Client.State.Seed, Client.State.Slot))
+                    Log.LogWarning($"SEED GUARD: saves/farsite not stamped for connected seed='{Client.State.Seed}' slot='{Client.State.Slot}' - possible wrong-seed save");
+                else
+                    Log.LogInfo("SEED GUARD: active saves match connected seed/slot");
+            }
+            catch { }
+        }
     }
 
     private static bool HasConnectionInfo()

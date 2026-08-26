@@ -67,7 +67,7 @@ rm -f "$CMD"
 cd "$CW4" && ./CW4.exe > /dev/null 2>&1 &
 sleep 12
 MARK=0   # BepInEx truncates LogOutput.log on launch; index from its start
-wait_since "CW4 Archipelago v0.2.0" 30; verdict $? "plugin loaded"
+wait_since "ModCore initialized" 30; verdict $? "plugin loaded"
 wait_since "SCENE: 'Galaxy'" 40 || echo "[apbattery] WARN: menu slow"
 wait_since "MENU: AP panel created" 20; verdict $? "AP panel built"
 wait_since "AP CONNECTED slot='$SLOT'" 40; verdict $? "auto-connected"

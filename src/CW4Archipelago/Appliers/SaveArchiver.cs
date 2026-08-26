@@ -44,7 +44,13 @@ public static class SaveArchiver
             var target = SlotKey(seed, slot);
             var active = ReadActive();
             if (active == target)
-                return;   // already this slot
+            {
+                // Already this slot - no folder move needed, but still ensure
+                // the live folder carries the seed stamp (it may be missing on a
+                // reconnect to the same slot, or after a manual save restore).
+                WriteStamp(seed, slot);
+                return;
+            }
 
             SIO.Directory.CreateDirectory(ArchiveRoot());
             var farsite = SavesFarsite();
@@ -59,12 +65,46 @@ public static class SaveArchiver
             MoveDirContents(targetArchive, farsite, log);
 
             WriteActive(target);
+            WriteStamp(seed, slot);
             log($"SAVE ARCHIVE: switched saves/farsite from '{active}' to '{target}'");
         }
         catch (Exception e)
         {
             log($"SAVE ARCHIVE failed (saves left as-is): {e.Message}");
         }
+    }
+
+    // A seed stamp written inside saves/farsite makes the binding explicit and
+    // auditable, and travels with the folder if it is ever copied. Used by
+    // SeedMatches to detect a save set that does not belong to the connected
+    // seed/slot (e.g. after offline play or manual file moves).
+    private static string StampFile() => SIO.Path.Combine(SavesFarsite(), "archipelago-seed.txt");
+
+    private static void WriteStamp(string seed, string slot)
+    {
+        try
+        {
+            SIO.Directory.CreateDirectory(SavesFarsite());
+            SIO.File.WriteAllText(StampFile(), $"{seed}|{slot}");
+        }
+        catch { /* stamp is best-effort; isolation already done via archive */ }
+    }
+
+    /// <summary>
+    /// True if the live saves/farsite folder is stamped for this seed+slot (or
+    /// has no stamp yet, i.e. nothing to contradict). False only on a definite
+    /// mismatch - caller should warn the player they are on the wrong seed.
+    /// </summary>
+    public static bool SeedMatches(string seed, string slot)
+    {
+        try
+        {
+            if (!SIO.File.Exists(StampFile()))
+                return true;   // unstamped legacy/vanilla saves - do not false-alarm
+            var parts = SIO.File.ReadAllText(StampFile()).Split('|');
+            return parts.Length == 2 && parts[0] == seed && parts[1] == slot;
+        }
+        catch { return true; }
     }
 
     private static string ReadActive()
