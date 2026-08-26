@@ -28,6 +28,48 @@ public sealed class MenuUi
         if (scene == "Galaxy" && !_menuEdited)
             MaybeBuild();
         UpdateVisibility(scene);
+        if (scene == "Galaxy" && _panel != null && _panel.activeSelf)
+            FitPanel();
+    }
+
+    /// <summary>
+    /// Scale the login panel so it never overlaps the FARSITE button. The game's
+    /// story panel is center-anchored (slides left as the window narrows) while
+    /// our panel is pinned to the left edge; at low resolution / high UI scale
+    /// they collide. We read the FARSITE button's live screen-x each frame and
+    /// shrink the panel (about its left-center pivot, so the left edge stays put)
+    /// to keep its right edge a margin clear of the button. Adapts to any
+    /// resolution and UI Scale setting because it uses the button's real rect.
+    /// </summary>
+    private void FitPanel()
+    {
+        try
+        {
+            var fb = GameGalaxy.instance?.farsiteButton;
+            if (fb == null || _panel == null) return;
+            var frt = fb.transform.TryCast<RectTransform>();
+            var prt = _panel.transform.TryCast<RectTransform>();
+            if (frt == null || prt == null) return;
+
+            // Overlay canvases: TransformPoint(corner) is already in screen px.
+            float farsiteLeft = frt.TransformPoint(new Vector3(frt.rect.xMin, 0f, 0f)).x;
+
+            // Measure the panel's natural (unscaled) screen extent.
+            prt.localScale = Vector3.one;
+            float panelLeft = prt.TransformPoint(new Vector3(prt.rect.xMin, 0f, 0f)).x;
+            float panelRight = prt.TransformPoint(new Vector3(prt.rect.xMax, 0f, 0f)).x;
+            float naturalW = panelRight - panelLeft;
+            if (naturalW <= 1f) return;
+
+            float margin = 24f;
+            float avail = farsiteLeft - margin - panelLeft;
+            // Floor low enough that the panel always clears FARSITE, even when a
+            // high UI scale at low resolution makes the game menu fill the
+            // screen; it shrinks small there but never overlaps.
+            float fit = Mathf.Clamp(avail / naturalW, 0.2f, 1f);
+            prt.localScale = new Vector3(fit, fit, 1f);
+        }
+        catch { /* menu not fully built yet */ }
     }
 
     /// <summary>

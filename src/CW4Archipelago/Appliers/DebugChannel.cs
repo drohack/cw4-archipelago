@@ -73,6 +73,7 @@ public sealed class DebugChannel
         }
         if (lower == "minimap:dump") { MinimapDump(); return; }
         if (lower == "hud:dump") { HudDump(); return; }
+        if (lower == "menu:dump") { MenuDump(); return; }
         if (lower.StartsWith("msgbox:set")) { MsgBoxSet(line.Substring(10).Trim()); return; }
         if (lower.StartsWith("shot:")) { Shot(line.Substring(5).Trim()); return; }
         if (lower == "canvas:dump") { CanvasDump(); return; }
@@ -273,6 +274,40 @@ public sealed class DebugChannel
             var c = t.GetChild(i);
             LogRt($"HUDDUMP{new string('.', depth)}", c, cam);
             DumpSubtree(c, cam, depth + 1, maxDepth);
+        }
+    }
+
+    // Dump the menu canvas scaler + FARSITE button rect + AP panel rect, so the
+    // login panel can be parented to the same scaler and positioned clear of it.
+    private static void MenuDump()
+    {
+        foreach (var cv in UnityEngine.Object.FindObjectsOfType<Canvas>())
+        {
+            if (cv == null || !cv.isRootCanvas) continue;
+            var sc = cv.GetComponent<CanvasScaler>();
+            string s = sc != null
+                ? $"mode={sc.uiScaleMode} ref={sc.referenceResolution} match={sc.matchWidthOrHeight:F2}"
+                : "no-scaler";
+            ModCore.Log.LogInfo($"MENUDUMP canvas '{cv.gameObject.name}' mode={cv.renderMode} scaleFactor={cv.scaleFactor:F3} {s}");
+        }
+        var gg = GameGalaxy.instance;
+        if (gg != null && gg.farsiteButton != null)
+        {
+            var fc = gg.farsiteButton.GetComponentInParent<Canvas>();
+            Camera? cam = (fc != null && fc.rootCanvas.renderMode != RenderMode.ScreenSpaceOverlay) ? fc.rootCanvas.worldCamera : null;
+            ModCore.Log.LogInfo($"MENUDUMP farsite canvas='{(fc != null ? fc.rootCanvas.gameObject.name : "?")}'");
+            LogRt("MENUDUMP farsite", gg.farsiteButton.transform, cam);
+            var frt = gg.farsiteButton.transform.TryCast<RectTransform>();
+            if (frt != null)
+                ModCore.Log.LogInfo($"MENUDUMP farsite local: anchoredPos={frt.anchoredPosition} sizeDelta={frt.sizeDelta} anchorMin={frt.anchorMin} anchorMax={frt.anchorMax}");
+        }
+        var panel = GameObject.Find("CW4ApPanel");
+        if (panel != null)
+        {
+            var pc = panel.GetComponentInParent<Canvas>();
+            Camera? cam = (pc != null && pc.rootCanvas.renderMode != RenderMode.ScreenSpaceOverlay) ? pc.rootCanvas.worldCamera : null;
+            ModCore.Log.LogInfo($"MENUDUMP panel canvas='{(pc != null ? pc.rootCanvas.gameObject.name : "?")}'");
+            LogRt("MENUDUMP panel", panel.transform, cam);
         }
     }
 

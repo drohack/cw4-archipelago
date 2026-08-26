@@ -45,6 +45,15 @@ public sealed class ApMessageBox
     private GameObject? _panel;
     private RectTransform? _panelRt;
     private Image? _panelImg;
+    private Canvas? _hostCanvas;
+    private TextMeshProUGUI? _title;
+    private float _bodyFontSize = BaseBodyFont;
+
+    // Font sizes at UI scale 1.0. The rendered size is these times the same
+    // UI-scale factor that drives the box geometry, so text tracks the box (and
+    // the game's UI Scale setting) instead of the host canvas's own scaleFactor.
+    private const float BaseBodyFont = 12f;
+    private const float BaseTitleFont = 11f;
     private RectTransform? _content;
     private ScrollRect? _scroll;
     private GameObject? _body;              // everything but the header (for collapse)
@@ -119,6 +128,7 @@ public sealed class ApMessageBox
             foreach (var cv in UnityEngine.Object.FindObjectsOfType<Canvas>())
                 if (cv != null && cv.isRootCanvas && cv.renderMode == RenderMode.ScreenSpaceOverlay) { host = cv; break; }
         if (host == null) return;
+        _hostCanvas = host;
 
         if (_font == null)
             _font = FindGameFont();
@@ -153,7 +163,8 @@ public sealed class ApMessageBox
         hrt.anchoredPosition = new Vector2(0f, 0f);
         var hbg = header.AddComponent<Image>();
         hbg.color = new Color(0.08f, 0.12f, 0.2f, 0.9f);
-        var title = MakeText(header.transform, "Archipelago", 12f, new Color(0.7f, 0.85f, 1f, 1f));
+        var title = MakeText(header.transform, "Archipelago", BaseTitleFont, new Color(0.7f, 0.85f, 1f, 1f));
+        _title = title;
         Stretch(title.GetComponent<RectTransform>(), 6f, 0f);
         title.alignment = TextAlignmentOptions.MidlineLeft;
         var collapseBtn = MakeButton(header.transform, "_", new Color(0.15f, 0.2f, 0.3f, 1f));
@@ -295,12 +306,33 @@ public sealed class ApMessageBox
         prt.sizeDelta = new Vector2(Mathf.Max(1f, trLocal.x - blLocal.x), Mathf.Max(1f, trLocal.y - blLocal.y));
         if (_panelImg != null) _panelImg.color = new Color(0.03f, 0.05f, 0.09f, BgAlpha);
 
+        // Font must track the UI scale (like the box), not the host canvas's own
+        // scaleFactor. Text renders at fontSize * hostScale, so setting fontSize =
+        // base * scale / hostScale makes the on-screen size = base * scale, which
+        // matches the box geometry (also base * scale). Without this the text is
+        // sized by the canvas scaleFactor and diverges from the box when the two
+        // differ (e.g. fullscreen on a hi-DPI display).
+        float hostScale = _hostCanvas != null ? Mathf.Max(0.01f, _hostCanvas.scaleFactor) : 1f;
+        float fontScale = scale / hostScale;
+        float newBody = BaseBodyFont * fontScale;
+        if (Mathf.Abs(newBody - _bodyFontSize) > 0.1f)
+        {
+            _bodyFontSize = newBody;
+            if (_title != null) _title.fontSize = BaseTitleFont * fontScale;
+            if (_content != null)
+                for (int i = 0; i < _content.childCount; i++)
+                {
+                    var tmp = _content.GetChild(i).GetComponent<TextMeshProUGUI>();
+                    if (tmp != null) tmp.fontSize = _bodyFontSize;
+                }
+        }
+
         // Log only on a meaningful change, so it is verifiable without spamming.
         if (Mathf.Abs(boxWidthS - _lastLogW) > 4f || Mathf.Abs(boxBottomS - _lastLogB) > 4f)
         {
             _lastLogW = boxWidthS; _lastLogB = boxBottomS;
-            ModCore.Log.LogInfo($"MSGBOX GEO: scale={scale:F2} boxScreen=(x={boxLeftS:F0} y={boxBottomS:F0} " +
-                $"w={boxWidthS:F0} h={boxHeightS:F0}) local(pos={blLocal} size={prt.sizeDelta})");
+            ModCore.Log.LogInfo($"MSGBOX GEO: scale={scale:F2} hostScale={hostScale:F2} font={_bodyFontSize:F1} " +
+                $"boxScreen=(x={boxLeftS:F0} y={boxBottomS:F0} w={boxWidthS:F0} h={boxHeightS:F0})");
         }
     }
 
@@ -337,7 +369,7 @@ public sealed class ApMessageBox
         go.transform.SetParent(_content, false);
         var t = go.AddComponent<TextMeshProUGUI>();
         if (_font != null) t.font = _font;
-        t.fontSize = 15f;
+        t.fontSize = _bodyFontSize;
         t.richText = true;
         t.enableWordWrapping = true;
         t.overflowMode = TextOverflowModes.Overflow;
@@ -443,6 +475,7 @@ public sealed class ApMessageBox
     private void Teardown()
     {
         try { if (_canvasGo != null) UnityEngine.Object.Destroy(_canvasGo); } catch { }
-        _canvasGo = null; _containerRt = null; _panel = null; _panelRt = null; _panelImg = null; _content = null; _scroll = null; _body = null;
+        _canvasGo = null; _containerRt = null; _panel = null; _panelRt = null; _panelImg = null;
+        _hostCanvas = null; _title = null; _content = null; _scroll = null; _body = null;
     }
 }
