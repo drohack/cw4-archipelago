@@ -24,7 +24,7 @@ public static class ModCore
     private static ErnGranter _erns = null!;
     private static LocationWatcher _locations = null!;
     private static TrackerView _tracker = null!;
-    private static MessageToasts _toasts = null!;
+    private static ApMessageBox _messageBox = null!;
 
     private static string _lastScene = "";
 
@@ -41,16 +41,29 @@ public static class ModCore
         _erns = new ErnGranter();
         _locations = new LocationWatcher();
         _tracker = new TrackerView();
-        _toasts = new MessageToasts();
+        _messageBox = new ApMessageBox();
         Client.StateChanged += OnClientStateChanged;
-        Client.MessageReceived += m => _toasts.Enqueue(m);
+        Client.LineReceived += spans => AppendLine(spans);
         Log.LogInfo("ModCore initialized");
     }
 
     public static void Enqueue(Action action) => Dispatch.Enqueue(action);
 
-    /// <summary>Show a toast directly (debug/testing helper).</summary>
-    public static void EnqueueToast(string message) => _toasts.Enqueue(message);
+    /// <summary>Rolling history of colored message lines (survives scene changes).</summary>
+    public static readonly System.Collections.Generic.List<System.Collections.Generic.List<Appliers.MsgSpan>> MessageHistory = new();
+    private const int MaxHistory = 200;
+
+    /// <summary>Append a colored line to the history and the live box.</summary>
+    public static void AppendLine(System.Collections.Generic.List<Appliers.MsgSpan> spans)
+    {
+        MessageHistory.Add(spans);
+        while (MessageHistory.Count > MaxHistory) MessageHistory.RemoveAt(0);
+        _messageBox.AppendLine(spans);
+    }
+
+    /// <summary>Append a single-color line (connection status, debug).</summary>
+    public static void EnqueueToast(string message)
+        => AppendLine(new System.Collections.Generic.List<Appliers.MsgSpan> { new Appliers.MsgSpan(message, "C0C8D4") });
 
     // Per-slot cache lives next to the game's own save data.
     private static string StoreRoot()
@@ -72,7 +85,7 @@ public static class ModCore
     {
         try { _tracker.ApplyTints(); }
         catch (Exception e) { Log.LogError($"late tick failed: {e.Message}"); }
-        try { _toasts.LateTick(_lastScene); }
+        try { _messageBox.LateTick(_lastScene); }
         catch (Exception e) { Log.LogError($"toast tick failed: {e.Message}"); }
     }
 
@@ -132,7 +145,7 @@ public static class ModCore
             };
             if (toast != null)
             {
-                _toasts.Enqueue(toast);
+                EnqueueToast(toast);
                 Log.LogInfo($"STATUS TOAST: {toast}");
             }
         }

@@ -30,8 +30,9 @@ Covered so far:
 - Main menu slimmed to Farsite (SPAN hidden behind a config toggle) with the
   connection panel shown only on the menu
 - Per-slot save isolation (a save from one seed never appears in another)
-- Server messages (item sends/receives, chat) toast at the top during a
-  mission and fade, without pausing
+- Server messages (item sends/receives, chat) appear in a scrollable,
+  semi-transparent message box in the bottom-left during a mission, colored
+  with the Archipelago palette; it scales with the UI Scale setting
 - Reconnects on returning to the menu, re-syncing checks made offline
 
 ## Install (players)

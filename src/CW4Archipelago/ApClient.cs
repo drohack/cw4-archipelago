@@ -36,7 +36,8 @@ public sealed class ApClient
     public bool Connected => Status == ConnectionStatus.Connected;
 
     public event Action? StateChanged;         // raised on the main thread after any change
-    public event Action<string>? MessageReceived;   // AP server log lines, on the main thread
+    public event Action<string>? MessageReceived;   // AP server log line (plain text), main thread
+    public event Action<System.Collections.Generic.List<Appliers.MsgSpan>>? LineReceived;  // colored parts, main thread
 
     public ApClient(ManualLogSource log, Action<Action> dispatch, string storeRoot)
     {
@@ -199,13 +200,27 @@ public sealed class ApClient
     private void OnServerMessage(Archipelago.MultiClient.Net.MessageLog.Messages.LogMessage message)
     {
         string text;
-        try { text = message.ToString(); } catch { return; }
-        if (!string.IsNullOrEmpty(text))
-            _dispatch(() =>
+        var spans = new System.Collections.Generic.List<Appliers.MsgSpan>();
+        try
+        {
+            text = message.ToString();
+            foreach (var part in message.Parts)
             {
-                _log.LogInfo($"AP MESSAGE: {text}");
-                MessageReceived?.Invoke(text);
-            });
+                string hex;
+                try { var c = part.Color; hex = $"{c.R:X2}{c.G:X2}{c.B:X2}"; }
+                catch { hex = "FFFFFF"; }
+                spans.Add(new Appliers.MsgSpan(part.Text ?? "", hex));
+            }
+        }
+        catch { return; }
+        if (spans.Count == 0)
+            return;
+        _dispatch(() =>
+        {
+            _log.LogInfo($"AP MESSAGE: {text}");
+            MessageReceived?.Invoke(text);
+            LineReceived?.Invoke(spans);
+        });
     }
 
     private void OnSocketClosed()

@@ -150,15 +150,22 @@ Two separate concerns, handled separately:
 Display ownership handles the visual; save isolation handles the actual files.
 `mcs.dat` is left untouched (the tracker overrides its display role).
 
-## Server-message + connection toasts (in-mission)
+## Server-message + connection box (in-mission)
 
-`ApClient` subscribes to `session.MessageLog.OnMessageReceived` and raises
-`MessageReceived` on the main thread. `MessageToasts` renders those as lines
-that fade at the top of the screen DURING A MISSION only (Game scene), without
-pausing. Connection status TRANSITIONS (disconnected / retrying / reconnected)
-also become toasts, so a drop or reconnect is visible without leaving the
+`ApClient` subscribes to `session.MessageLog.OnMessageReceived`. On the main
+thread it raises `MessageReceived` (plain text) and `LineReceived` (per-part
+colored spans, hex pulled from each `MessagePart.Color`). `ModCore` keeps a
+rolling history (cap 200) and feeds `ApMessageBox`, a scrollable,
+semi-transparent message box shown DURING A MISSION only (Game scene). It sits
+in the bottom-left resting on top of the terrain/creeper/emit-mode readout
+cluster, matches that cluster's width, colors each part with the Archipelago
+dark palette, and scrolls via a scrollbar + collapse toggle (no mouse wheel, to
+avoid the map's zoom). It reads the UI scale live from the always-present
+`BOTTOM` corner container, so it tracks the in-game UI Scale setting and window
+size. Connection status TRANSITIONS (disconnected / retrying / reconnected)
+also append lines, so a drop or reconnect is visible without leaving the
 mission. Not shown on the menu/level-select. Sending chat from in-game (a text
-input) is a deferred follow-up.
+input) is a deferred follow-up. (Superseded the earlier fading toasts.)
 
 The menu shows connection status too: the main-menu panel status line and the
 level-select compact label both reflect disconnected / connecting / retrying /

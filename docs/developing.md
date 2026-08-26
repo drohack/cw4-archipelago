@@ -51,7 +51,7 @@ Three tiers:
      / tracker colors / mission gating / offline queue-and-flush.
    - `tools/apbattery2.sh` - goal on the finale, save-load gate decision, live
      tracker update while the page is open, build-limit items, ERN items, plus
-     save archiving, the message-toast receive path, and the menu-entry
+     save archiving, the message-box receive path, and the menu-entry
      auto-connect. Both write their own hermetic BepInEx config and start a
      local server from the clone.
 

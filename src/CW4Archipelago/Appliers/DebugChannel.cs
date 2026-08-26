@@ -1,6 +1,8 @@
 using System;
 using System.IO;
 using BepInEx;
+using UnityEngine;
+using UnityEngine.UI;
 
 namespace CW4Archipelago.Appliers;
 
@@ -67,6 +69,16 @@ public sealed class DebugChannel
             if (was)
                 ModCore.Client.SendChecks(new[] { loc });
             ModCore.Log.LogInfo($"DEBUG check: {loc} ({(ModCore.Client.Connected ? "sent" : "queued")})");
+            return;
+        }
+        if (lower == "minimap:dump") { MinimapDump(); return; }
+        if (lower == "hud:dump") { HudDump(); return; }
+        if (lower.StartsWith("msgbox:set")) { MsgBoxSet(line.Substring(10).Trim()); return; }
+        if (lower.StartsWith("shot:")) { Shot(line.Substring(5).Trim()); return; }
+        if (lower == "canvas:dump") { CanvasDump(); return; }
+        if (lower == "msgbox:dump")
+        {
+            ModCore.Log.LogInfo($"MSGBOX DUMP: history={ModCore.MessageHistory.Count}");
             return;
         }
         if (lower.StartsWith("boot:")) { Boot(line.Substring(5).Trim()); return; }
@@ -170,6 +182,158 @@ public sealed class DebugChannel
         }
         catch { }
         ModCore.Log.LogInfo($"DEBUG UNITS: allowed=[{string.Join(",", allowed)}] structButtons={structButtons}");
+    }
+
+    private static void CanvasDump()
+    {
+        var canvases = UnityEngine.Object.FindObjectsOfType<Canvas>();
+        ModCore.Log.LogInfo($"CANVASDUMP: {(canvases == null ? 0 : canvases.Length)} canvases");
+        if (canvases != null)
+            foreach (var cv in canvases)
+            {
+                if (cv == null) continue;
+                float alpha = -1f;
+                try { var cg = cv.GetComponent<CanvasGroup>(); if (cg != null) alpha = cg.alpha; } catch { }
+                ModCore.Log.LogInfo($"CANVASDUMP:   '{cv.gameObject.name}' mode={cv.renderMode} " +
+                    $"root={cv.isRootCanvas} enabled={cv.isActiveAndEnabled} order={cv.sortingOrder} cgAlpha={alpha}");
+            }
+        // Where do the build panes live? (a canvas that definitely renders in-mission)
+        try
+        {
+            var lp = GameUtil.FindLeftPane();
+            var lpCanvas = lp != null ? lp.GetComponentInParent<Canvas>() : null;
+            ModCore.Log.LogInfo($"CANVASDUMP: leftPane canvas='{(lpCanvas != null ? lpCanvas.rootCanvas.gameObject.name : "null")}'");
+        }
+        catch { }
+    }
+
+    private static void MinimapDump()
+    {
+        var mm = UnityEngine.Object.FindObjectOfType<MiniMap>();
+        if (mm == null) { ModCore.Log.LogWarning("minimap:dump - no MiniMap found"); return; }
+        try
+        {
+            // Walk from the MiniMap component's transform up to the canvas,
+            // logging each RectTransform's on-screen corners, to find the
+            // HUD panel anchored bottom-right (the on-screen minimap rect).
+            var t = mm.transform;
+            int depth = 0;
+            var corners = new UnityEngine.Vector3[4];
+            while (t != null && depth < 12)
+            {
+                var rt = t.TryCast<RectTransform>();
+                string info = $"name='{t.gameObject.name}'";
+                if (rt != null)
+                {
+                    rt.GetWorldCorners(corners);
+                    info += $" anchoredPos={rt.anchoredPosition} sizeDelta={rt.sizeDelta}" +
+                            $" anchorMin={rt.anchorMin} anchorMax={rt.anchorMax}" +
+                            $" screenBL={corners[0]} screenTR={corners[2]}";
+                }
+                var cv = t.GetComponent<Canvas>();
+                if (cv != null) info += $" [Canvas renderMode={cv.renderMode} root={cv.isRootCanvas}]";
+                ModCore.Log.LogInfo($"MINIMAP[{depth}]: {info}");
+                if (cv != null && cv.isRootCanvas) break;
+                t = t.parent;
+                depth++;
+            }
+        }
+        catch (Exception e) { ModCore.Log.LogWarning($"minimap:dump failed: {e.Message}"); }
+    }
+
+    // Screen-space rect of a RectTransform, computed via TransformPoint (the
+    // Vector3[] GetWorldCorners marshalling returns zeros under IL2CPP).
+    private static bool ScreenRect(RectTransform rt, Camera? cam, out Vector2 bl, out Vector2 tr)
+    {
+        bl = Vector2.zero; tr = Vector2.zero;
+        if (rt == null) return false;
+        var r = rt.rect;
+        var wbl = rt.TransformPoint(new Vector3(r.xMin, r.yMin, 0f));
+        var wtr = rt.TransformPoint(new Vector3(r.xMax, r.yMax, 0f));
+        bl = RectTransformUtility.WorldToScreenPoint(cam, wbl);
+        tr = RectTransformUtility.WorldToScreenPoint(cam, wtr);
+        return true;
+    }
+
+    private static void LogRt(string tag, Transform t, Camera? cam)
+    {
+        var rt = t.TryCast<RectTransform>();
+        string info = $"name='{t.gameObject.name}' active={t.gameObject.activeInHierarchy}";
+        if (rt != null && ScreenRect(rt, cam, out var bl, out var tr))
+            info += $" size={rt.sizeDelta} anchorMin={rt.anchorMin} anchorMax={rt.anchorMax}" +
+                    $" screen=({bl.x:F0},{bl.y:F0})..({tr.x:F0},{tr.y:F0}) w={(tr.x - bl.x):F0} h={(tr.y - bl.y):F0}";
+        ModCore.Log.LogInfo($"{tag}: {info}");
+    }
+
+    private static void DumpSubtree(Transform t, Camera? cam, int depth, int maxDepth)
+    {
+        if (depth > maxDepth) return;
+        for (int i = 0; i < t.childCount; i++)
+        {
+            var c = t.GetChild(i);
+            LogRt($"HUDDUMP{new string('.', depth)}", c, cam);
+            DumpSubtree(c, cam, depth + 1, maxDepth);
+        }
+    }
+
+    // Full-framebuffer screenshot from inside the engine (captures the overlay
+    // layer AND the whole render, even parts a smaller monitor crops off).
+    private static void Shot(string path)
+    {
+        if (string.IsNullOrEmpty(path))
+            path = System.IO.Path.Combine(Paths.GameRootPath, "ap_shot.png");
+        try
+        {
+            UnityEngine.ScreenCapture.CaptureScreenshot(path);
+            ModCore.Log.LogInfo($"SHOT: {path}");
+        }
+        catch (Exception e) { ModCore.Log.LogWarning($"shot failed: {e.Message}"); }
+    }
+
+    // Live-tune the message box geometry: msgbox:set w=400 h=180 left=6 bottom=20 alpha=0.5
+    private static void MsgBoxSet(string arg)
+    {
+        foreach (var tok in arg.Split(new[] { ' ', ',' }, StringSplitOptions.RemoveEmptyEntries))
+        {
+            var kv = tok.Split('=');
+            if (kv.Length != 2 || !float.TryParse(kv[1], System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture, out var v)) continue;
+            switch (kv[0].ToLowerInvariant())
+            {
+                case "w": case "width": ApMessageBox.WidthRef = v; break;
+                case "h": case "height": ApMessageBox.BaseHeightRef = v; break;
+                case "left": ApMessageBox.LeftInsetRef = v; break;
+                case "bottom": ApMessageBox.BottomInsetRef = v; break;
+                case "alpha": ApMessageBox.BgAlpha = v; break;
+            }
+        }
+        ModCore.Log.LogInfo($"MSGBOX SET: w={ApMessageBox.WidthRef} h={ApMessageBox.BaseHeightRef} " +
+            $"left={ApMessageBox.LeftInsetRef} bottom={ApMessageBox.BottomInsetRef} alpha={ApMessageBox.BgAlpha}");
+    }
+
+    // Enumerate the bottom HUD cluster (terrain height, creeper coverage, emit
+    // mode) so the message box can be sized to their combined on-screen width.
+    private static void HudDump()
+    {
+        Canvas? ui = null;
+        foreach (var cv in UnityEngine.Object.FindObjectsOfType<Canvas>())
+            if (cv != null && cv.gameObject.name == "UICanvas") { ui = cv; break; }
+        if (ui == null) { ModCore.Log.LogWarning("hud:dump - no UICanvas"); return; }
+        Camera? cam = ui.renderMode == RenderMode.ScreenSpaceOverlay ? null : ui.worldCamera;
+        try
+        {
+            var uit = ui.transform;
+            ModCore.Log.LogInfo($"HUDDUMP: UICanvas children={uit.childCount} cam={(cam != null ? cam.name : "null")}");
+            for (int i = 0; i < uit.childCount; i++)
+            {
+                var c = uit.GetChild(i);
+                LogRt("HUDDUMP child", c, cam);
+                string nm = c.gameObject.name.ToUpperInvariant();
+                if (nm.Contains("BOTTOM") || nm.Contains("LEFT"))
+                    DumpSubtree(c, cam, 1, 4);
+            }
+        }
+        catch (Exception e) { ModCore.Log.LogWarning($"hud:dump failed: {e.Message}"); }
     }
 
     private static void LimitDump(string unit)

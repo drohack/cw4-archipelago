@@ -6,12 +6,12 @@ using Il2CppInterop.Runtime.Injection;
 
 namespace CW4Archipelago;
 
-[BepInPlugin("com.droha.cw4archipelago", "CW4 Archipelago", "0.2.0")]
+[BepInPlugin("com.droha.cw4archipelago", "CW4 Archipelago", "0.3.0")]
 public class Plugin : BasePlugin
 {
     public override void Load()
     {
-        Log.LogInfo("CW4 Archipelago v0.2.0 loading");
+        Log.LogInfo("CW4 Archipelago v0.3.0 loading");
 
         var mcnet = typeof(Archipelago.MultiClient.Net.ArchipelagoSessionFactory).Assembly.GetName();
         Log.LogInfo($"Archipelago.MultiClient.Net {mcnet.Version} available");
