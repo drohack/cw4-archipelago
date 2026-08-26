@@ -25,9 +25,14 @@ Covered so far:
 - Location checks: per-objective and per-mission, with the finale as the goal
 - Mission gating: locked missions cannot be launched or save-loaded
 - Mission map tracker: red / yellow / green / orange / grey per Archipelago
-  convention, plus the native "?" for locked planets
+  convention, plus the native "?" for locked planets (which can't be clicked
+  into a dead popup)
 - Main menu slimmed to Farsite (SPAN hidden behind a config toggle) with the
   connection panel shown only on the menu
+- Per-slot save isolation (a save from one seed never appears in another)
+- Server messages (item sends/receives, chat) toast at the top during a
+  mission and fade, without pausing
+- Reconnects on returning to the menu, re-syncing checks made offline
 
 ## Install (players)
 

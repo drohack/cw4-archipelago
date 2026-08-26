@@ -33,11 +33,26 @@ kill_servers() {
   done
 }
 
-# Hermetic setup: no leftover game/server, no stale slot cache.
-echo "[apbattery] step 0: clean slate (kill game/servers, clear cache)"
+# Hermetic setup: no leftover game/server, no stale slot cache, own config.
+echo "[apbattery] step 0: clean slate (kill game/servers, clear cache, write config)"
 taskkill //IM CW4.exe //F >/dev/null 2>&1
 kill_servers
 rm -rf "$(cygpath -u "$USERPROFILE" 2>/dev/null || echo "$HOME")/Documents/My Games/creeperworld4/archipelago/slots" 2>/dev/null
+mkdir -p "$CW4/BepInEx/config"
+cat > "$CW4/BepInEx/config/com.droha.cw4archipelago.cfg" <<CFGEOF
+[Connection]
+Host = localhost
+Port = 38281
+Slot = $SLOT
+Password =
+AutoConnect = true
+
+[Missions]
+ShowSpan = false
+
+[Debug]
+DebugCommands = true
+CFGEOF
 sleep 2
 
 echo "[apbattery] step 1/10: starting local AP server on :38281"
@@ -48,9 +63,10 @@ sleep 8
 grep -q "Hosting game at" "$SRV_LOG"; verdict $? "server up"
 
 echo "[apbattery] step 2/9: launching game (autoconnect)"
-mark; rm -f "$CMD"
+rm -f "$CMD"
 cd "$CW4" && ./CW4.exe > /dev/null 2>&1 &
 sleep 12
+MARK=0   # BepInEx truncates LogOutput.log on launch; index from its start
 wait_since "CW4 Archipelago v0.2.0" 30; verdict $? "plugin loaded"
 wait_since "SCENE: 'Galaxy'" 40 || echo "[apbattery] WARN: menu slow"
 wait_since "MENU: AP panel created" 20; verdict $? "AP panel built"

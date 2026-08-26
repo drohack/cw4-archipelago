@@ -129,21 +129,60 @@ game's default limit for unit x. There are no limit-0 items.
   AllLocationsChecked reconciles the cache.
 - Goal: story20 mission complete -> SetGoalAchieved (queued if offline).
 
-## Mission-page ownership (supersedes save archiving)
+## Mission-page display ownership + per-slot save isolation
 
-Original plan was to archive mcs.dat + saves per slot for a clean page.
-Resolved during implementation (research-findings "Steam Cloud PIVOT"): the
-mod OWNS the mission-select display instead. TrackerView drives every planet's
-lock state (`forceUnlocked` + `lockedPlanet`), objective glyph colors, and
-completion (via the `FakeIsMissionObjectiveComplete` patch) purely from AP
-state, regardless of mcs.dat contents. MissionGate blocks launching and
-save-loading locked missions. So the player's vanilla campaign progress is
-neither shown nor reachable through the randomizer, with no file manipulation
-and no risk to user data.
+Two separate concerns, handled separately:
 
-Physical archiving (the proven same-length storyN -> xtoryN byte-rename plus a
-`saves/farsite` move) remains available if a future need arises, but is NOT
-part of this milestone - display-ownership makes it unnecessary.
+- **Display** is owned by TrackerView: every planet's lock state
+  (`forceUnlocked` + `lockedPlanet` + `planet`/`objectiveContainer` visibility),
+  objective glyph colors, and completion (via the `FakeIsMissionObjective
+  Complete` patch) come purely from AP state, regardless of `mcs.dat`. So the
+  mission page reflects the multiworld, not the local vanilla save, with no
+  `mcs.dat` manipulation. `PlanetClickPatch` also swallows clicks on locked
+  planets so no dead popup appears.
+- **Save files** are isolated per slot by `SaveArchiver`: on connecting to a
+  slot different from the last active one, the live `saves/farsite` folder is
+  moved into `archipelago/save-archive/<previous>/` and the new slot's archived
+  saves are restored (proven Steam-Cloud-safe: moving `saves/farsite` is not
+  cloud-restored). This prevents a save from one seed appearing in another's
+  load list. Nothing is deleted; every switch is reversible via `active.txt`.
+
+Display ownership handles the visual; save isolation handles the actual files.
+`mcs.dat` is left untouched (the tracker overrides its display role).
+
+## Server-message + connection toasts (in-mission)
+
+`ApClient` subscribes to `session.MessageLog.OnMessageReceived` and raises
+`MessageReceived` on the main thread. `MessageToasts` renders those as lines
+that fade at the top of the screen DURING A MISSION only (Game scene), without
+pausing. Connection status TRANSITIONS (disconnected / retrying / reconnected)
+also become toasts, so a drop or reconnect is visible without leaving the
+mission. Not shown on the menu/level-select. Sending chat from in-game (a text
+input) is a deferred follow-up.
+
+The menu shows connection status too: the main-menu panel status line and the
+level-select compact label both reflect disconnected / connecting / retrying /
+failed states from `ApClient.StatusText`.
+
+## Reconnect: bounded auto-retry + menu fallback
+
+On a detected drop the client auto-retries up to 3 times (5s, 10s, 15s apart),
+then stops with a clear "save and return to the menu to retry" status. The
+retry budget re-arms on a successful connect and on any manual/menu connect, so
+returning to the menu (auto-connect fires on every Galaxy entry) is the
+guaranteed fallback. On reconnect, queued checks flush and received items are
+pulled.
+
+Drop DETECTION: a graceful close fires `SocketClosed`; an ungraceful server
+death is caught by a periodic `Socket.Connected` poll and by send failures
+(a failed check re-queues and triggers the reconnect). Detection of an abrupt
+drop can lag ~30s (websocket keepalive), after which the bounded retry runs.
+
+## Graceful patch failure
+
+Each Harmony patch is applied independently and guarded; if a future game
+update changes one patched method, that feature logs an error and disables,
+but the rest of the mod (connection, items, checks) still loads.
 
 ## Test tiers
 

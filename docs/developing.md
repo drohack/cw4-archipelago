@@ -46,17 +46,21 @@ Three tiers:
    Pure C# logic - slot state, rules, tracker colors, persistence.
 2. **apworld tests** (in the Archipelago clone): `tools/ap-sync.ps1` then
    `python -m unittest discover -s worlds/cw4/test -t .` from the clone.
-3. **Game integration battery**: `tools/apbattery.sh` starts a local AP server
-   from the clone, launches the game with AutoConnect + DebugCommands on (via
-   the BepInEx config), and asserts connect / live items / unit gate / location
-   checks / tracker colors / mission gating / offline flush from the log.
+3. **Game integration batteries**:
+   - `tools/apbattery.sh` - connect / live items / unit gate / location checks
+     / tracker colors / mission gating / offline queue-and-flush.
+   - `tools/apbattery2.sh` - goal on the finale, save-load gate decision, live
+     tracker update while the page is open, build-limit items, ERN items, plus
+     save archiving, the message-toast receive path, and the menu-entry
+     auto-connect. Both write their own hermetic BepInEx config and start a
+     local server from the clone.
 
 The real mod exposes a config-gated file-command channel (enable
 `DebugCommands` in `BepInEx/config/com.droha.cw4archipelago.cfg`): write
 commands to `<game>/BepInEx/cw4ap-commands.txt`, read results from
 `LogOutput.log`. Commands: connect, disconnect, dump, units, item:<name>,
 check:<location>, boot:<storyN>, objective:<n>, win, ada:close, tracker:dump,
-story:open.
+story:open, clickplanet:<storyN>, limit:<unit>, ern:status, gatecheck:<storyN>.
 
 The probe (`src/CW4APProbe`) keeps its own file-command protocol
 (`probe-unlocks.txt`) and older batteries (`tools/battery2.sh`,
