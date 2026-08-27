@@ -159,13 +159,22 @@ rolling history (cap 200) and feeds `ApMessageBox`, a scrollable,
 semi-transparent message box shown DURING A MISSION only (Game scene). It sits
 in the bottom-left resting on top of the terrain/creeper/emit-mode readout
 cluster, matches that cluster's width, colors each part with the Archipelago
-dark palette, and scrolls via a scrollbar + collapse toggle (no mouse wheel, to
-avoid the map's zoom). It reads the UI scale live from the always-present
-`BOTTOM` corner container, so it tracks the in-game UI Scale setting and window
-size. Connection status TRANSITIONS (disconnected / retrying / reconnected)
-also append lines, so a drop or reconnect is visible without leaving the
-mission. Not shown on the menu/level-select. Sending chat from in-game (a text
-input) is a deferred follow-up. (Superseded the earlier fading toasts.)
+dark palette, and scrolls via a scrollbar or the mouse wheel while hovering. It
+reads the UI scale live from the always-present `BOTTOM` corner container, so it
+tracks the in-game UI Scale setting and window size. Connection status
+TRANSITIONS (disconnected / retrying / reconnected) also append lines, so a drop
+or reconnect is visible without leaving the mission. Not shown on the
+menu/level-select. (Superseded the earlier fading toasts.)
+
+By default the box shows only messages relevant to the local player
+(`Core.MessageRelevance` classifies each `LogMessage` via its subtype and
+`IsRelatedToActivePlayer`); a Me/All header toggle reveals every player's
+activity retroactively. An always-on input row at the bottom sends chat and
+`!commands` through `ApClient.Say`; the server echoes them back through the
+normal message path. A Harmony prefix on `InputManager.HandleInput` suppresses
+the game's own hotkey/camera/wheel input while the box is focused or hovered
+(`InputManager.enabled` does not gate it - the game calls HandleInput directly),
+so typing and scrolling drive the box, not the game.
 
 The menu shows connection status too: the main-menu panel status line and the
 level-select compact label both reflect disconnected / connecting / retrying /

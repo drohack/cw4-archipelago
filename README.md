@@ -32,7 +32,10 @@ Covered so far:
 - Per-slot save isolation (a save from one seed never appears in another)
 - Server messages (item sends/receives, chat) appear in a scrollable,
   semi-transparent message box in the bottom-left during a mission, colored
-  with the Archipelago palette; it scales with the UI Scale setting
+  with the Archipelago palette; it scales with the UI Scale setting. Filtered
+  to messages relevant to you by default, with a Me/All toggle to show every
+  player's activity, plus an always-on input row to chat and run !commands
+  in-game (game hotkeys and map zoom are suppressed while it has focus)
 - Reconnects on returning to the menu, re-syncing checks made offline
 
 ## Install (players)
