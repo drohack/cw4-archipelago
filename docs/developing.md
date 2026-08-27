@@ -60,7 +60,24 @@ The real mod exposes a config-gated file-command channel (enable
 commands to `<game>/BepInEx/cw4ap-commands.txt`, read results from
 `LogOutput.log`. Commands: connect, disconnect, dump, units, item:<name>,
 check:<location>, boot:<storyN>, objective:<n>, win, ada:close, tracker:dump,
-story:open, clickplanet:<storyN>, limit:<unit>, ern:status, gatecheck:<storyN>.
+story:open, clickplanet:<storyN>, limit:<unit>, ern:status, gatecheck:<storyN>,
+say:<text>, showall:on|off, shot:<path>, msgbox:set, msgbox:dump, canvas:dump,
+hud:dump, minimap:dump, menu:dump, toast:<text>.
+
+Test scaffolding and the traps spike (see
+[traps spike](design/2026-08-26-traps-spike.md)):
+`sim:run [speed]` / `sim:pause` clears every `GameSpace.pauseOwner` entry so a
+battery can run the sim without a human pressing play; `spawn:<unitKey> [n]`
+places units beside the rift lab (or at map centre before it exists) so
+unit-targeting effects have targets (`spawn:CommandBase` places a test base);
+`trap:<name> [args]` fires one trap effect - `scatter` (spores at random
+points), `building` (spores at random player buildings), `spore` (whichever is
+configured), `creep`, `energy`, `emit`, `stun`, `drain` - plus `status` for a readback (including the
+player/non-player unit histogram that catches a trap silently affecting
+nothing), `set k=v` for live tuning in depth units, and the diagnostics `aim`
+(where spores actually aim) and `coord` (cell/world mapping). Omitted or zero
+arguments use the tuned defaults in `TrapEffects.cs`. These are dormant; no trap
+is wired to an AP item yet.
 
 The probe (`src/CW4APProbe`) keeps its own file-command protocol
 (`probe-unlocks.txt`) and older batteries (`tools/battery2.sh`,

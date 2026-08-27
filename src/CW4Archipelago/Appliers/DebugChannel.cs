@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using BepInEx;
 using UnityEngine;
 using UnityEngine.UI;
@@ -96,6 +97,10 @@ public sealed class DebugChannel
         if (lower.StartsWith("limit:")) { LimitDump(line.Substring(6).Trim()); return; }
         if (lower == "ern:status") { ErnStatus(); return; }
         if (lower.StartsWith("gatecheck:")) { GateCheck(line.Substring(10).Trim()); return; }
+
+        if (lower.StartsWith("trap:")) { Trap(line.Substring(5).Trim()); return; }
+        if (lower.StartsWith("sim:")) { Sim(line.Substring(4).Trim()); return; }
+        if (lower.StartsWith("spawn:")) { Spawn(line.Substring(6).Trim()); return; }
 
         ModCore.Log.LogWarning($"DEBUG unknown command: {line}");
     }
@@ -430,6 +435,96 @@ public sealed class DebugChannel
             return;
         }
         ModCore.Log.LogWarning($"clickplanet: mission {arg} not found");
+    }
+
+    /// <summary>Traps feasibility spike (docs/design/2026-08-26-traps-spike.md).
+    /// "trap:&lt;name&gt; [args]" - each effect is fire-and-forget or self-restoring;
+    /// nothing here may make a mission unwinnable.</summary>
+    /// <summary>Test scaffolding: unpause the sim (clearing every pause owner)
+    /// and optionally set the game speed, so a battery can watch an effect play
+    /// out without a human pressing play. "sim:run [speed]" / "sim:pause".</summary>
+    private void Sim(string arg)
+    {
+        var gs = GameSpace.instance;
+        if (gs == null) { ModCore.Log.LogWarning("sim: no GameSpace"); return; }
+        var tok = arg.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+        var what = tok.Length > 0 ? tok[0].ToLowerInvariant() : "run";
+
+        var owners = new System.Collections.Generic.List<string>();
+        try { foreach (var o in gs.pauseOwner) owners.Add(o); } catch { }
+
+        if (what == "pause") { gs.Pause("cw4ap", true); ModCore.Log.LogInfo("SIM paused"); return; }
+
+        foreach (var o in owners)
+        {
+            try { gs.Pause(o, false); } catch (Exception e) { ModCore.Log.LogWarning($"sim: unpause '{o}': {e.Message}"); }
+        }
+        if (tok.Length > 1 && int.TryParse(tok[1], out var sp)) gs.GAME_SPEED = sp;
+        ModCore.Log.LogInfo($"SIM run: cleared owners [{string.Join(",", owners)}], paused={gs.paused} speed={gs.GAME_SPEED}");
+    }
+
+    /// <summary>Test scaffolding: place N of a unit in a row beside the rift lab
+    /// so effects that need player units (stun, ammo) have targets.
+    /// "spawn:cannon 3".</summary>
+    private void Spawn(string arg)
+    {
+        var tok = arg.Split(new[] { ' ', ',' }, StringSplitOptions.RemoveEmptyEntries);
+        if (tok.Length == 0) { ModCore.Log.LogWarning("spawn: need a unit key"); return; }
+        var key = tok[0].ToLowerInvariant();
+        int count = tok.Length > 1 && int.TryParse(tok[1], out var c) ? c : 1;
+
+        var gs = GameSpace.instance;
+        if (gs == null) { ModCore.Log.LogWarning("spawn: no GameSpace"); return; }
+        CommandBase? cb = null;
+        try { cb = gs.commandBase; } catch { }
+
+        // Before the rift lab is placed (most missions start that way) fall back
+        // to the middle of the map so the rift lab itself can be spawned.
+        Vector3 anchor;
+        if (cb != null && GameUtil.IsAlive(cb)) anchor = cb.transform.position;
+        else if (gs.world != null) anchor = TrapEffects.CellToWorld(World.WORLD_CELL_WIDTH / 2, World.WORLD_CELL_HEIGHT / 2);
+        else { ModCore.Log.LogWarning("spawn: no anchor"); return; }
+
+        int made = 0;
+        for (int i = 0; i < count; i++)
+        {
+            var pos = anchor + new Vector3(-8f - 4f * i, 0f, -6f);
+            try { if (UnitManager.CreateUnitAtPosition(key, pos) != null) made++; }
+            catch (Exception e) { ModCore.Log.LogWarning($"spawn '{key}': {e.Message}"); break; }
+        }
+        ModCore.Log.LogInfo($"SPAWN {key}: {made}/{count} placed");
+    }
+
+    private void Trap(string arg)
+    {
+        var tok = arg.Split(new[] { ' ', ',' }, StringSplitOptions.RemoveEmptyEntries);
+        var name = tok.Length > 0 ? tok[0].ToLowerInvariant() : "";
+        // 0 means "use the tuned default in TrapEffects"; amounts are in depth units.
+        float A(int i, float dflt) =>
+            tok.Length > i && float.TryParse(tok[i], System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out var v) ? v : dflt;
+
+        switch (name)
+        {
+            // Two distinct spore traps: a fair scatter, and a strike on a
+            // random building. "trap:spore" uses the configured default.
+            case "spore":    TrapEffects.SporeStrike((int)A(1, 0f), (int)(A(2, 0f) * 1_000_000)); return;
+            case "scatter":  TrapEffects.SporeStrikeScatter((int)A(1, 0f), (int)(A(2, 0f) * 1_000_000)); return;
+            case "building": TrapEffects.SporeStrikeBuilding((int)A(1, 0f), (int)(A(2, 0f) * 1_000_000)); return;
+            case "creep":  TrapEffects.Creep((int)A(1, 0f), (int)(A(2, 0f) * 1_000_000)); return;
+            case "energy": TrapEffects.Energy(A(1, 0f)); return;
+            case "emit":   TrapEffects.Emit(A(1, 0f), A(2, 0f)); return;
+            case "stun":   TrapEffects.Stun(A(1, 0f)); return;
+            case "drain":  TrapEffects.Drain(); return;
+            case "status": TrapEffects.Status(); return;
+            case "set":    TrapEffects.Set(tok.Skip(1).ToArray()); return;
+            case "aim":    TrapEffects.Aim(tok.Length > 1 ? tok[1] : ""); return;
+            case "coord":  TrapEffects.Coord(); return;
+            default:
+                ModCore.Log.LogWarning(
+                    $"trap: unknown effect '{name}' - expected spore|scatter|building|creep|energy|emit|stun|drain|status|set|aim");
+                return;
+        }
     }
 
     private static bool PopupShowing()

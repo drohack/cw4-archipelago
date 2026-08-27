@@ -118,6 +118,7 @@ public static class ModCore
         _units.Tick();
         _erns.Tick();
         _locations.Tick();
+        TrapEffects.Tick();   // restores a timed trap:emit burst
 
         // Periodic pending-check flush safety (~ every 5s at 60fps).
         if (++_retryCountdown >= 300)
