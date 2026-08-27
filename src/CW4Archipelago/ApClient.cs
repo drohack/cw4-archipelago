@@ -6,6 +6,7 @@ using Archipelago.MultiClient.Net;
 using Archipelago.MultiClient.Net.Enums;
 using Archipelago.MultiClient.Net.Helpers;
 using Archipelago.MultiClient.Net.Models;
+using Archipelago.MultiClient.Net.MessageLog.Messages;
 using BepInEx.Logging;
 using CW4Archipelago.Core;
 using Newtonsoft.Json;
@@ -37,7 +38,7 @@ public sealed class ApClient
 
     public event Action? StateChanged;         // raised on the main thread after any change
     public event Action<string>? MessageReceived;   // AP server log line (plain text), main thread
-    public event Action<System.Collections.Generic.List<Appliers.MsgSpan>>? LineReceived;  // colored parts, main thread
+    public event Action<System.Collections.Generic.List<Appliers.MsgSpan>, bool>? LineReceived;  // colored parts + relevance, main thread
 
     public ApClient(ManualLogSource log, Action<Action> dispatch, string storeRoot)
     {
@@ -215,12 +216,56 @@ public sealed class ApClient
         catch { return; }
         if (spans.Count == 0)
             return;
+        bool relevant;
+        try { var (k, r) = Classify(message); relevant = Core.MessageRelevance.IsRelevant(k, r); }
+        catch { relevant = true; }
         _dispatch(() =>
         {
-            _log.LogInfo($"AP MESSAGE: {text}");
+            _log.LogInfo($"AP MESSAGE: relevant={(relevant ? 1 : 0)} {text}");
             MessageReceived?.Invoke(text);
-            LineReceived?.Invoke(spans);
+            LineReceived?.Invoke(spans, relevant);
         });
+    }
+
+    // Map a server LogMessage to (kind, related-to-active-player) so the pure
+    // Core.MessageRelevance predicate can decide default visibility. Derived
+    // item types are matched before their ItemSendLogMessage base.
+    private static (Core.ApMessageKind kind, bool related) Classify(LogMessage m)
+    {
+        bool related =
+            m is ItemSendLogMessage ism ? ism.IsRelatedToActivePlayer :
+            m is PlayerSpecificLogMessage psm ? psm.IsRelatedToActivePlayer : false;
+        Core.ApMessageKind kind = m switch
+        {
+            HintItemSendLogMessage => Core.ApMessageKind.Hint,
+            ItemCheatLogMessage => Core.ApMessageKind.ItemCheat,
+            ItemSendLogMessage => Core.ApMessageKind.ItemSend,
+            ChatLogMessage => Core.ApMessageKind.Chat,
+            ServerChatLogMessage => Core.ApMessageKind.ServerChat,
+            AdminCommandResultLogMessage => Core.ApMessageKind.AdminCommandResult,
+            CommandResultLogMessage => Core.ApMessageKind.CommandResult,
+            CollectLogMessage => Core.ApMessageKind.Collect,
+            ReleaseLogMessage => Core.ApMessageKind.Release,
+            GoalLogMessage => Core.ApMessageKind.Goal,
+            JoinLogMessage => Core.ApMessageKind.Join,
+            LeaveLogMessage => Core.ApMessageKind.Leave,
+            TagsChangedLogMessage => Core.ApMessageKind.TagsChanged,
+            CountdownLogMessage => Core.ApMessageKind.Countdown,
+            TutorialLogMessage => Core.ApMessageKind.Tutorial,
+            _ => Core.ApMessageKind.Other,
+        };
+        return (kind, related);
+    }
+
+    /// <summary>Send a chat line (or a leading-! server command) to the server.
+    /// No-op when not connected. The server echoes it back via OnServerMessage.</summary>
+    public void Say(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return;
+        var s = _session;
+        if (s == null || !Connected) { _log.LogInfo("SAY ignored (not connected)"); return; }
+        try { s.Say(text); _log.LogInfo($"SAY: {text}"); }
+        catch (Exception e) { _log.LogWarning($"Say failed: {e.Message}"); }
     }
 
     private void OnSocketClosed()

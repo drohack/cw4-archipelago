@@ -43,27 +43,37 @@ public static class ModCore
         _tracker = new TrackerView();
         _messageBox = new ApMessageBox();
         Client.StateChanged += OnClientStateChanged;
-        Client.LineReceived += spans => AppendLine(spans);
+        Client.LineReceived += (spans, relevant) => AppendLine(spans, relevant);
         Log.LogInfo("ModCore initialized");
     }
 
     public static void Enqueue(Action action) => Dispatch.Enqueue(action);
 
     /// <summary>Rolling history of colored message lines (survives scene changes).</summary>
-    public static readonly System.Collections.Generic.List<System.Collections.Generic.List<Appliers.MsgSpan>> MessageHistory = new();
+    public static readonly System.Collections.Generic.List<Appliers.MsgLine> MessageHistory = new();
     private const int MaxHistory = 200;
 
     /// <summary>Append a colored line to the history and the live box.</summary>
-    public static void AppendLine(System.Collections.Generic.List<Appliers.MsgSpan> spans)
+    public static void AppendLine(System.Collections.Generic.List<Appliers.MsgSpan> spans, bool relevant = true)
     {
-        MessageHistory.Add(spans);
+        MessageHistory.Add(new Appliers.MsgLine(spans, relevant));
         while (MessageHistory.Count > MaxHistory) MessageHistory.RemoveAt(0);
-        _messageBox.AppendLine(spans);
+        _messageBox.AppendLine(spans, relevant);
     }
 
     /// <summary>Append a single-color line (connection status, debug).</summary>
     public static void EnqueueToast(string message)
-        => AppendLine(new System.Collections.Generic.List<Appliers.MsgSpan> { new Appliers.MsgSpan(message, "C0C8D4") });
+        => AppendLine(new System.Collections.Generic.List<Appliers.MsgSpan> { new Appliers.MsgSpan(message, "C0C8D4") }, true);
+
+    /// <summary>Toggle the message box between relevant-only and show-all, and
+    /// re-render history so the change is retroactive (used by the debug channel;
+    /// the in-box button toggles directly).</summary>
+    public static void SetShowAll(bool on)
+    {
+        Appliers.ApMessageBox.ShowAll = on;
+        _messageBox.Rerender();
+        Log.LogInfo($"MSGBOX SHOWALL={(on ? 1 : 0)} (debug)");
+    }
 
     // Per-slot cache lives next to the game's own save data.
     private static string StoreRoot()

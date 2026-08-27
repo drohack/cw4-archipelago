@@ -76,6 +76,8 @@ public sealed class DebugChannel
         if (lower == "menu:dump") { MenuDump(); return; }
         if (lower.StartsWith("msgbox:set")) { MsgBoxSet(line.Substring(10).Trim()); return; }
         if (lower.StartsWith("shot:")) { Shot(line.Substring(5).Trim()); return; }
+        if (lower.StartsWith("say:")) { ModCore.Client.Say(line.Substring(4).Trim()); return; }
+        if (lower.StartsWith("showall:")) { ModCore.SetShowAll(line.Substring(8).Trim() == "on"); return; }
         if (lower == "canvas:dump") { CanvasDump(); return; }
         if (lower == "msgbox:dump")
         {

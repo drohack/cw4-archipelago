@@ -14,11 +14,22 @@ public sealed class MsgSpan
     public MsgSpan(string text, string hex) { Text = text; Hex = hex; }
 }
 
+/// <summary>One rendered line: its colored spans plus whether it concerns the
+/// local player (drives the default relevant-only filter; the show-all toggle
+/// ignores it).</summary>
+public sealed class MsgLine
+{
+    public System.Collections.Generic.List<MsgSpan> Spans;
+    public bool Relevant;
+    public MsgLine(System.Collections.Generic.List<MsgSpan> spans, bool relevant) { Spans = spans; Relevant = relevant; }
+}
+
 /// <summary>
 /// Scrollable Archipelago message log shown during a mission, anchored in the
 /// bottom-left above the HUD readout cluster (terrain height / creeper coverage
 /// / progression), matching its combined width. Colors each part with the AP
-/// dark palette, scrolls via a scrollbar + up/down buttons (no wheel). It reads
+/// dark palette; scrolls via a scrollbar or the mouse wheel while hovering, and
+/// has an always-on chat/command input row at the bottom. It reads
 /// the cluster's live on-screen rect each frame (world corners through the
 /// UICanvas camera, mapped into the overlay canvas), so it scales with both the
 /// window size and the in-game UI Scale setting. Replaces the old fading toasts.
@@ -35,10 +46,11 @@ public sealed class ApMessageBox
     // Mutable so they can be tuned live via the msgbox:set debug command; the
     // final values are baked back into these defaults.
     public static float WidthRef = 332f;       // matches the bottom-left readout cluster width
-    public static float BaseHeightRef = 170f;  // box height
+    public static float BaseHeightRef = 190f;  // box height (includes the always-on input row)
     public static float LeftInsetRef = 0f;     // flush to the left screen edge
     public static float BottomInsetRef = 126f; // box bottom, rests on top of the readout cluster
     public static float BgAlpha = 0.5f;        // panel background transparency
+    public static bool ShowAll = false;        // false = relevant-only (default); true = every message
 
     private GameObject? _canvasGo;
     private RectTransform? _containerRt;    // full-screen container (pivot bottom-left)
@@ -47,6 +59,12 @@ public sealed class ApMessageBox
     private Image? _panelImg;
     private Canvas? _hostCanvas;
     private TextMeshProUGUI? _title;
+    private TextMeshProUGUI? _showAllLabel;
+    private RectTransform? _bodyRt;
+    private TMP_InputField? _input;
+    private GameObject? _inputGo;
+    private bool _gameInputBlocked;
+    private const float InputHeight = 20f;   // local units, chat row at panel bottom
     private float _bodyFontSize = BaseBodyFont;
 
     // Font sizes at UI scale 1.0. The rendered size is these times the same
@@ -81,12 +99,40 @@ public sealed class ApMessageBox
             _geomCountdown = 10;
             UpdateGeometry();
         }
+        UpdateInputFocusGuard();
     }
 
-    /// <summary>Append one line (called on the main thread from ModCore).</summary>
-    public void AppendLine(IReadOnlyList<MsgSpan> spans)
+    // Disable the game's InputManager while the box is in use, so it does not
+    // also read those keys/wheel: (a) chat field focused -> typed keys (WASD,
+    // hotkeys) must not drive the game; (b) pointer over the box -> the mouse
+    // wheel scrolls the box instead of zooming the map. Re-enabled the instant
+    // both stop. UI buttons + the scroll wheel keep working (EventSystem, not
+    // InputManager).
+    private void UpdateInputFocusGuard()
     {
-        if (_content == null || !IsAlive())
+        bool block = false;
+        try
+        {
+            bool focused = _input != null && _input.isFocused;
+            bool over = _panelRt != null &&
+                RectTransformUtility.RectangleContainsScreenPoint(_panelRt, Input.mousePosition, null);
+            block = focused || over;
+        }
+        catch { }
+        if (block == _gameInputBlocked) return;
+        _gameInputBlocked = block;
+        InputBlock.Blocked = block;   // the Harmony prefix on InputManager.HandleInput reads this
+        ModCore.Log.LogInfo($"MSGBOX game input {(block ? "blocked" : "released")}");
+    }
+
+    /// <summary>Append one line (called on the main thread from ModCore).
+    /// Hidden lines (not relevant + not ShowAll) stay in ModCore history so the
+    /// show-all toggle can reveal them later via Rerender.</summary>
+    public void AppendLine(IReadOnlyList<MsgSpan> spans, bool relevant)
+    {
+        bool shown = relevant || ShowAll;
+        ModCore.Log.LogInfo($"MSGBOX APPEND relevant={(relevant ? 1 : 0)} shown={(shown ? 1 : 0)}");
+        if (_content == null || !IsAlive() || !shown)
             return;
         AddLineObject(spans);
         TrimLines();
@@ -94,14 +140,88 @@ public sealed class ApMessageBox
             ScrollToBottom();
     }
 
-    /// <summary>Rebuild all lines from history (on first build in a mission).</summary>
-    public void RenderHistory(IReadOnlyList<IReadOnlyList<MsgSpan>> history)
+    /// <summary>Rebuild all visible lines from history (on first build in a
+    /// mission, and whenever the show-all toggle flips).</summary>
+    public void RenderHistory(IReadOnlyList<MsgLine> history)
     {
         if (_content == null) return;
+        ClearContent();
         foreach (var line in history)
-            AddLineObject(line);
+            if (line.Relevant || ShowAll)
+                AddLineObject(line.Spans);
         TrimLines();
         ScrollToBottom();
+    }
+
+    // A single-line chat/command input, hidden by default. Built with the
+    // MenuUi caret recipe (SetActive false -> wire -> true) then hidden.
+    private TMP_InputField MakeChatInput()
+    {
+        var box = new GameObject("ChatInput");
+        box.transform.SetParent(_panel!.transform, false);
+        box.SetActive(false);
+        var rt = box.AddComponent<RectTransform>();
+        rt.anchorMin = new Vector2(0f, 0f); rt.anchorMax = new Vector2(1f, 0f); rt.pivot = new Vector2(0.5f, 0f);
+        rt.sizeDelta = new Vector2(0f, InputHeight); rt.anchoredPosition = Vector2.zero;
+        var bg = box.AddComponent<Image>();
+        bg.color = new Color(0.05f, 0.09f, 0.15f, 0.95f);
+        var field = box.AddComponent<TMP_InputField>();
+
+        var area = new GameObject("TextArea");
+        area.transform.SetParent(box.transform, false);
+        var art = area.AddComponent<RectTransform>();
+        art.anchorMin = Vector2.zero; art.anchorMax = Vector2.one;
+        art.offsetMin = new Vector2(6f, 2f); art.offsetMax = new Vector2(-6f, -2f);
+        area.AddComponent<RectMask2D>();
+
+        var ph = MakeText(area.transform, "chat / !command...", BaseBodyFont, new Color(0.5f, 0.62f, 0.72f, 1f));
+        Stretch(ph.GetComponent<RectTransform>(), 0f, 0f);
+        var txt = MakeText(area.transform, "", BaseBodyFont, new Color(0.9f, 0.96f, 1f, 1f));
+        Stretch(txt.GetComponent<RectTransform>(), 0f, 0f);
+
+        field.textViewport = art;
+        field.textComponent = txt;
+        field.placeholder = ph;
+        field.text = "";
+        if (_font != null) field.fontAsset = _font;
+        field.lineType = TMP_InputField.LineType.SingleLine;
+        field.caretWidth = 2; field.customCaretColor = true;
+        field.caretColor = new Color(0.9f, 0.96f, 1f, 1f); field.caretBlinkRate = 0.85f;
+        field.selectionColor = new Color(0.2f, 0.5f, 0.9f, 0.5f);
+        field.interactable = true;
+        box.SetActive(true);
+        field.onSubmit.AddListener((UnityEngine.Events.UnityAction<string>)OnChatSubmit);
+        _inputGo = box;   // permanent input row (always visible)
+        return field;
+    }
+
+    private void OnChatSubmit(string text)
+    {
+        var t = (text ?? "").Trim();
+        if (t.Length > 0) ModCore.Client.Say(t);
+        if (_input != null) { _input.text = ""; try { _input.ActivateInputField(); } catch { } }
+    }
+
+    private void ClearContent()
+    {
+        if (_content == null) return;
+        for (int i = _content.childCount - 1; i >= 0; i--)
+        {
+            var c = _content.GetChild(i);
+            c.SetParent(null, false);
+            UnityEngine.Object.Destroy(c.gameObject);
+        }
+    }
+
+    /// <summary>Re-render the visible lines from ModCore history (toggle path).</summary>
+    public void Rerender() => RenderHistory(ModCore.MessageHistory);
+
+    private void ToggleShowAll()
+    {
+        ShowAll = !ShowAll;
+        if (_showAllLabel != null) _showAllLabel.text = ShowAll ? "All" : "Me";
+        Rerender();
+        ModCore.Log.LogInfo($"MSGBOX SHOWALL={(ShowAll ? 1 : 0)}");
     }
 
     // ---- build ----
@@ -172,14 +292,22 @@ public sealed class ApMessageBox
         cbr.anchorMin = new Vector2(1f, 0.5f); cbr.anchorMax = new Vector2(1f, 0.5f); cbr.pivot = new Vector2(1f, 0.5f);
         cbr.sizeDelta = new Vector2(20f, 18f); cbr.anchoredPosition = new Vector2(-2f, 0f);
         collapseBtn.onClick.AddListener((UnityEngine.Events.UnityAction)ToggleCollapse);
+        // Show-all toggle (Me = relevant-only default, All = everything), left of collapse.
+        var showAllBtn = MakeButton(header.transform, ShowAll ? "All" : "Me", new Color(0.12f, 0.16f, 0.26f, 1f));
+        var sar = showAllBtn.GetComponent<RectTransform>();
+        sar.anchorMin = new Vector2(1f, 0.5f); sar.anchorMax = new Vector2(1f, 0.5f); sar.pivot = new Vector2(1f, 0.5f);
+        sar.sizeDelta = new Vector2(30f, 18f); sar.anchoredPosition = new Vector2(-26f, 0f);
+        _showAllLabel = showAllBtn.GetComponentInChildren<TextMeshProUGUI>();
+        showAllBtn.onClick.AddListener((UnityEngine.Events.UnityAction)ToggleShowAll);
 
         // Body: viewport + content (scroll) + scrollbar + up/down buttons
         _body = MakePanelChild("Body", new Vector2(0f, 0f), new Vector2(1f, 1f), new Vector2(0.5f, 0.5f));
         var brt = _body.GetComponent<RectTransform>();
-        brt.offsetMin = new Vector2(0f, 0f); brt.offsetMax = new Vector2(0f, -20f);   // below header
+        _bodyRt = brt;
+        brt.offsetMin = new Vector2(0f, InputHeight); brt.offsetMax = new Vector2(0f, -20f);   // below header, above the always-on input row
 
         _scroll = _body.AddComponent<ScrollRect>();
-        _scroll.horizontal = false; _scroll.vertical = true; _scroll.scrollSensitivity = 0f;   // no wheel
+        _scroll.horizontal = false; _scroll.vertical = true; _scroll.scrollSensitivity = 20f;   // wheel on; map zoom blocked while hovering (input guard)
         _scroll.movementType = ScrollRect.MovementType.Clamped;
 
         var viewport = new GameObject("Viewport");
@@ -234,6 +362,8 @@ public sealed class ApMessageBox
         }));
 
         ModCore.Log.LogInfo($"MSGBOX: built on '{host.gameObject.name}'");
+
+        _input = MakeChatInput();
 
         UpdateGeometry();
         ApplyCollapsed();
@@ -355,6 +485,7 @@ public sealed class ApMessageBox
     private void ApplyCollapsed()
     {
         if (_body != null) _body.SetActive(!_collapsed);
+        if (_inputGo != null) _inputGo.SetActive(!_collapsed);
         // Height (full vs header-only) is applied by UpdateGeometry, which also
         // keeps the width/position tracking the HUD cluster.
         UpdateGeometry();
@@ -474,8 +605,11 @@ public sealed class ApMessageBox
 
     private void Teardown()
     {
+        try { if (_gameInputBlocked) InputBlock.Blocked = false; } catch { }
+        _gameInputBlocked = false;
         try { if (_canvasGo != null) UnityEngine.Object.Destroy(_canvasGo); } catch { }
         _canvasGo = null; _containerRt = null; _panel = null; _panelRt = null; _panelImg = null;
-        _hostCanvas = null; _title = null; _content = null; _scroll = null; _body = null;
+        _hostCanvas = null; _title = null; _showAllLabel = null; _content = null; _scroll = null; _body = null;
+        _bodyRt = null; _input = null; _inputGo = null;
     }
 }
