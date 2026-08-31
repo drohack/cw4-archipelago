@@ -103,33 +103,8 @@ public static class TrapEffects
         return gs;
     }
 
-    // UnitManager.enemy is NOT a player/enemy discriminator: story3 reports
-    // Pod, Ultrac and SuperTower (all hostile) with enemy=false, and only
-    // Emitter with enemy=true. Stunning those would HELP the player, so the
-    // debuff traps filter on the authoritative list instead - the unit keys the
-    // player can actually build, matched through UnitManager.GetDataName().
-    private static System.Collections.Generic.HashSet<string>? _playerKeys;
-
-    // GetDataName() returns the BUILD-PANE key for every buildable ("cannon",
-    // "tower", "mortar", "sniper", "sprayer", "terp" all verified to match), with
-    // one exception: the rift lab reports "CommandBase", not the "riftlab" key
-    // UnitRules uses. Without this alias the traps silently spared the player's
-    // own base - the whole point of the type histogram in Status().
-    private static readonly string[] ExtraPlayerKeys = { "ern", "CommandBase" };
-
-    private static bool IsPlayerUnit(UnitManager u)
-    {
-        _playerKeys ??= new System.Collections.Generic.HashSet<string>(
-            Core.UnitRules.AlwaysAvailable.Concat(Core.UnitRules.ItemToUnit.Values).Concat(ExtraPlayerKeys),
-            StringComparer.OrdinalIgnoreCase);
-        try
-        {
-            if (u.enemy) return false;
-            var key = u.GetDataName();
-            return key != null && _playerKeys.Contains(key);
-        }
-        catch { return false; }
-    }
+    // See GameUtil.IsPlayerUnit for why UnitManager.enemy cannot be used here.
+    private static bool IsPlayerUnit(UnitManager u) => GameUtil.IsPlayerUnit(u);
 
     private static bool BaseCell(GameSpace gs, out int cx, out int cy)
     {

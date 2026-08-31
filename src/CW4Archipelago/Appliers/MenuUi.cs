@@ -63,11 +63,28 @@ public sealed class MenuUi
 
             float margin = 24f;
             float avail = farsiteLeft - margin - panelLeft;
-            // Floor low enough that the panel always clears FARSITE, even when a
-            // high UI scale at low resolution makes the game menu fill the
-            // screen; it shrinks small there but never overlaps.
-            float fit = Mathf.Clamp(avail / naturalW, 0.2f, 1f);
+            float want = avail / naturalW;
+
+            // Never shrink below readable. The old floor was 0.2, which kept the
+            // panel clear of FARSITE at 1080p by making it unreadable - the wrong
+            // trade. If it cannot fit beside FARSITE at MinScale, MOVE it to the
+            // bottom-left instead, where nothing competes for the space.
+            const float MinScale = 0.65f;
+            float fit = Mathf.Clamp(want, MinScale, 1f);
             prt.localScale = new Vector3(fit, fit, 1f);
+
+            if (want < MinScale)
+            {
+                // Bottom-left corner, out from under FARSITE entirely.
+                prt.anchorMin = prt.anchorMax = prt.pivot = new Vector2(0f, 0f);
+                prt.anchoredPosition = new Vector2(24f, 24f);
+            }
+            else
+            {
+                // Default home: left edge, vertically centred.
+                prt.anchorMin = prt.anchorMax = prt.pivot = new Vector2(0f, 0.5f);
+                prt.anchoredPosition = new Vector2(30f, 120f);
+            }
         }
         catch { /* menu not fully built yet */ }
     }

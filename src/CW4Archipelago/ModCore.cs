@@ -24,11 +24,35 @@ public static class ModCore
     private static ErnGranter _erns = null!;
     private static LocationWatcher _locations = null!;
     private static TrackerView _tracker = null!;
+    private static FinalePlacement _finale = null!;
+    private static EnergyGranter _energy = null!;
+    private static TrapApplier _traps = null!;
+    private static FinaleLock _finaleLock = null!;
     private static ApMessageBox _messageBox = null!;
 
     private static string _lastScene = "";
 
     public static string CurrentScene => _lastScene;
+
+    /// <summary>Exposed for the per-frame audit check.</summary>
+    public static int TrackerRecolours => _tracker?.Recolours ?? -1;
+
+    /// <summary>Mark the mission map as needing a repaint. Called from the
+    /// Harmony patches and on Archipelago state changes; only sets a flag, so it
+    /// is safe from any thread.</summary>
+    public static void InvalidateTracker() => _tracker?.Invalidate();
+
+    /// <summary>Re-apply our display to one planet the game has just repainted.
+    /// On the main thread by definition - the call comes from inside the game's
+    /// own Refresh.</summary>
+    public static void RepaintPlanet(SpanNetworkPlanet planet)
+    {
+        if (_tracker == null || planet == null)
+            return;
+        if (CurrentScene != "Galaxy")
+            return;
+        _tracker.Paint(planet, Client.State);
+    }
 
     public static void Init(ManualLogSource log, ModConfig config)
     {
@@ -41,6 +65,10 @@ public static class ModCore
         _erns = new ErnGranter();
         _locations = new LocationWatcher();
         _tracker = new TrackerView();
+        _finale = new FinalePlacement();
+        _energy = new EnergyGranter();
+        _traps = new TrapApplier();
+        _finaleLock = new FinaleLock();
         _messageBox = new ApMessageBox();
         Client.StateChanged += OnClientStateChanged;
         Client.LineReceived += (spans, relevant) => AppendLine(spans, relevant);
@@ -95,6 +123,8 @@ public static class ModCore
     {
         try { _tracker.ApplyTints(); }
         catch (Exception e) { Log.LogError($"late tick failed: {e.Message}"); }
+        try { _finale.Apply(); }
+        catch (Exception e) { Log.LogError($"finale placement failed: {e.Message}"); }
         try { _messageBox.LateTick(_lastScene); }
         catch (Exception e) { Log.LogError($"toast tick failed: {e.Message}"); }
     }
@@ -114,9 +144,17 @@ public static class ModCore
             OnSceneChanged(scene);
         }
 
+        // Flash diagnostic: sampled in Update, before our own LateUpdate can
+        // correct anything, so it sees what the player saw. Off unless armed.
+        if (Appliers.TrackerDiag.WatchFrames > 0)
+            Appliers.TrackerDiag.Watch(_tracker.Planets, Client.State);
+
         _menu.Tick(scene);
         _units.Tick();
         _erns.Tick();
+        _energy.Tick();
+        _traps.Tick();
+        _finaleLock.Tick();
         _locations.Tick();
         TrapEffects.Tick();   // restores a timed trap:emit burst
 
@@ -137,10 +175,18 @@ public static class ModCore
 
     private static void OnClientStateChanged()
     {
-        // Appliers are pull-based (they read State each Tick); the menu needs a
-        // push to repaint its status line, and a status TRANSITION becomes an
-        // in-mission toast so the player sees drops/reconnects without leaving.
+        // Most appliers are pull-based (they read State each Tick); the menu
+        // needs a push to repaint its status line, and a status TRANSITION
+        // becomes an in-mission toast so the player sees drops/reconnects
+        // without leaving.
         _menu.OnStateChanged();
+
+        // The map colours and the finale gate depend on Archipelago state and
+        // nothing else, so this is the only moment they can change. Both used to
+        // recompute every frame to find that out - the tracker by rebuilding a
+        // signature, the lock by building nineteen location names.
+        _tracker.Invalidate();
+        _finaleLock.Invalidate();
 
         var status = Client.Status;
         if (status != _lastStatus)
@@ -166,6 +212,10 @@ public static class ModCore
     {
         Log.LogInfo($"SCENE: '{scene}'");
         _units.OnSceneEnter(scene);
+        _finale.OnSceneChanged();
+        // Leaving or entering a scene destroys and rebuilds the planets, so the
+        // tracker's cache is void either way.
+        _tracker.Invalidate();
         if (scene == "Galaxy")
         {
             _menu.OnGalaxyEntered();

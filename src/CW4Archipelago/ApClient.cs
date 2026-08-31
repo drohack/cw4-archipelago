@@ -31,7 +31,41 @@ public sealed class ApClient
 
     private ArchipelagoSession? _session;
 
-    public SlotState State { get; private set; } = new();
+    private SlotState _state = new();
+
+    /// <summary>The live slot state.
+    ///
+    /// Assigning it re-wires the change events, because connecting REPLACES the
+    /// object rather than mutating it - so anything subscribed to the old
+    /// instance would be left listening to a corpse. Forwarding the state's own
+    /// events to StateChanged means one subscription serves every consumer and
+    /// covers every mutation.
+    ///
+    /// This matters: StateChanged used to be raised only when an item arrived or
+    /// the connection status moved, so a location CHECK changed nothing that any
+    /// listener could see. The map's colouring got away with it only because it
+    /// polled every frame.</summary>
+    public SlotState State
+    {
+        get => _state;
+        private set
+        {
+            if (ReferenceEquals(_state, value))
+                return;
+            if (_state != null)
+            {
+                _state.ItemsChanged -= RaiseChanged;
+                _state.LocationsChanged -= RaiseChanged;
+            }
+            _state = value;
+            if (_state != null)
+            {
+                _state.ItemsChanged += RaiseChanged;
+                _state.LocationsChanged += RaiseChanged;
+            }
+            RaiseChanged();
+        }
+    }
     public ConnectionStatus Status { get; private set; } = ConnectionStatus.Disconnected;
     public string StatusText { get; private set; } = "not connected";
     public bool Connected => Status == ConnectionStatus.Connected;
@@ -40,11 +74,20 @@ public sealed class ApClient
     public event Action<string>? MessageReceived;   // AP server log line (plain text), main thread
     public event Action<System.Collections.Generic.List<Appliers.MsgSpan>, bool>? LineReceived;  // colored parts + relevance, main thread
 
+    /// <summary>Wire the initial state's events; the property setter handles
+    /// every later replacement.</summary>
+    private void WireInitialState()
+    {
+        _state.ItemsChanged += RaiseChanged;
+        _state.LocationsChanged += RaiseChanged;
+    }
+
     public ApClient(ManualLogSource log, Action<Action> dispatch, string storeRoot)
     {
         _log = log;
         _dispatch = dispatch;
         _store = new SlotStore(storeRoot);
+        WireInitialState();
     }
 
     private void Persist()

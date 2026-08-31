@@ -90,17 +90,42 @@ public sealed class DebugChannel
         if (lower == "win") { Win(); return; }
         if (lower == "ada:close") { CloseAda(); return; }
         if (lower == "tracker:dump") { TrackerDump(); return; }
+        if (lower.StartsWith("glyphs:dump")) { GlyphDump(line.Substring(11).Trim()); return; }
+        if (lower == "diag:span") { SpanDiag(); return; }
+        if (lower.StartsWith("diag:watch"))
+        {
+            var arg = line.Substring(10).Trim();
+            int secs = int.TryParse(arg, out var v) ? v : 10;
+            TrackerDiag.WatchFrames = secs * 60;
+            ModCore.Log.LogInfo($"DEBUG diag:watch: armed for ~{secs}s");
+            return;
+        }
+        if (lower == "totem:complete") { TotemComplete(); return; }
+        if (lower == "cache:destroy") { CacheDestroy(); return; }
         if (lower == "units") { UnitsDump(); return; }
         if (lower == "story:open") { StoryOpen(); return; }
         if (lower.StartsWith("clickplanet:")) { ClickPlanet(line.Substring(12).Trim()); return; }
         if (lower.StartsWith("toast:")) { ModCore.EnqueueToast(line.Substring(6).Trim()); return; }
         if (lower.StartsWith("limit:")) { LimitDump(line.Substring(6).Trim()); return; }
         if (lower == "ern:status") { ErnStatus(); return; }
+        if (lower.StartsWith("finale:")) { Finale(line.Substring(7).Trim()); return; }
+        if (lower == "perf")
+        {
+            ModCore.Log.LogInfo(
+                $"DEBUG PERF: tracker recolours={ModCore.TrackerRecolours} " +
+                $"totemPokes={LocationWatcher.TotemPokes} cachePokes={LocationWatcher.CachePokes}");
+            return;
+        }
+        if (lower.StartsWith("loc:add ")) { LocAdd(line.Substring(8).Trim()); return; }
         if (lower.StartsWith("gatecheck:")) { GateCheck(line.Substring(10).Trim()); return; }
 
         if (lower.StartsWith("trap:")) { Trap(line.Substring(5).Trim()); return; }
         if (lower.StartsWith("sim:")) { Sim(line.Substring(4).Trim()); return; }
         if (lower.StartsWith("spawn:")) { Spawn(line.Substring(6).Trim()); return; }
+        if (lower == "resources:dump") { ResourceDump(); return; }
+        if (lower == "pane:dump") { PaneDump(); return; }
+        if (lower == "totems:dump") { TotemDump(); return; }
+        if (lower == "counts:dump") { CountsDump(); return; }
 
         ModCore.Log.LogWarning($"DEBUG unknown command: {line}");
     }
@@ -165,6 +190,172 @@ public sealed class DebugChannel
             var st = CW4Archipelago.Core.TrackerRules.MissionStatus(state, mission);
             ModCore.Log.LogInfo($"TRACKER: {CW4Archipelago.Core.MissionRules.Specifier(mission)} '{title}' status={st}");
         }
+    }
+
+    /// <summary>Complete one live totem by driving the game's own property.
+    ///
+    /// The point is that this goes through Totem.set_totemComplete, which is what
+    /// TotemCompletePatch hooks - so it exercises the real event path rather than
+    /// a stand-in for it, and the totem also genuinely becomes complete, so the
+    /// safety poll's count moves too. Between them that is what makes a
+    /// double-send observable if one exists.
+    ///
+    /// Synthetic mouse input does not reach CW4's UI, so capturing a totem by
+    /// hand is the one thing no script can do. This is as close as automation
+    /// gets; a hands-on run is still the final word.</summary>
+    private static void TotemComplete()
+    {
+        var gs = GameSpace.instance;
+        if (gs == null) { ModCore.Log.LogWarning("totem:complete: no game space"); return; }
+        try
+        {
+            foreach (var t in gs.totems)
+            {
+                if (t == null) continue;
+                bool done;
+                try { done = t.totemComplete; } catch { continue; }
+                if (done) continue;
+                t.totemComplete = true;
+                ModCore.Log.LogInfo("DEBUG totem:complete: one totem completed");
+                return;
+            }
+        }
+        catch (Exception e) { ModCore.Log.LogWarning($"totem:complete failed: {e.Message}"); }
+        ModCore.Log.LogInfo("DEBUG totem:complete: no incomplete totem left");
+    }
+
+    /// <summary>Who is repainting the mission map, and how often.
+    ///
+    /// For the flashing-planet problem: a planet alternating between its sphere
+    /// and its locked "?" means something writes those visuals by a route the mod
+    /// does not hook. The counters say which route and at what rate; the
+    /// per-planet lines say what state each planet is actually in right now.</summary>
+    private static void SpanDiag()
+    {
+        ModCore.Log.LogInfo(
+            $"DIAG SPAN: refreshes={TrackerDiag.Refreshes} unlockedSets={TrackerDiag.UnlockedSets} " +
+            $"paints={TrackerDiag.PaintCalls} visualFixes={TrackerDiag.VisualFixes} " +
+            $"frame={UnityEngine.Time.frameCount}");
+        var planets = UnityEngine.Object.FindObjectsOfType<SpanNetworkPlanet>();
+        if (planets == null) return;
+        foreach (var p in planets)
+        {
+            if (!GameUtil.IsAlive(p)) continue;
+            var title = TrackerView.TitleOf(p);
+            var mission = TrackerView.MissionByTitle(title);
+            if (mission == 0) continue;
+            bool want = CW4Archipelago.Core.MissionRules.IsUnlocked(ModCore.Client.State, mission);
+            string sphere = "?", locked = "?", objs = "?";
+            try { sphere = p.planet == null ? "null" : (p.planet.gameObject.activeSelf ? "ON" : "off"); } catch { }
+            try { locked = p.lockedPlanet == null ? "null" : (p.lockedPlanet.gameObject.activeSelf ? "ON" : "off"); } catch { }
+            try { objs = p.objectiveContainer == null ? "null" : (p.objectiveContainer.gameObject.activeSelf ? "ON" : "off"); } catch { }
+            bool fu = false, un = false;
+            try { fu = p.forceUnlocked; } catch { }
+            try { un = p.unlocked; } catch { }
+            ModCore.Log.LogInfo(
+                $"DIAG SPAN: story{mission} '{title}' wantUnlocked={want} forceUnlocked={fu} unlocked={un} " +
+                $"sphere={sphere} lockedQ={locked} objectives={objs}");
+        }
+    }
+
+    /// <summary>Destroy one live info cache, which is what collecting it does.
+    ///
+    /// This replaced a "cache:take" that called InfoCache.Retrieved instead. That
+    /// was measurably the wrong method and is worth remembering: it set the
+    /// cache's own `retrieved` flag, moved neither GameSpace.mustCollect nor the
+    /// Collect objective, and - proven by a real pickup - is not called on the
+    /// pickup path at all. The hook built on it never once fired in play.
+    ///
+    /// DestroyUnit is the real thing: mustCollect loses its member, so the check
+    /// follows, and CacheDestroyedPatch fires (watch cachePokes in "perf").
+    /// It is still not a PICKUP - it skips whatever the game does with the
+    /// message - so a hands-on collection stays the final word.</summary>
+    private static void CacheDestroy()
+    {
+        var gs = GameSpace.instance;
+        if (gs == null) { ModCore.Log.LogWarning("cache:destroy: no game space"); return; }
+        try
+        {
+            foreach (var u in gs.mustCollect)
+            {
+                if (u == null) continue;
+                InfoCache? cache = null;
+                try { cache = u.GetComponent<InfoCache>(); } catch { }
+                if (cache == null) continue;
+                cache.DestroyUnit(true);
+                ModCore.Log.LogInfo("DEBUG cache:destroy: one cache destroyed");
+                return;
+            }
+        }
+        catch (Exception e) { ModCore.Log.LogWarning($"cache:destroy failed: {e.Message}"); }
+        ModCore.Log.LogInfo("DEBUG cache:destroy: no collectable cache left");
+    }
+
+    /// <summary>Report the ACTUAL colour written onto each objective glyph, read
+    /// back off the material.
+    ///
+    /// Exists because the only previous way to check the tracker's colouring was
+    /// a screenshot, which is slow, needs a human eye, and cannot be asserted on
+    /// in the battery. The colouring has now broken silently twice - once when
+    /// locations became per-instance and ColorGlyphs started building names that
+    /// matched nothing, and once when the repaint became event-driven and no
+    /// event fired for a location check. Both were invisible to every automated
+    /// test and both would have failed this one.
+    ///
+    /// Optional argument filters by planet title, e.g. "glyphs:dump Ever After".</summary>
+    private static void GlyphDump(string filter)
+    {
+        var planets = UnityEngine.Object.FindObjectsOfType<SpanNetworkPlanet>();
+        if (planets == null) { ModCore.Log.LogInfo("DEBUG GLYPHS: no planets"); return; }
+        foreach (var p in planets)
+        {
+            if (!GameUtil.IsAlive(p)) continue;
+            var title = TrackerView.TitleOf(p);
+            if (filter.Length > 0 && !title.Equals(filter, StringComparison.OrdinalIgnoreCase))
+                continue;
+            var mission = TrackerView.MissionByTitle(title);
+            if (mission == 0) continue;
+            Transform container;
+            try { container = p.objectiveContainer; } catch { continue; }
+            if (container == null) continue;
+            var markers = container.GetComponentsInChildren<SpanNetworkPlanetObjective>(true);
+            if (markers == null) continue;
+            foreach (var m in markers)
+            {
+                if (!GameUtil.IsAlive(m)) continue;
+                int obj;
+                try { obj = m.objective; } catch { continue; }
+                string col = "?";
+                try { col = NameColor(m.GetComponent<MeshRenderer>().material.GetColor("_color")); }
+                catch { }
+                ModCore.Log.LogInfo(
+                    $"DEBUG GLYPHS: {CW4Archipelago.Core.MissionRules.Specifier(mission)} '{title}' " +
+                    $"obj={obj} color={col}");
+            }
+        }
+    }
+
+    /// <summary>Name the tracker colours so the log is assertable, rather than
+    /// printing floats a test would have to compare with a tolerance.</summary>
+    private static string NameColor(UnityEngine.Color c)
+    {
+        // Named by COLOUR, not by status: two statuses share green, so a status
+        // name would be a guess where the colour is a fact.
+        var known = new (string Name, CW4Archipelago.Core.TrackerStatus Status)[]
+        {
+            ("RED", CW4Archipelago.Core.TrackerStatus.Locked),
+            ("YELLOW", CW4Archipelago.Core.TrackerStatus.OutOfLogic),
+            ("GREY", CW4Archipelago.Core.TrackerStatus.Done),
+            ("GREEN", CW4Archipelago.Core.TrackerStatus.InLogic),
+        };
+        foreach (var k in known)
+        {
+            var t = TrackerView.StatusColor(k.Status);
+            if (Mathf.Abs(t.r - c.r) < 0.01f && Mathf.Abs(t.g - c.g) < 0.01f
+                && Mathf.Abs(t.b - c.b) < 0.01f)
+                return k.Name;
+        }
+        return $"OTHER({c.r:0.00},{c.g:0.00},{c.b:0.00})";
     }
 
     private void Dump()
@@ -396,6 +587,63 @@ public sealed class DebugChannel
         ModCore.Log.LogInfo($"DEBUG ERN: availableCount={avail} ernUnits={ernUnits}");
     }
 
+    /// <summary>Set the finale's mission-count gate without a server, so the
+    /// in-game lock can be tested: "finale:need 12", "finale:need 0" to lift it.
+    /// Also reports how the gate currently evaluates.</summary>
+    private static void Finale(string arg)
+    {
+        var state = ModCore.Client.State;
+        var tok = arg.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+        if (tok.Length >= 2 && tok[0].Equals("need", StringComparison.OrdinalIgnoreCase)
+            && int.TryParse(tok[1], out var n))
+        {
+            state.Hints.MissionsForFinale = n;
+        }
+        else if (tok.Length >= 2 && tok[0].Equals("beat", StringComparison.OrdinalIgnoreCase)
+                 && int.TryParse(tok[1], out var b))
+        {
+            // Mark that many missions complete, so the countdown and the map
+            // colours can be exercised without playing them.
+            state.CheckedLocations.RemoveWhere(
+                l => l.EndsWith(" - Mission Complete", StringComparison.Ordinal));
+            int added = 0;
+            for (int m = 1; m <= 20 && added < b; m++)
+            {
+                if (m == CW4Archipelago.Core.MissionRules.FinalMission) continue;
+                state.CheckedLocations.Add(CW4Archipelago.Core.MissionRules.MissionCompleteLocation(m));
+                added++;
+            }
+        }
+
+        // Both branches write state behind the normal paths - one edits the
+        // checked set directly, the other edits the slot hints, and neither
+        // raises a change event. Announce it, or the listeners that now drive
+        // the map and the lock never hear about a change this command exists to
+        // make.
+        state.RaiseLocationsChanged();
+
+        ModCore.Log.LogInfo(
+            $"DEBUG FINALE: need={state.Hints.MissionsForFinale} " +
+            $"beaten={CW4Archipelago.Core.MissionRules.MissionsBeaten(state)} " +
+            $"counts={CW4Archipelago.Core.MissionRules.FinaleCounts(state)}");
+    }
+
+    /// <summary>Add a location name to this slot's list, as if the server had
+    /// sent it. The map's glyph colouring reads AllLocations, which is empty
+    /// until a connection exists - so without this there is no way to exercise
+    /// the tracker offline.</summary>
+    private static void LocAdd(string name)
+    {
+        if (name.Length == 0) return;
+        var state = ModCore.Client.State;
+        if (!state.AllLocations.Contains(name))
+            state.AllLocations.Add(name);
+        // Which locations exist decides which glyphs are tracked, so this is a
+        // change the map has to hear about.
+        state.RaiseLocationsChanged();
+        ModCore.Log.LogInfo($"DEBUG LOC ADD: '{name}' (total {state.AllLocations.Count})");
+    }
+
     private static void GateCheck(string spec)
     {
         // Same decision used by both the launch and the save-load gates.
@@ -525,6 +773,238 @@ public sealed class DebugChannel
                     $"trap: unknown effect '{name}' - expected spore|scatter|building|creep|energy|emit|stun|drain|status|set|aim");
                 return;
         }
+    }
+
+    /// <summary>Per-mission resource survey for the logic pass: which raw
+    /// resources a map actually ships. Sprayers need bluite, so "does this
+    /// mission have bluite at all" decides whether sprayer can count as offense
+    /// here; miner only matters where there is something to mine.
+    ///
+    /// Counts map deposits (ResourceBlue / ResourceRed / GreenarMother) AND
+    /// POWER ZONE cells - the bright blue ground the player builds Reactors on.
+    /// A reactor swaps between extra energy and producing bluite, so a map with
+    /// power zones is a bluite source with zero deposits. Counting live Reactor
+    /// units instead would always read 0 at mission start, because the PLAYER
+    /// builds them; the terrain is the thing that is fixed per map.</summary>
+    private static void ResourceDump()
+    {
+        var gs = GameSpace.instance;
+        if (gs == null) { ModCore.Log.LogWarning("resources: no GameSpace"); return; }
+
+        int blue = 0, red = 0, greenar = 0, reactors = 0;
+        var reactorWares = new System.Collections.Generic.Dictionary<int, int>();
+        var other = new System.Collections.Generic.Dictionary<string, int>();
+
+        foreach (var u in gs.units)
+        {
+            if (u == null) continue;
+            string type;
+            try { type = u.GetIl2CppType().Name; } catch { continue; }
+            switch (type)
+            {
+                case "ResourceBlue": blue++; break;
+                case "ResourceRed": red++; break;
+                case "GreenarMother": greenar++; break;
+                case "Reactor":
+                    reactors++;
+                    try
+                    {
+                        var r = u.TryCast<Reactor>();
+                        if (r != null)
+                        {
+                            int w = r.GetWareType();
+                            reactorWares[w] = reactorWares.TryGetValue(w, out var c) ? c + 1 : 1;
+                        }
+                    }
+                    catch { }
+                    break;
+                default:
+                    if (type.StartsWith("Resource"))
+                        other[type] = other.TryGetValue(type, out var o) ? o + 1 : 1;
+                    break;
+            }
+        }
+
+        // Power-zone cells: where Reactors can be built at all.
+        int zoneCells = 0;
+        try
+        {
+            var w = gs.world;
+            if (w != null)
+                for (int x = 0; x < World.WORLD_CELL_WIDTH; x++)
+                    for (int y = 0; y < World.WORLD_CELL_HEIGHT; y++)
+                        if (w.GetPowerZone(x, y) > 0) zoneCells++;
+        }
+        catch (Exception e) { ModCore.Log.LogWarning($"resources: powerZone scan failed: {e.Message}"); }
+
+        var wares = string.Join(",", reactorWares.Select(kv => $"ware{kv.Key}x{kv.Value}"));
+        var extra = other.Count == 0 ? "" : " otherResource:" + string.Join(",", other.Select(kv => $"{kv.Key}x{kv.Value}"));
+        ModCore.Log.LogInfo(
+            $"RESOURCES: bluite={blue} redon={red} greenar={greenar} powerZoneCells={zoneCells} reactors={reactors}" +
+            (wares.Length > 0 ? $" ({wares})" : "") + extra);
+    }
+
+    /// <summary>Lists every build-pane button the game actually offers, with the
+    /// unit key each one builds. Settles which buildables the AP whitelist
+    /// covers: UnitGate drives 26 BuildUnitManager availability flags, so any
+    /// button whose key is not one of those 26 is a building the mod cannot
+    /// gate. Reactor is the open question.</summary>
+    private static void PaneDump()
+    {
+        var panes = GameUtil.AllPanes(true);
+        if (panes == null || panes.Count == 0) { ModCore.Log.LogWarning("pane: no build panes"); return; }
+
+        int n = 0;
+        foreach (var pn in panes)
+        {
+            if (pn == null) continue;
+            var names = new System.Collections.Generic.List<string>();
+            try
+            {
+                foreach (var b in pn.GetComponentsInChildren<UnityEngine.UI.Button>(true))
+                {
+                    if (b == null) continue;
+                    var go = b.gameObject;
+                    // activeInHierarchy separates "exists in the prefab" from
+                    // "actually offered to the player" - the availability flags
+                    // work by toggling these on and off.
+                    if (go != null) names.Add(go.name + (go.activeInHierarchy ? "=ON" : "=off"));
+                }
+            }
+            catch (Exception e) { ModCore.Log.LogWarning($"pane dump: {e.Message}"); }
+            ModCore.Log.LogInfo($"PANE[{n++}] '{pn.gameObject.name}' buttons({names.Count}): {string.Join(",", names)}");
+        }
+    }
+
+    /// <summary>What this mission's totems actually demand. Totem.ammoWares is a
+    /// ware-type -> amount map authored PER MAP, so "the Totems objective needs
+    /// greenar" is a per-mission fact, not a global rule - this reads it.
+    /// Ware indices are reported raw; GetWareName is not reachable from here, so
+    /// they are correlated against the deposit survey instead.</summary>
+    private static void TotemDump()
+    {
+        var gs = GameSpace.instance;
+        if (gs == null) { ModCore.Log.LogWarning("totems: no GameSpace"); return; }
+
+        int totems = 0;
+        var tally = new System.Collections.Generic.Dictionary<int, int>();
+        var detail = new System.Collections.Generic.List<string>();
+        foreach (var u in gs.units)
+        {
+            if (u == null) continue;
+            try { if (u.GetIl2CppType().Name != "Totem") continue; } catch { continue; }
+            totems++;
+            var wants = new System.Collections.Generic.List<string>();
+            for (int w = 0; w < 16; w++)
+            {
+                int amt;
+                try { amt = u.GetAmmoWareWanted(w); } catch { continue; }
+                if (amt <= 0) continue;
+                wants.Add($"w{w}x{amt}");
+                tally[w] = tally.TryGetValue(w, out var c) ? c + amt : amt;
+            }
+            if (detail.Count < 6) detail.Add(wants.Count == 0 ? "[none]" : "[" + string.Join(",", wants) + "]");
+        }
+
+        var totals = string.Join(",", tally.OrderBy(kv => kv.Key).Select(kv => $"ware{kv.Key}={kv.Value}"));
+        ModCore.Log.LogInfo(
+            $"TOTEMS: count={totems} wares[{(totals.Length == 0 ? "NONE" : totals)}] {string.Join("", detail)}");
+    }
+
+    /// <summary>Counts the per-mission things that could each become their own
+    /// AP location, instead of collapsing into one objective check:
+    ///   mustCollect      - GameSpace's authoritative collect-target set (the
+    ///                      caches you connect your network to). This is what
+    ///                      the "Collect" objective completes on.
+    ///   nullifiableUnits - enemy structures that can be nullified; the
+    ///                      "Nullify" objective completes on these.
+    ///   InfoCache        - message/lore caches, each with a `retrieved` flag.
+    ///   Totem            - totems, fed wares to activate.
+    /// The current design gives ONE location per objective type per mission, so
+    /// these counts are the ceiling if each individual one became a check.</summary>
+    private static void CountsDump()
+    {
+        var gs = GameSpace.instance;
+        if (gs == null) { ModCore.Log.LogWarning("counts: no GameSpace"); return; }
+
+        int mustCollect = -1, nullifiable = -1, maxMustCollect = -1;
+        try { mustCollect = gs.mustCollect?.Count ?? -1; } catch { }
+        try { maxMustCollect = gs.maxMustCollect; } catch { }
+        try { nullifiable = gs.nullifiableUnits?.Count ?? -1; } catch { }
+
+        // What the objectives THEMSELVES report. LocationWatcher infers cache
+        // progress from mustCollect shrinking, so whether that set tracks the
+        // Collect objective is load-bearing and worth printing next to it.
+        var objState = new System.Collections.Generic.List<string>();
+        try
+        {
+            var w = gs.world;
+            var slots = w?.missionObjectives;
+            if (slots != null)
+                for (int i = 0; i < slots.Length; i++)
+                {
+                    bool done = false;
+                    try { done = w!.IsMissionObjectiveComplete(i); } catch { }
+                    int count = -1;
+                    try { count = slots[i].count; } catch { }
+                    bool en = false;
+                    try { en = slots[i].enabled; } catch { }
+                    objState.Add($"{i}:{(en ? "on" : "off")}/count={count}/{(done ? "DONE" : "open")}");
+                }
+        }
+        catch { }
+
+        // Is the rift lab already on the map, or must the player place it?
+        // Missions that ship a placed base are the only ones playable if the
+        // Rift Lab itself becomes an unlockable item - a natural starter set.
+        bool basePlaced = false;
+        try
+        {
+            var cb = gs.commandBase;
+            basePlaced = cb != null && GameUtil.IsAlive(cb);
+        }
+        catch { }
+
+        int caches = 0, retrieved = 0, totems = 0;
+        foreach (var u in gs.units)
+        {
+            if (u == null) continue;
+            string t;
+            try { t = u.GetIl2CppType().Name; } catch { continue; }
+            if (t == "Totem") { totems++; continue; }
+            if (t != "InfoCache") continue;
+            caches++;
+            try { if (u.TryCast<InfoCache>()?.retrieved == true) retrieved++; } catch { }
+        }
+
+        // The AUTHORED objective targets. This is the number that matters for
+        // sizing locations: MissionObjectiveData.count is what the objective
+        // panel shows as "0/N", so it already accounts for units that spawn
+        // during play rather than existing at load. The live counts above are
+        // only a start-of-mission floor.
+        var objs = new System.Collections.Generic.List<string>();
+        try
+        {
+            var w = gs.world;
+            var mo = w?.missionObjectives;
+            if (mo != null)
+                for (int i = 0; i < mo.Length; i++)
+                {
+                    var o = mo[i];
+                    if (o == null) continue;
+                    string kind = i < CW4Archipelago.Core.MissionRules.ObjectiveTypes.Length
+                        ? CW4Archipelago.Core.MissionRules.ObjectiveTypes[i] : $"slot{i}";
+                    var nm = string.IsNullOrEmpty(o.customName) ? "" : $"'{o.customName}'";
+                    objs.Add($"{kind}{nm}:en={(o.enabled ? 1 : 0)},req={(o.required ? 1 : 0)},n={o.count},t={o.time}");
+                }
+        }
+        catch (Exception e) { ModCore.Log.LogWarning($"counts: objectives failed: {e.Message}"); }
+
+        ModCore.Log.LogInfo($"OBJECTIVES: {string.Join(" | ", objs)}");
+        ModCore.Log.LogInfo(
+            $"COUNTS: riftLabPreplaced={(basePlaced ? 1 : 0)} mustCollect={mustCollect}/{maxMustCollect} " +
+            $"objectives[{string.Join(" ", objState)}] nullifiable={nullifiable} " +
+            $"infoCaches={caches} (retrieved={retrieved}) totems={totems}");
     }
 
     private static bool PopupShowing()

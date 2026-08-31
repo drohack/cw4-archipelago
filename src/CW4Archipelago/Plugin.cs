@@ -26,6 +26,16 @@ public class Plugin : BasePlugin
         TryPatch("FakeComplete", typeof(Appliers.FakeCompletePatch));
         TryPatch("PlanetClick", typeof(Appliers.PlanetClickPatch));
         TryPatch("InputBlock", typeof(Appliers.InputBlock));
+        TryPatch("nullifier targets", typeof(Appliers.NullifierTargetPatch));
+        TryPatch("objective row", typeof(Appliers.ObjectiveRowPatch));
+        // Replace polling with the game's own lifecycle events. A failure
+        // here is logged and the mod continues - but the map would then
+        // never colour, so the log is worth reading after a game update.
+        TryPatch("map opened", typeof(Appliers.SpanStartPatch));
+        TryPatch("planet refresh", typeof(Appliers.PlanetRefreshPatch));
+        TryPatch("totem complete", typeof(Appliers.TotemCompletePatch));
+        TryPatch("cache destroyed", typeof(Appliers.CacheDestroyedPatch));
+        TryPatch("planet unlocked set", typeof(Appliers.PlanetUnlockedSetPatch));
 
         try
         {

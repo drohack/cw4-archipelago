@@ -94,7 +94,10 @@
 
   <!-- Deploy to the game's plugin folder on build, in the same subfolder
        layout the release zip uses. -->
-  <Target Name="DeployToGame" AfterTargets="Build">
+  <!-- Build with -p:SkipDeploy=true to compile WITHOUT installing into the
+       game. Every build used to re-create the plugin folder, which quietly
+       re-enabled this mod in the middle of a vanilla test session. -->
+  <Target Name="DeployToGame" AfterTargets="Build" Condition="'$(SkipDeploy)' != 'true'">
     <ItemGroup>
       <DeployFiles Include="$(TargetDir)*.dll" />
     </ItemGroup>
