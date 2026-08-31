@@ -2,7 +2,8 @@
 
 Open-missions mode (authoritative user decision): every mission is reachable
 from Menu once its Mission Unlock item is held; the campaign's linear chain
-is display-only. story1 starts unlocked.
+is display-only. This seed's starter missions (world.starter_missions) begin
+unlocked; the rest need their Mission Unlock item.
 """
 from BaseClasses import Region
 
@@ -15,7 +16,7 @@ def create_and_connect_regions(world) -> None:
     for n in range(1, 21):
         region = Region(f"story{n}", world.player, world.multiworld)
         world.multiworld.regions.append(region)
-        if n == 1:
+        if n in world.starter_missions:
             menu.connect(region)
         else:
             unlock = f"Mission Unlock: {MISSION_TITLES[n]}"
