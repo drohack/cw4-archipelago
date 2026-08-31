@@ -52,6 +52,15 @@ public sealed class TrackerView
         _ => Green,
     };
 
+    /// <summary>Forget one planet's cached marker array, because its children
+    /// have changed. Called when the game refreshes a planet, which appends new
+    /// markers.</summary>
+    internal void DropMarkerCache(SpanNetworkPlanet p)
+    {
+        if (p == null) return;
+        try { _markers.Remove(p.Pointer); } catch { }
+    }
+
     /// <summary>Mark the map as needing a repaint. Safe to call from any thread:
     /// it only sets a bool, and all Unity work happens in ApplyTints on the main
     /// thread. Called when the map opens, when the scene changes, and when
@@ -131,6 +140,7 @@ public sealed class TrackerView
         SetVisuals(p, unlocked);
         if (unlocked)
         {
+            ReconcileGlyphs(p, mission, state);
             ColorGlyphs(p, mission, state);
             _recolours++;
         }
@@ -147,6 +157,179 @@ public sealed class TrackerView
         try { if (p.lockedPlanet != null) p.lockedPlanet.gameObject.SetActive(!unlocked); } catch { }
         try { if (p.planet != null) p.planet.gameObject.SetActive(unlocked); } catch { }
         try { if (p.objectiveContainer != null) p.objectiveContainer.gameObject.SetActive(unlocked); } catch { }
+    }
+
+    /// <summary>Spacing between objective icons, in the container's local units.
+    /// Measured off every planet on the map: icon k sits at x = 0.55 * k, y = z =
+    /// 0, scale 0.7, in ascending objective order.</summary>
+    private const float GlyphSpacing = 0.55f;
+
+    /// <summary>Name given to the markers we add, so a later pass recognises its
+    /// own work instead of cloning a second one.</summary>
+    private const string AddedGlyphName = "APObjectiveGlyph";
+
+    /// <summary>Make the planet's icon set match the objective slots that
+    /// actually have checks in this slot.
+    ///
+    /// Why this is needed: the map draws one icon per objective in the MAP FILE's
+    /// authored list, which is not always the mission's real objective set.
+    /// Nineteen of the twenty missions agree; Farsite draws a Totems icon and has
+    /// no totems at all, while its two caches and its custom objective get no
+    /// icon - so their status could not be read off the map. Vanilla does the
+    /// same, so this is the game's data rather than a regression, and the fix is
+    /// generic rather than a special case for mission 1: it is driven by the
+    /// locations, so it is a no-op wherever the game already agrees, and it
+    /// self-corrects if a game update changes the map data.
+    ///
+    /// Three measured facts make this cheap:
+    ///   - Writing `objective` RE-TEXTURES the marker. The property setter swaps
+    ///     the material (ObjTotem -> ObjCollect, verified), so re-pointing an
+    ///     existing icon needs no donor, no prefab hunt and no material copying.
+    ///   - The layout is x = 0.55 * k with nothing else varying, so a new icon
+    ///     can be placed exactly where the game would have put it. There is no
+    ///     Unity layout component to do it for us.
+    ///   - A clone of an existing marker keeps the SOURCE's local position, so the
+    ///     position must always be written, including for the clone.
+    ///
+    /// And one that makes it worth doing anyway: the game's own Refresh APPENDS
+    /// its authored markers without clearing the container, so every Refresh
+    /// leaves another exact copy stacked on the previous one (measured: 3 -> 4 ->
+    /// 5 children on consecutive calls). Those duplicates are invisible because
+    /// they overlap perfectly, and hiding the surplus here absorbs them.
+    ///
+    /// Runs from Paint, so it is on the event path - map open, planet refresh, and
+    /// Archipelago state change - and never per frame.</summary>
+    private void ReconcileGlyphs(SpanNetworkPlanet p, int mission, SlotState state)
+    {
+        var want = MissionRules.ExpectedObjectiveIndices(state, mission);
+        if (want.Count == 0)
+            return;   // nothing known yet (no server); leave the map alone
+
+        Transform container;
+        try { container = p.objectiveContainer; } catch { return; }
+        if (container == null)
+            return;
+
+        // includeInactive MUST be true. FindObjectsOfType and an active-only
+        // walk both skip the markers of every locked planet, because the mod
+        // deactivates their whole objectiveContainer - an earlier version of this
+        // search reported "no marker with objective=4" on a map that has
+        // fourteen of them. It also matters here for reusing markers this method
+        // hid on a previous pass.
+        SpanNetworkPlanetObjective[] markers;
+        try { markers = container.GetComponentsInChildren<SpanNetworkPlanetObjective>(true); }
+        catch { return; }
+        if (markers == null || markers.Length == 0)
+            return;
+
+        // Already correct? Then touch nothing. This is the case on nineteen
+        // planets, and it keeps the common path to a handful of field reads.
+        if (Matches(markers, want))
+            return;
+
+        var live = new List<SpanNetworkPlanetObjective>();
+        foreach (var m in markers)
+            if (GameUtil.IsAlive(m))
+                live.Add(m);
+        if (live.Count == 0)
+            return;
+
+        // The first want.Count markers become the icons we want, in order; any
+        // beyond that are surplus (vanilla extras, or Refresh's duplicates) and
+        // get hidden rather than destroyed - the game owns them, and hiding is
+        // reversible.
+        for (int k = 0; k < want.Count; k++)
+        {
+            SpanNetworkPlanetObjective slot;
+            if (k < live.Count)
+            {
+                slot = live[k];
+            }
+            else
+            {
+                var made = CloneGlyph(live[0], container);
+                if (made == null)
+                    break;      // could not clone; the icons placed so far still stand
+                slot = made;
+                live.Add(made);
+            }
+            Configure(slot, want[k], k);
+        }
+        for (int k = want.Count; k < live.Count; k++)
+        {
+            try { live[k].gameObject.SetActive(false); } catch { }
+        }
+
+        // The marker cache is built on the assumption that a planet's markers do
+        // not change while the map is open. We just changed them.
+        _markers.Remove(p.Pointer);
+        ModCore.Log.LogInfo(
+            $"TRACKER: reconciled {MissionRules.Specifier(mission)} icons to " +
+            $"[{string.Join(",", want)}] ({live.Count} markers present)");
+    }
+
+    /// <summary>Whether the active markers are already exactly the wanted slots,
+    /// in order. Cheap enough to run on every paint of every planet.</summary>
+    private static bool Matches(SpanNetworkPlanetObjective[] markers, List<int> want)
+    {
+        int seen = 0;
+        foreach (var m in markers)
+        {
+            if (!GameUtil.IsAlive(m)) continue;
+            bool active;
+            try { active = m.gameObject.activeSelf; } catch { continue; }
+            if (!active) continue;              // hidden surplus is fine
+            int obj;
+            try { obj = m.objective; } catch { return false; }
+            if (seen >= want.Count || obj != want[seen])
+                return false;
+            seen++;
+        }
+        return seen == want.Count;
+    }
+
+    /// <summary>Point one marker at an objective slot and put it where the game
+    /// would have put it. Writing `objective` is what changes the icon.</summary>
+    private static void Configure(SpanNetworkPlanetObjective m, int objective, int ordinal)
+    {
+        try { if (!m.gameObject.activeSelf) m.gameObject.SetActive(true); } catch { }
+        try { if (m.objective != objective) m.objective = objective; } catch { }
+        try { m.transform.localPosition = new Vector3(GlyphSpacing * ordinal, 0f, 0f); } catch { }
+    }
+
+    /// <summary>Add one more marker to a planet that has fewer than it needs.
+    ///
+    /// Clones a marker the game itself built - they are all
+    /// SpanNetworkPlanetObjective(Clone) already, so this is the same operation
+    /// the game performs - following the Instantiate pattern FinalePlacement uses
+    /// for the extra connector line: parent at instantiation, configure after.
+    /// The clone shares the source's material instance, so it is given its own;
+    /// otherwise a later colour write would tint both.</summary>
+    private static SpanNetworkPlanetObjective? CloneGlyph(SpanNetworkPlanetObjective source, Transform container)
+    {
+        try
+        {
+            var go = UnityEngine.Object.Instantiate(source.gameObject, container, false);
+            go.name = AddedGlyphName;
+            var made = go.GetComponent<SpanNetworkPlanetObjective>();
+            if (made == null)
+            {
+                UnityEngine.Object.Destroy(go);   // ours, never the game's
+                return null;
+            }
+            try
+            {
+                var mr = go.GetComponent<MeshRenderer>();
+                mr.material = new Material(mr.material);
+            }
+            catch { }
+            return made;
+        }
+        catch (Exception e)
+        {
+            ModCore.Log.LogWarning($"TRACKER: could not add an objective icon: {e.Message}");
+            return null;
+        }
     }
 
     private void ColorGlyphs(SpanNetworkPlanet p, int mission, SlotState state)
@@ -313,6 +496,10 @@ public static class PlanetRefreshPatch
         {
             _painting = true;
             TrackerDiag.Refreshes++;
+            // Refresh APPENDS markers to the objective container without
+            // clearing it, so this planet's cached marker array is now short by
+            // however many it just added.
+            ModCore.DropPlanetMarkerCache(__instance);
             // This planet now; its neighbours on the next LateUpdate.
             //
             // This terminates: the sweep only calls Refresh again when a

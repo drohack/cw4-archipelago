@@ -92,6 +92,7 @@ public sealed class DebugChannel
         if (lower == "tracker:dump") { TrackerDump(); return; }
         if (lower.StartsWith("glyphs:dump")) { GlyphDump(line.Substring(11).Trim()); return; }
         if (lower == "diag:span") { SpanDiag(); return; }
+        if (lower.StartsWith("diag:refresh")) { DiagRefresh(line.Substring(12).Trim()); return; }
         if (lower.StartsWith("diag:watch"))
         {
             var arg = line.Substring(10).Trim();
@@ -291,6 +292,45 @@ public sealed class DebugChannel
         ModCore.Log.LogInfo("DEBUG cache:destroy: no collectable cache left");
     }
 
+    /// <summary>Call the game's own Refresh on one planet and report its
+    /// objective child count either side.
+    ///
+    /// This is how a surprising fact was measured and how to re-measure it:
+    /// Refresh APPENDS its authored objective markers and never clears the
+    /// container, so consecutive calls gave 3 -> 4 -> 5 children. The duplicates
+    /// overlap their originals exactly, so they are invisible; TrackerView's
+    /// reconcile hides the surplus.
+    ///
+    /// Note this command therefore ADDS markers as a side effect - it is a
+    /// measurement, not something to leave running.</summary>
+    private static void DiagRefresh(string title)
+    {
+        var planet = PlanetByTitle(title);
+        if (planet == null) { ModCore.Log.LogWarning($"diag:refresh: no planet '{title}'"); return; }
+        try
+        {
+            var container = planet.objectiveContainer;
+            int before = container == null ? -1 : container.childCount;
+            planet.Refresh();
+            int after = container == null ? -1 : container.childCount;
+            ModCore.Log.LogInfo($"DIAG REFRESH: '{title}' objective children {before} -> {after}");
+        }
+        catch (Exception e) { ModCore.Log.LogWarning($"diag:refresh failed: {e.Message}"); }
+    }
+
+    private static SpanNetworkPlanet? PlanetByTitle(string title)
+    {
+        var planets = UnityEngine.Object.FindObjectsOfType<SpanNetworkPlanet>();
+        if (planets == null) return null;
+        foreach (var p in planets)
+        {
+            if (!GameUtil.IsAlive(p)) continue;
+            if (TrackerView.TitleOf(p).Equals(title, StringComparison.OrdinalIgnoreCase))
+                return p;
+        }
+        return null;
+    }
+
     /// <summary>Report the ACTUAL colour written onto each objective glyph, read
     /// back off the material.
     ///
@@ -328,9 +368,37 @@ public sealed class DebugChannel
                 string col = "?";
                 try { col = NameColor(m.GetComponent<MeshRenderer>().material.GetColor("_color")); }
                 catch { }
+                // Everything needed to tell a HIDDEN marker from an ABSENT one,
+                // and to work out the layout rule the game uses - there is no
+                // Unity layout component here, these are world-space quads with
+                // hand-set positions, and nothing had ever recorded the spacing.
+                string name = "?", act = "?", pos = "?", scale = "?", mat = "?", tex = "?";
+                try { name = m.gameObject.name; } catch { }
+                try { act = m.gameObject.activeSelf ? "ON" : "off"; } catch { }
+                try
+                {
+                    var lp = m.transform.localPosition;
+                    pos = $"({lp.x:0.###},{lp.y:0.###},{lp.z:0.###})";
+                }
+                catch { }
+                try
+                {
+                    var ls = m.transform.localScale;
+                    scale = $"({ls.x:0.###},{ls.y:0.###},{ls.z:0.###})";
+                }
+                catch { }
+                try
+                {
+                    var mr = m.GetComponent<MeshRenderer>();
+                    mat = mr.material.name;
+                    var t = mr.material.GetTexture("_MainTexture");
+                    tex = t == null ? "none" : t.name;
+                }
+                catch { }
                 ModCore.Log.LogInfo(
                     $"DEBUG GLYPHS: {CW4Archipelago.Core.MissionRules.Specifier(mission)} '{title}' " +
-                    $"obj={obj} color={col}");
+                    $"obj={obj} color={col} name='{name}' active={act} pos={pos} scale={scale} " +
+                    $"mat='{mat}' tex='{tex}'");
             }
         }
     }

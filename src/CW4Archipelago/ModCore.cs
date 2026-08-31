@@ -42,6 +42,11 @@ public static class ModCore
     /// is safe from any thread.</summary>
     public static void InvalidateTracker() => _tracker?.Invalidate();
 
+    /// <summary>Forget one planet's cached objective markers - the game's Refresh
+    /// appends to that container, so the cache is stale the moment it runs.</summary>
+    public static void DropPlanetMarkerCache(SpanNetworkPlanet planet)
+        => _tracker?.DropMarkerCache(planet);
+
     /// <summary>Re-apply our display to one planet the game has just repainted.
     /// On the main thread by definition - the call comes from inside the game's
     /// own Refresh.</summary>
