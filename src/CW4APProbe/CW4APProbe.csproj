@@ -71,8 +71,12 @@
     </Reference>
   </ItemGroup>
 
-  <!-- Deploy straight into the game's plugin folder on build -->
-  <Target Name="DeployToGame" AfterTargets="Build">
+  <!-- Deploy straight into the game's plugin folder on build.
+       Build with -p:SkipDeploy=true to compile WITHOUT installing, matching the
+       other two projects. This condition was missing until 2026-08-31, so
+       "build everything" silently installed the probe as an ACTIVE plugin
+       alongside the randomizer - demonstrated from a clean clone. -->
+  <Target Name="DeployToGame" AfterTargets="Build" Condition="'$(SkipDeploy)' != 'true'">
     <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(GameDir)\BepInEx\plugins" />
     <Message Importance="high" Text="Deployed $(AssemblyName).dll to $(GameDir)\BepInEx\plugins" />
   </Target>
