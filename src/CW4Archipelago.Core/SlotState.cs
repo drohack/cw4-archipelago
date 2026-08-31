@@ -28,8 +28,19 @@ public sealed class SlotState
 
     public bool GoalPending { get; set; }
 
+    /// <summary>How many received items have already had their trap effect
+    /// applied. Traps must fire ONCE, and reconnecting re-delivers the whole
+    /// received list, so firing on receipt alone would replay every trap in the
+    /// game the moment a player reconnects. Persisted with the rest of the slot
+    /// so it survives a restart too.</summary>
+    public int TrapsApplied { get; set; }
+
     public event Action? ItemsChanged;
     public event Action? LocationsChanged;
+
+    /// <summary>Announce a location change made by writing the set directly.
+    /// Normal paths go through MarkChecked and raise it themselves.</summary>
+    public void RaiseLocationsChanged() => LocationsChanged?.Invoke();
 
     public int Count(string item) => ReceivedItems.Count(i => i == item);
     public bool Has(string item) => ReceivedItems.Contains(item);

@@ -9,7 +9,10 @@ public class UnitRulesTests
     {
         var s = new SlotState();
         var allowed = UnitRules.AllowedUnits(s);
-        Assert.Equal(new HashSet<string> { "riftlab", "tower", "pylon" }, allowed);
+        // Only the rift lab and tower are free: without a base and without energy
+        // a mission cannot be started at all. The pylon is an unlockable item -
+        // towers relay on their own.
+        Assert.Equal(new HashSet<string> { "riftlab", "tower" }, allowed);
     }
 
     [Fact]
@@ -21,7 +24,8 @@ public class UnitRulesTests
         Assert.Contains("cannon", allowed);
         Assert.Contains("greenarrefinery", allowed);
         Assert.Contains("bertha", allowed);
-        Assert.Equal(6, allowed.Count);
+        // riftlab + tower, plus cannon, greenarrefinery and bertha.
+        Assert.Equal(5, allowed.Count);
     }
 
     [Theory]

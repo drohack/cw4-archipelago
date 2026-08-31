@@ -23,6 +23,26 @@ public sealed class SlotData
     [JsonPropertyName("ern_per_item")]
     public int ErnPerItem { get; set; } = 1;
 
+    /// <summary>How many other missions must be completed before the finale
+    /// counts as the goal. 0 disables the requirement.</summary>
+    [JsonPropertyName("missions_for_finale")]
+    public int MissionsForFinale { get; set; }
+
+    // Amounts for the energy upgrades. They travel here rather than in the item
+    // names so that item ids stay identical across every yaml. Fractions are
+    // sent as TENTHS and percentages as whole percents; see EnergyRules.
+    [JsonPropertyName("energy_storage_step")]
+    public int EnergyStorageStep { get; set; } = 50;
+
+    [JsonPropertyName("energy_storage_decay")]
+    public int EnergyStorageDecay { get; set; } = 80;
+
+    [JsonPropertyName("base_generation_start")]
+    public int BaseGenerationStart { get; set; } = 5;
+
+    [JsonPropertyName("base_generation_ramp")]
+    public int BaseGenerationRamp { get; set; } = 2;
+
     public static readonly SlotData Empty = new();
 
     public static SlotData FromJson(string json)

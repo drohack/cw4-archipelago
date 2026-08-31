@@ -7,7 +7,10 @@ namespace CW4Archipelago.Core;
 /// <summary>Mission identity: storyN specifiers, titles, unlock items, location names.</summary>
 public static class MissionRules
 {
-    public const int FinalMission = 20;
+    /// <summary>Founders, not Ever After. Ever After plays as an epilogue rather
+    /// than a climax, so it is an ordinary mission and Founders carries the goal.
+    /// See docs/design/mission-requirements-worksheet.md, mission 20.</summary>
+    public const int FinalMission = 19;
 
     public static readonly IReadOnlyDictionary<int, string> Titles = new Dictionary<int, string>
     {
@@ -40,10 +43,81 @@ public static class MissionRules
     public static bool IsUnlocked(SlotState state, int mission)
         => IsStarter(state, mission) || state.Has(UnlockItem(mission));
 
+    /// <summary>Prefix used by a counted objective's per-instance locations.
+    /// The apworld names them by instance, not by objective type, so slot 4
+    /// (Collect) becomes "Cache 1", "Cache 2" and so on.</summary>
+    public static string InstanceKind(int objectiveIndex) => objectiveIndex switch
+    {
+        0 => "Nullify",
+        1 => "Totem",
+        4 => "Cache",
+        _ => "",
+    };
+
+    /// <summary>The Nth check of a counted objective. Instances are numbered by
+    /// ACTIVATION ORDER: the game cannot tell one totem from another, so the Nth
+    /// activation sends the Nth check.</summary>
+    public static string InstanceLocation(int mission, int objectiveIndex, int instance)
+        => $"{Titles[mission]} - {InstanceKind(objectiveIndex)} {instance}";
+
+    /// <summary>Objectives that are a single check rather than a count: Reclaim
+    /// is a percentage of the map, Custom is mission-scripted.</summary>
+    public static bool IsCounted(int objectiveIndex) => InstanceKind(objectiveIndex).Length > 0;
+
     public static string ObjectiveLocation(int mission, int objectiveIndex)
         => $"{Titles[mission]} - {ObjectiveTypes[objectiveIndex]}";
 
     public static string MissionCompleteLocation(int mission) => $"{Titles[mission]} - Mission Complete";
+
+    /// <summary>How many missions this slot has completed, counted from the
+    /// Mission Complete checks the server has acknowledged.
+    ///
+    /// The finale is excluded because it has no completion check of its own -
+    /// finishing it IS the goal.</summary>
+    public static int MissionsBeaten(SlotState state)
+    {
+        int n = 0;
+        for (int mission = 1; mission <= 20; mission++)
+        {
+            if (mission == FinalMission) continue;
+            if (state.CheckedLocations.Contains(MissionCompleteLocation(mission)))
+                n++;
+        }
+        return n;
+    }
+
+    /// <summary>Whether finishing the finale should send the goal yet.
+    ///
+    /// Logic gates the Victory event on a count of beaten missions, so the
+    /// client has to apply the same rule - otherwise a player who reaches the
+    /// finale early could beat it and claim a goal the generator never
+    /// considered reachable.</summary>
+    public static bool FinaleCounts(SlotState state)
+        => MissionsBeaten(state) >= state.Hints.MissionsForFinale;
+
+    /// <summary>This slot's locations for ONE objective of one mission.
+    ///
+    /// Counted objectives are per instance ("Founders - Nullify 1..17"), so a
+    /// single map marker stands for many locations. Building the old
+    /// type-shaped name ("Founders - Nullify") matches nothing since the
+    /// per-instance rename, which silently turned the map's glyph colouring into
+    /// dead code - hence this.</summary>
+    public static List<string> LocationsForObjective(SlotState state, int mission, int objectiveIndex)
+    {
+        var kind = InstanceKind(objectiveIndex);
+        if (kind.Length > 0)
+        {
+            var prefix = $"{Titles[mission]} - {kind} ";
+            return state.AllLocations
+                .Where(l => l.StartsWith(prefix, StringComparison.Ordinal))
+                .ToList();
+        }
+        // Reclaim and Custom are a single check each.
+        var single = ObjectiveLocation(mission, objectiveIndex);
+        return state.AllLocations.Contains(single)
+            ? new List<string> { single }
+            : new List<string>();
+    }
 
     /// <summary>All of this slot's locations belonging to the mission (from the server list).</summary>
     public static List<string> LocationsFor(SlotState state, int mission)

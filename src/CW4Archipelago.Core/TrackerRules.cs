@@ -36,11 +36,28 @@ public static class TrackerRules
 
     public static TrackerStatus MissionStatus(SlotState state, int mission)
     {
+        // The finale reads as LOCKED until enough missions are beaten, even
+        // though its own checks are reachable. It cannot be won yet, and a map
+        // that showed it as playable would be lying about the one thing the
+        // player most needs to know.
+        if (mission == MissionRules.FinalMission && !MissionRules.FinaleCounts(state))
+            return TrackerStatus.Locked;
+
         var locations = MissionRules.LocationsFor(state, mission);
         if (locations.Count == 0)
             return MissionRules.IsUnlocked(state, mission) ? TrackerStatus.InLogic : TrackerStatus.Locked;
 
-        var statuses = locations.Select(l => LocationStatus(state, mission, l)).ToList();
+        return Aggregate(locations.Select(l => LocationStatus(state, mission, l)));
+    }
+
+    /// <summary>One status for a group of locations, by the tracker convention.
+    /// Used for a whole mission and for a single map marker, which stands for
+    /// every instance of one objective.</summary>
+    public static TrackerStatus Aggregate(IEnumerable<TrackerStatus> input)
+    {
+        var statuses = input.ToList();
+        if (statuses.Count == 0)
+            return TrackerStatus.InLogic;
         if (statuses.All(s => s == TrackerStatus.Done))
             return TrackerStatus.Done;
         if (statuses.Any(s => s == TrackerStatus.Locked))
