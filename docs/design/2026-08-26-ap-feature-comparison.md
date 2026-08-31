@@ -105,7 +105,8 @@ death until a safe game state. Ours: none.
 ### Traps
 Only DLC Quest ships real traps (Zombie Sheep, timed spikes, loading-screen,
 name-change). TUNIC's fool_traps are opt-in tiers. BRC, OC2, Subnautica,
-Inscryption, Hylics 2: none. Ours: **DONE** - seven trap items at
+Inscryption, Hylics 2: none. Ours: **DONE** - six trap items in the pool (seven
+exist; Emitter Overdrive is not generated) at
 `trap_percentage` (default 50), each with its own frequency weight, fired on
 receipt by `TrapApplier`. Note two shipped under different names than this doc
 uses: "emitter burst" is `Emitter Overdrive` and "weapon drain" is `Ammo Drain`.

@@ -38,7 +38,7 @@ See also: [AP feature comparison + recommendations](design/2026-08-26-ap-feature
 | `Progressive ERN` | `progressive_erns`, default 4 | Range 0-40. Never required to finish a mission, so this is purely pool budget |
 | `Build Limit +1 (<Unit>)` | filler | Increments over the game's own default limits |
 | Energy storage / base generation | filler | Two items, applied to the rift lab. See "Energy items" below |
-| Traps | 7 | Share of the non-progression slots set by `trap_percentage`, default 50 |
+| Traps | 6 | Share of the non-progression slots set by `trap_percentage`, default 50. Seven effects exist; Emitter Overdrive is deliberately not generated - see the traps section |
 
 There is no "ERN Spawning" item. An earlier draft proposed one; it was never
 built, and the deny-sweep idea it depended on was explicitly ruled out - see

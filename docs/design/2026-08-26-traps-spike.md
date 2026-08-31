@@ -304,8 +304,21 @@ silently does nothing is a bad item"*, and *"An effect only belongs in the pool 
 it fires on essentially every mission, or if it carries a fallback effect for
 missions that cannot host it."*
 
-It shipped anyway, and the mitigation is that `trap_weight_emitter_overdrive` can
-be set to 0. That is a workaround, not the fallback this document asked for. An
-open decision, recorded here rather than forgotten: give it a fallback, drop it,
-or accept it.
+**DECIDED 2026-08-31: dropped from the pool.** Six traps generate; the seventh
+does not. The rule this document wrote before anyone was attached to the effect is
+a good rule, and the mitigation on offer - set the weight to 0 - is one a player
+only reaches after already being annoyed, which is the experience the rule exists
+to prevent.
+
+Held loosely, and deliberately cheap to undo. Nothing was deleted: the effect, the
+applier mapping, the `trap:emit` command and the yaml weight all still work, and
+`POOL_TRAP_ITEMS` in `apworld/cw4/items.py` is the whole change - the name stays in
+`TRAP_ITEMS` so item ids do not renumber.
+
+**What would reopen it:** the 11-of-20 figure counts emitters at mission START.
+Enemies arrive during play, so real coverage is better and possibly much better.
+Measure emitter counts a few minutes into several missions; if it is more like 16
+of 20, "essentially every mission" becomes arguable and this should be revisited.
+That measurement has not been taken, so the decision rests on a start-of-mission
+count - which is the weakest part of it.
 

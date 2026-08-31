@@ -32,7 +32,7 @@ still unproven in practice.
 Covered so far:
 - Connect / auto-connect / reconnect with a per-slot offline cache
 - Items applied live: unit unlocks, mission unlocks, progressive ERNs, build
-  limits, energy storage and base generation, and seven optional traps
+  limits, energy storage and base generation, and six optional traps
 - **236 locations**: every cache, totem and nullify target is its own check
   (203 of those), plus reclaim, custom objectives and mission completions
 - Per-mission logic derived from a manual playthrough, with a casual tier that
