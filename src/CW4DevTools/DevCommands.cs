@@ -213,8 +213,8 @@ public sealed class DevCommands
     ///   impervious    whether it can be harmed
     ///
     ///   null:list              every nullifiable unit, with an index
-    ///   null:protect &lt;i|all&gt;   clear CAN_NULLIFY (and set impervious)
-    ///   null:allow &lt;i|all&gt;     put both back
+    ///   null:protect &lt;i|all&gt;   clear CAN_NULLIFY only - impervious is NOT touched
+    ///   null:allow &lt;i|all&gt;     set CAN_NULLIFY back to true
     ///   null:kill &lt;i&gt;          spawn a fed nullifier beside unit i
     /// </summary>
     private void Nullify(string arg)

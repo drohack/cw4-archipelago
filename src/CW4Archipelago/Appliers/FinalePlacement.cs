@@ -47,7 +47,9 @@ public sealed class FinalePlacement
     /// places story20 sensibly is left alone.</summary>
     private const float StrandedDistance = 30f;
 
-    /// <summary>Directions sampled around Founders when choosing the new spot.
+    /// <summary>Directions sampled around WALLIS - the anchor above - when
+    /// choosing the new spot. (An earlier version of this comment said Founders,
+    /// which is the goal mission, not the anchor.)
     /// Fixed count and fixed starting angle, so the placement is deterministic:
     /// the planet must not wander between launches.</summary>
     private const int Samples = 24;

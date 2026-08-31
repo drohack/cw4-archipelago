@@ -424,7 +424,10 @@ public static class DevTools
 
     /// <summary>A unit that is UNDER CONSTRUCTION but fails the player filter is
     /// almost certainly one of the player's buildings whose real name is missing
-    /// from PlayerKeys - enemy structures do not build. This is the diagnostic
+    /// from PlayerKeys. (The original justification here was "enemy structures do
+    /// not build", which is FALSE - Pod builds. The diagnostic is still worth
+    /// having, just for a weaker reason: a BUILDING unit that fails the filter is
+    /// usually, not always, one of the player's.) This is the diagnostic
     /// that catches the next "pylon" without a false positive: it keys off
     /// isBuilding, not off HasBuildBar (which is true on every finished unit).
     ///
