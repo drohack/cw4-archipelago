@@ -140,11 +140,16 @@ since | grep -qE "ERN: target [1-9] this mission"; verdict $? "ERN item register
 
 # --- (F) goal: beat the finale ---
 echo "[ab2] step 8: goal on finale"
-srv "/send $SLOT Mission Unlock: Ever After"
+# Founders is the finale, not Ever After - and the goal is ALSO gated on a count
+# of missions beaten (missions_for_finale, default 12), so unlocking the mission
+# is not enough. This battery used to boot story20 and assert the goal, which
+# could never fire: story20 is an ordinary mission.
+srv "/send $SLOT Mission Unlock: Founders"
 sleep 2
 mark
-send "boot:story20"
-if ! wait_since "New GameSpace" 45; then echo "[ab2] FATAL: story20 load failed"; fi
+send "finale:need 0"
+send "boot:story19"
+if ! wait_since "New GameSpace" 45; then echo "[ab2] FATAL: story19 load failed"; fi
 sleep 4
 send "win"; sleep 3
 since | grep -q "AP GOAL ACHIEVED sent"; verdict $? "goal sent on finale completion"
