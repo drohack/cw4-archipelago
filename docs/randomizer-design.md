@@ -1,79 +1,139 @@
-# CW4 Archipelago Randomizer Design (draft)
+# CW4 Archipelago Randomizer Design
 
-Status: draft, 2026-08-25. Data tables below are filled by the automated
-campaign survey (probe v0.54, scratchpad/survey.sh).
+Status: IMPLEMENTED and current as of 2026-08-31. This top half describes what the
+randomizer actually does; the dated sections further down are the trail of how it
+got here, kept because the reasoning behind several decisions is the only record
+of why they are not the obvious thing.
+
+Read this front matter as authoritative. It was rewritten on 2026-08-31 after an
+audit found it still described the original 2026-08-25 draft - per-type locations,
+a planet-graph region chain, SC2-style logic predicates - while later sections
+corrected each of those a hundred lines below. A reader starting at the top was
+reliably misled.
 
 See also: [AP feature comparison + recommendations](design/2026-08-26-ap-feature-comparison.md)
-- what other AP randomizers do and the designer's decisions on what to adopt
-  (name groups, idempotent replay, seed binding, and a traps feasibility test
-  next; logic tiers in this doc; star/token gating declined).
+- what other AP randomizers do and the designer's decisions on what to adopt.
 
 ## Scope
 
-- Official Farsite Expedition campaign only: story1..story20 (story0
-  tutorial exempt, always available). SPAN Experiments (26 missions) is a
-  stretch goal - it shares the SpanNetworkPlanet map system.
-- Goal: complete story20 ("Founders"?) - hard-locked as the finale; its
-  Mission Unlock item exists but logic requires a configurable number of
-  completed missions before it is reachable (SC2-style).
+- Official Farsite Expedition campaign only: story1..story20 (story0 tutorial
+  exempt and hidden). SPAN Experiments (26 missions) is a stretch goal - it
+  shares the SpanNetworkPlanet map system.
+- **Goal: beat story19, Founders.** Its completion is the Victory event
+  (`VICTORY_EVENT` in `apworld/cw4/locations.py`, `FINAL_MISSION = 19`).
+- The finale is additionally gated on a COUNT of other missions completed -
+  `missions_for_finale`, default 12, maximum 19, 0 to disable. Reaching Founders
+  is not enough; the mission is made genuinely unwinnable until the count is met.
+- **story20, Ever After, is an ordinary mission, not the finale.** The campaign
+  reaches it through a cutscene after Founders and it is not on the map at all;
+  the mod places it beside Wallis so it can be played like any other.
 
 ## Items
 
 | Category | Count | Notes |
 |---|---|---|
-| Mission Unlock: story2..story20 | 19 | story1 (or a configurable starter set) starts unlocked |
-| Unit unlocks | ~20 | cannon, mortar, sprayer, sniper, missilelauncher, nullifier, miner, greenarrefinery, terp, porter, factory, ernportal, runway, bomberpad, acbomberpad, rocketpad, platform, shield, microrift, chronat, airship, bertha, sweeper (exact list per survey; riftlab/tower/pylon always available) |
-| Progressive ERN | ~4-8 | ernportal building is an item; ERNs to slot are progressive |
-| ERN Spawning | 1 | separate late-game unlock: whether the ERN portal may actually spawn/produce ERNs. Gates supercharging units. Never mission-required, so it doubles as strong filler |
-| Build limit increases | filler | e.g. +N tower/cannon limit as useful filler |
+| `Mission Unlock: <Title>` | 20 minus `starter_missions` | An item exists for ALL 20 missions; the starters are simply not put in the pool. Default 2 starters, so 18 |
+| Unit unlocks | 21 | Every key in `UnitRules.ItemToUnit` except the three bonus units. **Pylon is an item** - only `riftlab` and `tower` are always available |
+| Bonus units | 3 | Airship, Bertha, Sweeper. These are CMOD units: `GetDataName()` returns a GUID, never a name |
+| `Progressive ERN` | `progressive_erns`, default 4 | Range 0-40. Never required to finish a mission, so this is purely pool budget |
+| `Build Limit +1 (<Unit>)` | filler | Increments over the game's own default limits |
+| Energy storage / base generation | filler | Two items, applied to the rift lab. See "Energy items" below |
+| Traps | 7 | Share of the non-progression slots set by `trap_percentage`, default 50 |
+
+There is no "ERN Spawning" item. An earlier draft proposed one; it was never
+built, and the deny-sweep idea it depended on was explicitly ruled out - see
+"Degradation over failure".
 
 ## Locations
 
-- CW4's six objective slots are fixed by TYPE (index 0 Nullify, 1 Totems,
-  2 Reclaim, 3 Hold, 4 Collect, 5 Custom - confirmed by the survey). One
-  location per REQUIRED objective, named "<Title> - <Type>" (e.g.
-  "Home - Nullify"); the client maps objective index -> type directly.
-- One "<Title> - Mission Complete" location per mission except the finale,
-  whose completion is the Victory event.
-- Total: 39 objective + 19 mission-complete = 58 locations (see
-  apworld/cw4/locations.py REQUIRED_OBJECTIVES for the per-mission table).
+**236 locations, one per INSTANCE.** Every totem, every nullifiable structure and
+every info cache is its own check - not one check per objective TYPE, which is
+what the first draft did and what produced only 58.
+
+| Kind | Count | Name |
+|---|---|---|
+| Per-instance counted objectives | 203 | `<Title> - Cache N`, `<Title> - Totem N`, `<Title> - Nullify N` |
+| Reclaim | 11 | `<Title> - Reclaim` |
+| Custom | 3 | `<Title> - Custom` (missions 1, 19, 20) |
+| Mission Complete | 19 | `<Title> - Mission Complete`, every mission but the finale |
+
+Three things about this that are easy to get wrong:
+
+- **The instance PREFIX is not the type word.** Objective slot 4 is `Collect`, but
+  its locations are named `Cache N`. `MissionRules.InstanceKind` owns that
+  mapping, and building the type-shaped name instead matched nothing - which
+  silently disabled the map's glyph colouring once already.
+- **Optional objectives count.** A mission's nullify targets are locations whether
+  or not the mission requires nullifying them.
+- **Instances are numbered by ACTIVATION ORDER.** The game cannot tell one totem
+  from another, so the Nth activation sends the Nth check.
+
+The per-mission counts live in `INSTANCE_COUNTS` (`apworld/cw4/locations.py`), not
+in this document, so they cannot drift. `REQUIRED_OBJECTIVES` no longer drives the
+location table - it only feeds mission-completion requirements.
 
 Client/apworld contract (slot_data requirement groups, persistence, tracker
 colors, save archiving): see design/2026-08-25-mod-wiring-design.md.
 
 ## Regions and access
 
-- Region per mission; Menu -> story1 (or starter missions).
-- Edges follow the planet graph (survey `graph` dump:
-  connectedPlanetGUIDS). Entering region storyN requires:
-  1. `Mission Unlock: storyN`
-  2. Unit logic for that mission (below)
-- Spheres are emergent: AP computes them from these rules during fill.
+**Missions are OPEN.** Every mission region connects directly from Menu and is
+gated on one thing: its `Mission Unlock` item. There are no planet-graph edges -
+the campaign's linear chain is display-only.
 
-## Unit logic (SC2-style semantic predicates)
+Unit logic is NOT on the region edge. It sits on the LOCATIONS inside each
+mission, which is what lets a player enter a mission they cannot yet finish and
+still collect the checks they can reach. That distinction is load-bearing for the
+finale: Founders holds 24 checks, and gating entry would put all of them behind
+the mission count.
 
-- has_offense: any of cannon/mortar/sprayer (creeper clearing)
-- has_antiair: sniper or missilelauncher (required where census shows
-  spores/airsacs/skimmers)
-- has_economy: miner (+ greenarrefinery for late missions)
-- has_mobility/support: terp/porter/platform etc. where terrain demands
-- Baseline rule per mission: the vanilla availability schedule (natflags
-  survey) is the reference: a mission is in-logic when the player's unit
-  set covers the semantic needs that the vanilla loadout covered.
-- All missions were designed to be beatable with their vanilla loadout;
-  logic never requires MORE than vanilla, only equivalents.
+Spheres are emergent: Archipelago computes them from these rules during fill.
+
+## Unit logic
+
+The rules are explicit per-mission tables in `apworld/cw4/rules.py`, NOT semantic
+predicates. An earlier draft used SC2-style `has_offense` / `has_economy` /
+`has_antiair` categories derived from the vanilla unlock schedule; that was
+abandoned because it disagreed with how the missions actually play. The tables are
+`OFFENSE`, `GREENAR_CHAIN`, `PREREQUISITES`, `MISSION_EXTRA`, `OBJECTIVE_OWN`,
+`WAIVES_MISSION_REQUIREMENTS` and `DEFENSIVE`, and the sections below describe
+each.
+
+Four points the abandoned predicates got wrong, spelled out because they are the
+mistakes most likely to be re-introduced:
+
+- **Offense is Cannon OR Mortar. Sprayer is NOT offense** - it burns bluite, and
+  every bluite map was judged short of the resource for a sprayer-only run.
+- **Economy is not in logic at all.** No Miner, no ERN, no Factory-for-storage
+  general rule. Tower energy carries every map, tested on the one mission that
+  looked like an exception - see "Cross-mission questions, answered".
+- **Anti-air is not required in the standard tier.** Sniper and Missile Launcher
+  gate nothing except The Compound. Under `logic_difficulty: casual` they become
+  a required pair from mission 6 onward.
+- **Logic is NOT bounded by the vanilla unlock schedule.** The draft claimed logic
+  "never requires MORE than vanilla, only equivalents". That is false, and
+  deliberately so: mission 11 needs Porter or Platform (vanilla gives them at 12
+  and 18), mission 12 needs Shield (vanilla: 13), mission 15 needs Chronat
+  (vanilla: 16). What a mission REQUIRES is a fact about the mission, not about
+  the order the campaign hands out units.
 
 ## Client behavior (proven by probe)
 
 - Locks/unlocks: per-frame whitelist enforcement + LeftPane refresh recipe.
+  Unit gating is genuinely per-frame; the mission MAP is not - it is driven by
+  `Span.Start` and `SpanNetworkPlanet.Refresh`, see docs/developing.md.
 - Live delivery: works mid-mission (SetEnabledButtons path).
-- Location sends: objective/mission-complete transitions via World polling.
-- Mission gating: OnLaunch + OnLoad prefixes; map shows native "?" for
-  locked missions (mcs rewrite gives clean slate per slot; display owned
-  by mod thereafter); LockedPlanet visual + marker recoloring for tracker
-  states. Palette settled: red not accessible / yellow reachable but not in
-  logic / green reachable and in logic / orange partial / grey finished,
-  per the Archipelago-PopTracker convention in the wiring design.
+- Location sends: per-instance, from patches on `Totem.totemComplete` and
+  `InfoCache.DestroyUnit` plus a once-a-second safety poll. Nullification has no
+  hook and relies on the poll.
+- Mission gating: OnLaunch + OnLoad prefixes; map shows native "?" for locked
+  missions; LockedPlanet visual + marker recoloring for tracker states.
+  **mcs.dat is NOT rewritten** - an early design did that and Steam Cloud
+  restores it. The mod owns the display from AP state and leaves the file alone.
+  Save isolation moves `saves/farsite` per slot instead.
+- Palette: FOUR colours - red not accessible, yellow reachable but not in logic,
+  green reachable and in logic, grey finished. There is no orange: `Partial`
+  exists as a TrackerStatus but maps to green, so do not document an orange.
 - Menu: chronom/markV/colonies/editor hidden; AP login panel functional.
 
 ## Survey data (probe v0.54, automated, 2026-08-25)
@@ -121,16 +181,23 @@ Notes:
 - nullifier arrives at story3 - the nullify-objective win condition unit.
 - Objective slots are always 6; required counts 1-4 (story20 requires 4).
 
-### Derived logic categories
+### Derived logic categories - SUPERSEDED, kept as the discarded approach
 
-- has_offense = cannon OR mortar OR sprayer  (needed from story2 on)
-- has_nullify = nullifier                     (nullify objectives, story3+)
-- has_antiair = missilelauncher OR sniper     (story6+ where spores present)
-- has_economy = miner                         (story4+), + factory/ern for
-  late-mission energy scale (story10+ heuristic)
-- has_terraform = terp                        (specific terrain missions)
-- Baseline in-logic rule for storyN: player's set covers every category the
-  vanilla cumulative loadout at N covered (never stricter than vanilla).
+These were the first attempt: semantic categories inferred from the vanilla unlock
+schedule. **None of it is in the code.** It is kept because knowing what was tried
+and why it failed is worth more than a clean page - the failure being that a
+category derived from unlock ORDER says nothing about what a mission needs, and
+the designer's playthrough disagreed with it mission after mission.
+
+    has_offense = cannon OR mortar OR sprayer   (sprayer is NOT offense)
+    has_nullify = nullifier                      (now type-wide, all 20)
+    has_antiair = missilelauncher OR sniper      (casual tier only)
+    has_economy = miner                          (not in logic at all)
+    has_terraform = terp                         (per-objective, not per-mission)
+    Baseline: never stricter than vanilla        (false - see Unit logic above)
+
+Every line above is wrong in the way noted beside it. The real rules are the
+explicit tables in `apworld/cw4/rules.py`.
 
 
 ## Logic corrections from the designer (user, 2026-08-25) - AUTHORITATIVE
@@ -176,9 +243,14 @@ Addendum (user, 2026-08-26) - objective requirements:
 - **Totems objective requires greenar**: totems are activated by feeding them
   greenar, so the greenar chain (Greenar Refinery) is required wherever a
   Totems objective is a location. Encoded in rules.objective_requirements.
-  14 missions have one: 2,3,4,5,7,8,9,10,12,13,14,15,16,20.
-- **Nullify objective requires the Nullifier** (4 missions: 2,11,15,20).
-  Already encoded; missions themselves never require it.
+  CORRECTED: **11** missions carry the chain - 5, 7, 8, 9, 10, 12, 13, 14, 15,
+  16, 20. Missions 2, 3 and 4 require NOTHING for their totems: they run off
+  loose liftic caches, so there is deliberately no type-wide Totems rule.
+- **Nullify objective requires the Nullifier.** CORRECTED: this is now
+  **type-wide on all 20 missions**, not four. Encoding it only on the missions
+  that require nullifying left every OPTIONAL nullify target reachable
+  bare-handed once those targets became checks - roughly 120 locations. The
+  missions themselves still never require it, only their nullify locations do.
 Caveat: Totem.ammoWares is authored PER MAP (ware type -> amount), so a map
 could in principle demand a different ware. GetAmmoWareWanted reads 0 for all
 wares at mission start, so the live requirement was not readable - the blanket
@@ -211,9 +283,12 @@ missions add to it:
 | Mission | Extra | Source |
 |---|---|---|
 | 12 Archon | Nullifier | HEDGED: an enemy shuts off energy production, "super hard to do anything without a nullifier" |
+| 12 Archon | Shield | HEDGED: the map rains creeper, "doable/not super hard mode if you get SHIELDS as it creates a safe space" |
 | 16 The Compound | Sniper | saw blades die only to snipers, "no way to do any objectives without" |
 
-The Compound is the ONLY mission where a sniper is in logic.
+The Compound is the only mission where a sniper is in logic **in the standard
+tier**. Under `logic_difficulty: casual`, a Sniper OR Missile Launcher is
+required from mission 6 onward.
 
 ### Caches that need no weapon
 
@@ -301,7 +376,8 @@ be to the right of Wallis."
 Implemented: `FINAL_MISSION = 19` in the apworld and `MissionRules.FinalMission`
 in the mod, so finishing Founders sends the goal and Ever After became an
 ordinary mission with its own Mission Complete check. The location count is
-unchanged at 58. The mod's off-map placement now hangs Ever After off Wallis and
+unchanged by that decision - though the per-instance rework has since taken it
+from 58 to 236. The mod's off-map placement hangs Ever After off Wallis and
 to its right.
 
 ### Cross-mission questions, answered
@@ -385,11 +461,17 @@ useful items. Both are tested.
 
 ### Verified
 
-71 world tests, 80 C# tests, and 80 generated seeds with no failures across
+108 world tests and 104 C# tests as of 2026-08-31. The 80-generated-seed sweep
+below predates the per-instance rework and is NOT recorded in the repo, so treat
+it as history rather than a current guarantee; it covered
 defaults, ERNs at 0 and 40, generation-only filler, traps at 0 and 100 percent, a
 single starter mission, and 4-player multiworlds.
 
 ### Open design options for more locations/items (user, 2026-08-27)
+
+**Two of the three shipped.** Options 1 and 2 (caches and nullify targets as
+individual locations) are the per-instance model now in use - that is where the
+236 locations come from. Only option 3, the Rift Lab as an item, is still open.
 
 Raised while sizing the pool (59 locations vs 47 real items = 12 filler slots):
 
@@ -397,7 +479,9 @@ Raised while sizing the pool (59 locations vs 47 real items = 12 filler slots):
    are InfoCaches, and they ARE the Collect objective - `GameSpace.mustCollect`
    equals the InfoCache count on every mission measured. Today all of a
    mission's caches collapse into ONE "Collect" check; each could be its own
-   location instead. Counts are in the table below.
+   location instead. **SHIPPED** - see the Locations section at the top. The
+   per-mission counts live in `INSTANCE_COUNTS` (`apworld/cw4/locations.py`);
+   there is no table in this document (an earlier draft promised one).
 2. **First-nullify as a location.** `GameSpace.nullifiableUnits` is the set the
    Nullify objective completes on, so per-structure or first-per-mission
    nullify checks are capturable.
@@ -409,13 +493,21 @@ Raised while sizing the pool (59 locations vs 47 real items = 12 filler slots):
    Requires care: with no Rift Lab item and no pre-placed base, a mission is
    unstartable, which is the intended gate but must never be the ONLY reachable
    state (at least one pre-placed mission must be in the starter set).
-   `riftLabPreplaced` in the table below is measured from `GameSpace.commandBase`
+   `riftLabPreplaced` is measured from `GameSpace.commandBase` by
+   `counts:dump`. There is no table for it in this document; run the command
    existing at mission load.
 
 CAVEAT on all counts below: they are measured at MISSION START. Enemies, totems
 and nullifiable structures can appear during play - story2 has both a Nullify
 and a Totems objective yet reports 0 nullifiable and 0 totems at load. Treat
 these as a floor, not a total.
+
+**CORRECTION 2026-08-31, and this one matters:** for the COUNTED objectives the
+counts are now exact, because they define the location set. The survey confirmed
+every required counting objective has a non-zero target at load, so nothing is
+hidden behind mid-mission spawning, and story2 reports 2 totems and 1 nullifiable
+rather than the zeros this caveat cites. Believing "a floor, not a total" now
+would suggest the location set is incomplete when it is not.
 
 ### Per-mission resources (survey, 2026-08-26)
 
@@ -464,7 +556,17 @@ is the canonical reference in
 [research-findings.md](research-findings.md) under "Unit naming". Kept in one
 place on purpose so the two copies cannot drift.
 
-### Buildings the mod does not model (2026-08-26)
+### Buildings the mod does not model (2026-08-26) - RESOLVED, it models all three
+
+**This section's premise was a naming mistake and is kept only to explain it.**
+`ReactorButton`, `SuperTowerButton` and `DeliveryPadButton` are not three
+unmodelled buildings - they are the BUTTON OBJECT NAMES of the miner, the pylon
+and the porter, all three of which the mod has always driven through
+`minerAvailable`, `pylonAvailable` and `porterAvailable`. See "A fourth name
+space" in [research-findings.md](research-findings.md).
+
+The original text follows.
+
 
 The build panes contain `ReactorButton`, `SuperTowerButton` and
 `DeliveryPadButton`. None of the three is among the 26 BuildUnitManager
