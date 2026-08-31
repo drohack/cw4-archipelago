@@ -20,6 +20,9 @@ obj/
 .vs/
 Thumbs.db
 
+# Python bytecode from running the apworld's tests in place
+__pycache__/
+
 # Stray artifacts
 *.bak
 *.png
