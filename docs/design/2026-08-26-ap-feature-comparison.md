@@ -1,5 +1,10 @@
 # AP randomizer feature comparison + recommendations (2026-08-26)
 
+> **Status note added 2026-08-31.** The comparison table and its verdicts are a
+> 2026-08-26 snapshot. Several "Ours:" rows have since been done and are marked
+> DONE inline; read the rest as history, not as the current gap list.
+
+
 ## Purpose
 
 Compare our CW4 Archipelago mod against seven established, officially-supported
@@ -84,7 +89,11 @@ Location name groups:
 - Hylics 2: party/gesture/medallion shuffle, `StartLocation`, `ExtraLogic`,
   `death_link`. Subnautica: 4-way `goal`, `swim_rule` tiers, `creature_scans`,
   weighted `filler_items_distribution`, `death_link`.
-- Ours: empty `CW4Options(PerGameCommonOptions)` - only the inherited common
+- Ours: **DONE** - 18 game options now live in `apworld/cw4/options.py`
+  (`missions_for_finale`, `logic_difficulty`, `starter_missions`,
+  `trap_percentage` and seven trap weights, `progressive_erns`, four energy
+  tunables, three filler weights). Was: empty `CW4Options(PerGameCommonOptions)`
+  - only the inherited common
   options; no game-specific options yet.
 
 ### DeathLink
@@ -96,12 +105,17 @@ death until a safe game state. Ours: none.
 ### Traps
 Only DLC Quest ships real traps (Zombie Sheep, timed spikes, loading-screen,
 name-change). TUNIC's fool_traps are opt-in tiers. BRC, OC2, Subnautica,
-Inscryption, Hylics 2: none. Ours: none.
+Inscryption, Hylics 2: none. Ours: **DONE** - seven trap items at
+`trap_percentage` (default 50), each with its own frequency weight, fired on
+receipt by `TrapApplier`. Note two shipped under different names than this doc
+uses: "emitter burst" is `Emitter Overdrive` and "weapon drain" is `Ammo Drain`.
 
 ### Filler
 Subnautica has weighted `filler_items_distribution`; BRC has tiered REP;
 Inscryption/Hylics 2 use fixed multisets. None use per-yaml weight sliders.
-Ours: filler is build-limit items that are currently no-ops (no CW4 unit has a
+Ours: **DONE** - filler is weighted across three kinds (energy storage, base
+generation, build limits) by three yaml weights, and the energy pair has a
+measured in-game effect. Was: build-limit items that are no-ops (no CW4 unit has a
 default cap) - flagged in the logic design.
 
 ### Item/location groups, hints

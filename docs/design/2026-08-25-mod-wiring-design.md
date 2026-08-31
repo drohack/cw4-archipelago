@@ -1,5 +1,12 @@
 # Mod wiring design (2026-08-25)
 
+> **How to read this (note added 2026-08-31).** This is the wiring design as
+> agreed on 2026-08-25 and it remains the reference for the client/apworld
+> CONTRACT. Several specifics have changed since; the ones a reader would
+> otherwise take as current are corrected inline below. `docs/developing.md` and
+> `docs/randomizer-design.md` carry current behaviour.
+
+
 Approved design for turning `src/CW4Archipelago` from a load-only skeleton into a
 playable Archipelago client: connect/auto-connect, receive items live, send
 location checks, drive the main menu and mission map, per-slot save archiving.
@@ -19,7 +26,9 @@ in `research-findings.md`; the item/location/logic content comes from
   - red - not accessible (mission unlock not held)
   - yellow - reachable but not in logic
   - green - reachable and in logic
-  - orange - partial (some remaining checks in logic, some not)
+  - orange - partial (some remaining checks in logic, some not).
+    **CORRECTION: no glyph is ever orange.** `TrackerStatus.Partial` exists but
+    `StatusColor` maps it to GREEN, so the map shows four colours, not five.
   - grey - finished (PopTracker hides cleared locations; planets cannot hide)
   - blue (visible but unobtainable) has no CW4 equivalent and is unused
 - **Logic lives once, in the apworld.** The apworld ships requirement groups in
@@ -113,21 +122,27 @@ cannot drift.
 | Sniper | sniper | | Sweeper | sweeper |
 | Porter | porter | | | |
 
-Always available: riftlab, tower, pylon. "Build Limit +1 (X)" adds one to the
+Always available: riftlab, tower. **CORRECTION 2026-08-31: pylon is NOT always
+available** - it is an unlockable AP item, and it is load-bearing progression for
+Archon's buried caches. "Build Limit +1 (X)" adds one to the
 game's default limit for unit x. There are no limit-0 items.
 
 ## Persistence and offline
 
 - Config (BepInEx `com.droha.cw4archipelago.cfg`): Host, Port, Slot, Password,
-  AutoConnect, DebugCommands. Panel edits write config. AutoConnect connects at
-  Galaxy scene entry and reconnects with backoff (5s, 10s, 20s, cap 60s).
+  AutoConnect, DebugCommands, and ShowSpan. Panel edits write config.
+  AutoConnect connects at Galaxy scene entry and reconnects with backoff.
+  **CORRECTION: 3 attempts at 5s, 10s, 15s** - no 20s step and no 60s cap.
 - Slot cache: `<Documents>/My Games/creeperworld4/archipelago/slots/<seed>-<slot>.json`
   holding received item names in server index order, checked locations, pending
   checks, and a slot_data snapshot. Loaded on connect attempt and at launch when
   AutoConnect is set, so offline play uses last-known state.
 - Pending checks flush on (re)connect via CompleteLocationChecks; the server's
   AllLocationsChecked reconciles the cache.
-- Goal: story20 mission complete -> SetGoalAchieved (queued if offline).
+- Goal: **CORRECTION - story19 (Founders), not story20.** Ever After plays as an
+  epilogue rather than a climax, so it is an ordinary mission. The goal is also
+  gated on a count of missions beaten (`missions_for_finale`, default 12).
+  SetGoalAchieved, queued if offline.
 
 ## Mission-page display ownership + per-slot save isolation
 

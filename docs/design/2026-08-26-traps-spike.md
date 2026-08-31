@@ -277,3 +277,35 @@ Deliberately out of scope for a spike, and unchanged from the plan:
 - Balance beyond first-order sanity. The numbers above are calibrated against
   the game's own content, not playtested for difficulty - that wants a real
   run through several missions.
+
+## What actually shipped (added 2026-08-31)
+
+This report is a spike, kept as written. Two things changed between it and the
+items in the pool, so read the report through these:
+
+**Two traps were renamed.** The spike calls them "emitter burst" and "weapon
+drain"; the items are **Emitter Overdrive** and **Ammo Drain**. The other five
+kept their names: Spore Strike, Spore Scatter, Creeper Surge, Energy Drain,
+Unit Stun. All seven are in `TRAP_ITEMS` (`apworld/cw4/items.py`), each with its
+own `trap_weight_*` yaml option, and `trap_percentage` defaults to 50.
+
+**The emitter caveat is smaller than the sample above suggests, but it is real
+and unresolved.** The four missions measured here happened to include three with
+no emitters at all, which overstates it. The 20-mission enemy census in
+[randomizer-design.md](../randomizer-design.md) has emitters at mission start on
+11 of 20 (2, 3, 4, 6, 7, 9, 10, 11, 13, 16, 17), and three more list a "full mix"
+that probably includes them. Enemies can also appear during play, so the true
+figure is better than a start-of-mission count.
+
+Still, on roughly a quarter to a third of missions **Emitter Overdrive does
+nothing** - it logs "no emitters on this map - trap had no effect" and there is no
+fallback. That sits against this document's own disqualifier: *"A trap item that
+silently does nothing is a bad item"*, and *"An effect only belongs in the pool if
+it fires on essentially every mission, or if it carries a fallback effect for
+missions that cannot host it."*
+
+It shipped anyway, and the mitigation is that `trap_weight_emitter_overdrive` can
+be set to 0. That is a workaround, not the fallback this document asked for. An
+open decision, recorded here rather than forgotten: give it a fallback, drop it,
+or accept it.
+
