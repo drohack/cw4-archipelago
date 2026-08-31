@@ -8,10 +8,14 @@
 # objective that is not a check in this slot. Neither is visible in a log line.
 #
 # EXPECTED RESULT (assert this against the screenshot):
-#   Farsite       sphere, 1 icon, GREEN
-#                 (vanilla draws a TOTEMS icon here and the mission has no
-#                  totems - it has 2 caches and a custom objective, measured.
-#                  The icon SHAPE is vanilla's; the colour is ours.)
+#   Farsite       sphere, 2 icons, both GREEN: collect then custom (a skull)
+#                 (vanilla draws ONE icon here and it is a TOTEMS icon, on a
+#                  mission with no totems at all - it has 2 caches and a custom
+#                  objective, measured live. The mod reconciles the icon set to
+#                  the objectives that actually have checks: the totems icon is
+#                  retextured to collect, and the custom icon is added. No stray
+#                  quad may sit at the container origin, and the two must be
+#                  spaced like every other planet's.)
 #   Home          sphere, 3 icons: nullify GREEN, totems GREEN, collect GREY
 #                 (its Cache 1 is checked, the rest are open)
 #   Not My Mars   sphere, 3 icons, ALL GREY (everything checked)
@@ -38,7 +42,12 @@ sleep 15
 send "item:Mission Unlock: Farsite"
 send "item:Mission Unlock: Home"
 send "item:Mission Unlock: Not My Mars"
-# Farsite: one custom objective, untouched      -> GREEN
+# Farsite: two caches and a custom objective, untouched -> both GREEN.
+# This is the mission whose authored icon set is WRONG (the map draws a totems
+# icon and the mission has no totems), so registering both kinds is what
+# exercises the icon reconcile: one marker retextured, one added.
+send "loc:add Farsite - Cache 1"
+send "loc:add Farsite - Cache 2"
 send "loc:add Farsite - Custom"
 # Home: cache done, totems and nullify open     -> Cache GREY, others GREEN
 for l in "Home - Cache 1" "Home - Totem 1" "Home - Totem 2" "Home - Nullify 1"; do send "loc:add $l"; done

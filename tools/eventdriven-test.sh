@@ -29,7 +29,7 @@ send() { printf "%s\n" "$1" > "$CMD"; sleep 2; }
 # "match to the last =" sed silently returned the wrong number both times.
 perf_field() { since | grep "DEBUG PERF:" | tail -1 | grep -o "$1=[0-9]*" | cut -d= -f2; }
 
-echo "step 0/7: clean slate + known config"
+echo "step 0/8: clean slate + known config"
 taskkill //IM CW4.exe //F >/dev/null 2>&1; sleep 2
 rm -f "$CMD"
 mkdir -p "$CW4/BepInEx/config"
@@ -48,14 +48,14 @@ ShowSpan = false
 DebugCommands = true
 CFGEOF
 
-echo "step 1/7: launch"
+echo "step 1/8: launch"
 cd "$CW4" && ./CW4.exe > /dev/null 2>&1 &
 sleep 14
 MARK=0   # BepInEx truncates the log on launch
 
 # 1. Every new patch must actually be applied. A silently unapplied patch is
 #    the whole risk of this refactor: the map would simply never colour.
-echo "step 2/7: patches applied"
+echo "step 2/8: patches applied"
 for pat in "map opened" "planet refresh" "totem complete" "cache destroyed" \
            "nullifier targets" "objective row"; do
   if grep -q "Harmony patch '$pat' failed" "$L"; then r=1; else r=0; fi
@@ -65,14 +65,14 @@ done
 # 2. On the MENU the tracker must scan ZERO times. This was 2256 scans in
 #    twenty seconds before the refactor - a whole-scene FindObjectsOfType per
 #    frame, finding nothing, because the menu and the map share a scene.
-echo "step 3/7: no polling on the menu (20s)"
+echo "step 3/8: no polling on the menu (20s)"
 mark; sleep 20
 n=$(since | grep -c "TRACKER: scanned the map")
 verdict $([ "$n" = 0 ] && echo 0 || echo 1) "menu scans = 0 (got $n)"
 
 # 3. Opening the map is an EVENT (Span.Start), so it should produce exactly the
 #    scan the menu did not.
-echo "step 4/7: opening the map scans once"
+echo "step 4/8: opening the map scans once"
 mark
 send "story:open"
 sleep 4
@@ -82,7 +82,7 @@ verdict $([ "$n" -ge 1 ] && echo 0 || echo 1) "map open scans >= 1 (got $n)"
 # 4. THE REGRESSION. The finale's custom glyph must be RED while the
 #    mission-count gate is shut and GREEN once it opens - driven by a location
 #    check, which is exactly the change that raised no event.
-echo "step 5/7: finale gate flips the glyph colour"
+echo "step 5/8: finale gate flips the glyph colour"
 send "item:Mission Unlock: Founders"
 send "loc:add Founders - Custom"
 send "finale:need 12"
@@ -124,7 +124,27 @@ verdict $r "recolours advanced on the state change ($before -> ${after:-none})"
 #    event patch and the once-a-second safety poll must not both send it.
 #    "Home" has one cache, two totems and one nullifiable target, so it
 #    exercises all three counted paths in the smallest mission that has them.
-echo "step 6/7: per-instance checks, no double sends"
+# The icon SET, not just its colour. The map draws one icon per objective in the
+# map file's authored list, and on Farsite that list is wrong: a totems icon on a
+# mission with no totems, and nothing for its two caches or its custom objective.
+# The reconcile makes the set follow the locations, so this planet must end up
+# with exactly Collect and Custom and no active totems icon.
+echo "step 6/8: the icon set follows the locations"
+send "item:Mission Unlock: Farsite"
+for loc in "Farsite - Cache 1" "Farsite - Cache 2" "Farsite - Custom"; do
+  send "loc:add $loc"
+done
+mark
+send "glyphs:dump Farsite"
+sleep 3
+active=$(since | grep "DEBUG GLYPHS: story1 " | grep "active=ON" | grep -o "obj=[0-9]*" | cut -d= -f2 | tr '\n' ',')
+verdict $([ "$active" = "4,5," ] && echo 0 || echo 1) "Farsite icons are Collect,Custom (got ${active:-none})"
+n=$(since | grep "DEBUG GLYPHS: story1 " | grep -c "active=ON.*tex='ObjTotem'")
+verdict $([ "$n" = 0 ] && echo 0 || echo 1) "no active totems icon on Farsite (got $n)"
+n=$(since | grep -c "DEBUG GLYPHS: story1 .*active=ON.*pos=(0,0,0)")
+verdict $([ "$n" = 1 ] && echo 0 || echo 1) "exactly one icon at the row origin (got $n)"
+
+echo "step 7/8: per-instance checks, no double sends"
 send "item:Mission Unlock: Home"
 for loc in "Home - Totem 1" "Home - Totem 2" "Home - Cache 1" "Home - Nullify 1"; do
   send "loc:add $loc"
@@ -176,7 +196,7 @@ echo "  NOTE  a real PICKUP is unscriptable (mouse input never reaches CW4's UI)
 echo "        Confirmed by hand on 2026-08-31: mustCollect 1->0, objective 4 DONE,"
 echo "        'Home - Cache 1' sent exactly once. See tools/cache-handtest.sh."
 
-echo "step 7/7: shut down"
+echo "step 8/8: shut down"
 taskkill //IM CW4.exe //F >/dev/null 2>&1
 echo "---"
 echo "eventdriven: $PASS passed, $FAIL failed"

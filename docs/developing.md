@@ -362,6 +362,47 @@ SHAPE stays vanilla's mistake; fixing that means building the marker set
 ourselves rather than colouring the game's, which is a bigger change and is not
 done.
 
+### The icon set, not just its colour
+
+The map draws one icon per objective in the MAP FILE's authored list, and that is
+not always the mission's real objective set. Tabulated across all twenty planets:
+19 agree, Farsite does not. It draws a Totems icon on a mission with no totems,
+while its two caches and its custom objective got no icon at all - so their
+status could not be read off the map. Vanilla does the same, confirmed by
+screenshotting the base game with the randomizer parked, so this is the game's
+data rather than a regression.
+
+`TrackerView.ReconcileGlyphs` now makes the set follow the LOCATIONS, via
+`MissionRules.ExpectedObjectiveIndices`. Generic rather than a special case for
+mission 1: a no-op wherever the game already agrees, and self-correcting if a
+game update changes the map data.
+
+**It does not require a connection, and the first version wrongly did.** Driving
+the icons purely from the AP location list meant that opening the game
+unconnected showed vanilla's wrong icon, because that list is empty until a
+server sends one - and the map still displays Farsite, since it is the default
+starter. Which objectives are CHECKS is a per-seed question; which objectives a
+mission HAS is not. `MissionRules.MissionObjectives` is the measured answer to
+the second, used as the fallback; locations win once known, because a seed may
+exclude some. `MissionObjectivesTests` pins that table against what the game's
+own markers draw, so 19 agreeing and Farsite disagreeing is asserted rather than
+remembered.
+
+Three measurements made it cheap (details in
+[research-findings.md](research-findings.md)): writing `objective` re-textures
+the marker, so re-pointing an icon needs no donor and no prefab hunt; the layout
+is `x = 0.55 * ordinal` with nothing else varying, so an added icon goes exactly
+where the game would have put it; and a clone keeps the SOURCE's position, so the
+position must always be written.
+
+It also absorbed a bug nobody had noticed: **Refresh appends markers without
+clearing the container**, so every `forceUnlocked` flip left another exact copy
+stacked on the previous one. Invisible, because they overlap perfectly. The
+reconcile hides the surplus.
+
+Idle cost is zero: 1,250 frames on an open map with the Refresh, paint and
+recolour counters unmoved, and one reconcile per planet.
+
 ### Screenshots are part of verifying the map
 
 Both of the above were invisible to every log-reading test and were reported by a
@@ -486,12 +527,17 @@ say:<text>, showall:on|off, shot:<path>, msgbox:set, msgbox:dump, canvas:dump,
 hud:dump, minimap:dump, menu:dump, toast:<text>, finale:need <n>, finale:beat
 <n>, loc:add <location>, perf, glyphs:dump [planet title], totem:complete,
 cache:destroy, counts:dump, totems:dump, pane:dump, resources:dump, diag:span,
-diag:watch [seconds].
+diag:watch [seconds], diag:refresh <planet title>.
 
 Four of those exist for the event-driven work and are worth knowing:
-`glyphs:dump` reads each objective glyph's colour back off its material and names
-it RED/YELLOW/GREEN/GREY, so the tracker's colouring can be asserted from a log
-instead of eyeballed in a screenshot; `perf` reports recolour passes plus how
+`glyphs:dump` reads each objective glyph back off the live object - colour named
+RED/YELLOW/GREEN/GREY, plus name, activeSelf, localPosition, material and
+`_MainTexture` - so both the colouring AND the icon set can be asserted from a
+log instead of eyeballed in a screenshot, and a HIDDEN marker can be told from an
+ABSENT one; `diag:refresh` calls the game's Refresh on one planet and reports its
+objective child count either side, which is how "Refresh appends markers" was
+measured (and it adds markers as a side effect, so it is a measurement, not
+something to leave running); `perf` reports recolour passes plus how
 many times each location patch has fired; `totem:complete` drives
 `Totem.totemComplete` on one live totem, which really completes it and really
 goes through the patched setter; `cache:destroy` destroys one info cache, which is
@@ -529,7 +575,7 @@ path) and write outputs under `$TEMP`.
 
 1. Game closed; `dotnet build` clean for both projects.
 2. `tools/battery2.sh` passes 13/13.
-3. `tools/eventdriven-test.sh` passes 19/19 and `tools/devtools-test.sh` has no
+3. `tools/eventdriven-test.sh` passes 22/22 and `tools/devtools-test.sh` has no
    failures - between them they cover the event hooks, which fail silently.
 4. `tools/map-visual-check.sh` and READ the screenshot against the expected
    result in its header. Two map bugs reached a player because every check here

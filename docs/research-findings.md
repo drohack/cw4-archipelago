@@ -940,3 +940,74 @@ Two live signals were expected to agree: `maxMustCollect - mustCollect.Count`
 `MissionObjectiveData.count`. They do not - `count` never moves. `counts:dump`
 prints both plus every objective's enabled/count/complete state, which is how
 that was caught.
+
+## Objective markers: layout, re-texturing, and Refresh's duplicates (2026-08-31)
+
+Measured to make a planet's icon set match its actual checks. Four facts, all
+from `glyphs:dump` (which now prints name, activeSelf, localPosition, localScale,
+material and `_MainTexture` per marker) and `diag:refresh`.
+
+**1. The layout is one rule, and there is no layout component.** Markers are
+world-space quads under `Objectives`. Every planet on the map, without exception:
+
+    marker k:  localPosition = (0.55 * k, 0, 0)    localScale = (0.7, 0.7, 0.7)
+
+k is the ordinal position in the row, NOT the objective index, and the row runs
+left to right in ascending objective index. So an added marker can be placed
+exactly where the game would have put it - but the position must be written,
+because a clone inherits the SOURCE marker's position (a clone of a 4th-in-row
+donor landed at x=1.65).
+
+**2. Writing `objective` re-textures the marker.** This is the useful one:
+
+    tex before='ObjTotem'  afterObjectiveWrite='ObjCollect'
+
+`SpanNetworkPlanetObjective` has no Awake, Start or Update, so the property
+setter is doing it - it swaps in `SpanNetworkPlanetComplete{index}Material`,
+whose texture is `ObjNullify` / `ObjTotem` / `ObjReclaim` / `ObjCollect` /
+`ObjCustom` by index. Re-pointing an icon therefore needs no donor marker, no
+prefab lookup and no material copying. (`spanNetworkPlanetObjectivePrefab` exists
+in the game but its owning type was never confirmed, and this makes it moot.)
+
+**3. `SpanNetworkPlanet.Refresh` APPENDS objective markers and never clears the
+container.** Consecutive calls on Farsite: 3 -> 4 -> 5 children. Every Refresh
+leaves another exact copy of the authored set stacked on the previous one. They
+overlap perfectly so nothing looks wrong, which is why this went unnoticed - the
+mod calls Refresh whenever a planet's `forceUnlocked` flips. `TrackerView`'s
+reconcile hides the surplus, so the duplication is now absorbed rather than
+accumulating visibly.
+
+Do not assume Refresh is a rebuild. It is not; `DestroyChildren` exists on the
+type but Refresh evidently does not call it for this container.
+
+**4. `FindObjectsOfType` cannot see most markers.** It skips inactive objects,
+and the mod deactivates the whole `objectiveContainer` of every locked planet -
+so on a fresh slot almost every marker is invisible to it. The first version of
+the donor search reported "no donor with objective=4" on a map that has fourteen
+of them. Walk the planets and use
+`GetComponentsInChildren<SpanNetworkPlanetObjective>(true)`.
+
+### What this fixed
+
+Farsite's marker set is the one that disagrees with its mission (19 of 20 agree,
+tabulated 2026-08-31): the map draws a Totems icon, the mission has no totems,
+and its two caches and custom objective had no icon at all. The map now shows
+Collect then Custom, spaced like every other planet - verified from a screenshot,
+and with a forced four-icon case to exercise the add path.
+
+**It must not need a connection.** The first version drove the icon set purely
+from the AP location list, and that list is empty until a server sends one - so
+opening the game unconnected still showed vanilla's totems icon on Farsite, which
+the map leaves unlocked because it is the default starter. Which objectives are
+CHECKS is a per-seed question; which objectives a mission HAS is not.
+`MissionRules.MissionObjectives` holds the latter, measured, and
+`ExpectedObjectiveIndices` falls back to it when no locations are known. Locations
+still win once the server has spoken, since a seed may exclude some.
+
+The reconcile is driven by `MissionRules.ExpectedObjectiveIndices`, so it is
+generic rather than a special case for mission 1: a no-op wherever the game
+already agrees, and self-correcting if a game update changes the map data. It
+runs from `Paint`, i.e. on map open, planet refresh and Archipelago state change.
+Measured idle on an open map: 1,250 frames with the Refresh, paint and recolour
+counters completely unmoved, and exactly one reconcile per planet.
+
