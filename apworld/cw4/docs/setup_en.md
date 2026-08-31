@@ -22,7 +22,24 @@
    name, and the room password (if any) in the in-game panel.
 2. Press Connect. Mission availability updates to match your received items.
 
+Turn on AutoConnect in `BepInEx/config/com.droha.cw4archipelago.cfg` (or from the
+panel) and the mod will connect on its own at the main menu, and reconnect when
+you return there - which also re-sends anything you checked while offline.
+
 ## Uninstalling
 
 Delete winhttp.dll, doorstop_config.ini, .doorstop_version, changelog.txt,
 and the BepInEx and dotnet folders from the game directory.
+
+**One extra step for your saves.** So that a save from one seed can never appear
+in another, the mod treats
+`Documents/My Games/creeperworld4/saves/farsite` as slot-specific: connecting to
+a different slot moves the current contents into
+`Documents/My Games/creeperworld4/archipelago/save-archive/<slot>/` and restores
+that slot's set. Your original pre-mod campaign saves are archived under the key
+`vanilla`.
+
+So if you uninstall while a slot is active, move the contents of
+`archipelago/save-archive/vanilla/` back into `saves/farsite/`. Nothing is ever
+deleted, but the archive folder is the only place to look for saves that seem to
+have vanished. Campaign progress (mcs.dat) is not touched at all.
