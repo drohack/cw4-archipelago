@@ -654,7 +654,18 @@ matched pair. Tag as `vX.Y.Z`. Public numbering starts at v0.1.0 - the 0.4.0 and
 0.2.0 that predate it were internal counters that never left the build machine.
 
 Every release needs notes saying what changed. `CHANGELOG.md` is the source; the
-release notes are its section for that version. The convention worth copying from
+release notes are its section for that version, plus three things the surveyed
+mods all include and which only make sense on the release page:
+
+- **A download table** saying which of the three files each person needs and
+  where it goes. Most players will never read the docs; the release page is the
+  documentation they actually see.
+- **A compatibility statement.** The mod and the apworld ship as separate files
+  and players WILL mix versions - unbeatAP spells out exactly which client and
+  apworld versions work together, and R.E.P.O. says "will work with multiworlds
+  from 0.4.0 and above". Ours share a version and must match, so say so.
+- **Somewhere to send feedback.** unbeatAP points at its Archipelago Discord
+  thread; we point at GitHub issues. The convention worth copying from
 Here Comes Niko is a Known Issues section - for us that is mainly "no full
 playthrough yet", which a player deserves to know before spending an evening.
 
