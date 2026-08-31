@@ -3,11 +3,18 @@
 ## Repository layout
 
 - `src/CW4Archipelago/` - the real mod. Ships in releases.
+- `src/CW4Archipelago.Core/` - the mod's rules and state as pure C# with no
+  Unity dependency. Everything that can be decided without the game lives here,
+  which is what makes it unit-testable.
+- `src/CW4Archipelago.Core.Tests/` - those tests (tier 1 below).
+- `src/CW4DevTools/` - a separate cheat and survey plugin, documented below.
+  Deliberately not part of the randomizer and installed separately.
 - `src/CW4APProbe/` - the research probe: a file-command-driven harness that
   proved every game mechanism. Kept for answering "can the game do X"
-  questions. Never shipped.
+  questions. Never shipped. NOTE its csproj deploys itself unconditionally -
+  unlike the other two it honours no `SkipDeploy`, so building it installs it.
 - `apworld/cw4/` - the Archipelago world (Python source).
-- `tools/` - test batteries and packaging scripts.
+- `tools/` - test batteries, probes and packaging scripts.
 - `docs/randomizer-design.md` - the design source of truth (items, locations,
   logic rules, campaign survey data).
 - `docs/research-findings.md` - proven recipes and crash rules for modding
@@ -100,7 +107,9 @@ against the CURRENT rect, so on the first pass they report against the
 provisional size and the last row renders outside the box.
 
 Its position is `OverlayX` / `OverlayY` in the config rather than a constant,
-and is re-read every frame, so it can be nudged while the game runs. That is
+and is re-applied whenever the config changes (via `ConfigFile.SettingChanged`,
+see the event-driven section below), so it can still be nudged while the game
+runs - it is simply not re-read every frame any more. That is
 not gold-plating: "the bottom centre is free" is only true of the PERMANENT
 HUD, and tool-specific panels appear there too. The terraform bar was the one
 that caught it - measured at 74 reference units tall, which is where the default
@@ -137,7 +146,10 @@ and the game writes a file with a tab in its name. Pass it as an argument
 CW4DevTools has its OWN file-command channel at
 `<game>/BepInEx/cw4dev-commands.txt`: `boot:storyN`, `ada:close`,
 `sim:run [speed]` / `sim:pause`, `spawn:<RealUnitName> [n]`, `shot:<path>`,
-`dump`, `story:open`, `planets:dump`, `span:goto <guid>`, `set:<cheat>=on|off`.
+`dump`, `story:open`, `planets:dump`, `obj:dump`, `overlay:dump`,
+`span:goto <guid>`, `set:<cheat>=on|off`, plus two families worth knowing:
+`null:<list|protect|allow|targets|kill>` for nullification experiments (the
+finale lock's docstring points here) and `energy:<...>` for the energy model.
 
 `story:open` invokes the Farsite button's own `onClick`, and it exists because
 synthetic mouse input does NOT reach CW4's UI - `SetCursorPos` plus `mouse_event`
@@ -232,6 +244,7 @@ single bool test and the per-frame WORK is zero.
 | `InfoCache.DestroyUnit` | public | Polling `gs.mustCollect` |
 | `ApClient.StateChanged` | the mod's own | Recomputing tracker/gate state every frame |
 | `ConfigFile.SettingChanged` | BepInEx | The dev overlay's hand-maintained signature |
+| `SpanNetworkPlanet.unlocked` setter | property setter | Nothing - it is diagnostic only, counting how often the game writes that property (`diag:span`) |
 
 A constraint worth recording: `ApClient` REPLACES the `SlotState` object on
 connect, so subscribing once to `State.ItemsChanged` would leave a dead
@@ -470,9 +483,12 @@ Four bugs worth remembering, all found by playtest rather than by reading code:
 
 **Regression battery: `tools/devtools-test.sh`** (game closed; optional mission
 arg, default story7). It pins a KNOWN config before launching, boots, builds a
-fixture and asserts on log output - 13 checks covering plugin load, randomizer
-absence, boot, spawn-by-real-name, instant build, weapon ammo, energy, health,
-the AllBuildings save/restore pair, freeze creeper, and a zero-error log.
+fixture and asserts on log output - 23 checks covering plugin load, randomizer
+absence, boot, spawn-by-real-name, the map-content snapshot, instant build,
+weapon ammo, energy, health, the impervious and terrain-destroy flags and their
+release, the AllBuildings save/restore pair, freeze creeper, the cheat strip's
+content, and a zero-error log. One check is reported as SKIP rather than failing,
+because the fixture genuinely cannot exercise it.
 
 It exists because ad-hoc checking kept passing while something else broke. In its
 first two runs it caught three things eyeballing had missed: instant build
@@ -554,15 +570,23 @@ Test scaffolding and the traps spike (see
 `sim:run [speed]` / `sim:pause` clears every `GameSpace.pauseOwner` entry so a
 battery can run the sim without a human pressing play; `spawn:<unitKey> [n]`
 places units beside the rift lab (or at map centre before it exists) so
-unit-targeting effects have targets (`spawn:CommandBase` places a test base);
+unit-targeting effects have targets (`spawn:CommandBase` works on the DEV-TOOLS channel only - the mod's own
+`spawn:` lowercases its argument, so it takes build-pane keys and a registry
+name like `CommandBase` will not resolve);
 `trap:<name> [args]` fires one trap effect - `scatter` (spores at random
 points), `building` (spores at random player buildings), `spore` (whichever is
 configured), `creep`, `energy`, `emit`, `stun`, `drain` - plus `status` for a readback (including the
 player/non-player unit histogram that catches a trap silently affecting
 nothing), `set k=v` for live tuning in depth units, and the diagnostics `aim`
 (where spores actually aim) and `coord` (cell/world mapping). Omitted or zero
-arguments use the tuned defaults in `TrapEffects.cs`. These are dormant; no trap
-is wired to an AP item yet.
+arguments use the tuned defaults in `TrapEffects.cs`.
+
+**These are no longer dormant.** All seven are real AP items: `TRAP_ITEMS` in
+`apworld/cw4/items.py`, drawn from the filler pool at `trap_percentage` (default
+**50**), fired on receipt by `Appliers/TrapApplier.cs` off a persisted high-water
+mark, with the item-name table in `Core/TrapRules.cs` and per-trap frequency
+weights in the yaml. The `trap:` commands remain the way to exercise one without
+a server.
 
 Two oracles that LOOK authoritative and are not - both cost time before being
 caught, so they are worth knowing about before reaching for them:
@@ -602,22 +626,31 @@ path) and write outputs under `$TEMP`.
 
 ## Release checklist
 
-1. Game closed; `dotnet build` clean for both projects.
-2. `tools/battery2.sh` passes 13/13.
-3. `tools/eventdriven-test.sh` passes 22/22 and `tools/devtools-test.sh` has no
+1. Game closed; `dotnet build` clean for all projects.
+2. The test tiers, in order: `dotnet test src/CW4Archipelago.Core.Tests`
+   (104 tests) and the apworld suite (108). These are tiers 1 and 2 above and
+   the checklist used to skip both.
+3. `tools/apbattery.sh` and `tools/apbattery2.sh` - the mod's own end-to-end
+   batteries against a real server. (`tools/battery2.sh` drives the PROBE, not
+   the mod; it is research tooling and is not a release gate.)
+4. `tools/eventdriven-test.sh` passes 22/22 and `tools/devtools-test.sh` has no
    failures - between them they cover the event hooks, which fail silently.
-4. `tools/map-visual-check.sh` and READ the screenshot against the expected
+5. `tools/map-visual-check.sh` and READ the screenshot against the expected
    result in its header. Two map bugs reached a player because every check here
    read the log instead of looking.
-5. Manual smoke: launch, main menu shows the AP panel and slimmed buttons,
+6. Manual smoke: launch, main menu shows the AP panel and slimmed buttons,
    boot two missions, verify unit whitelist and mission locks.
-6. Bump `<Version>` in `src/CW4Archipelago/CW4Archipelago.csproj` and
+7. Bump the version in THREE places, not two - they are independent and only
+   in sync by luck: `<Version>` in `src/CW4Archipelago/CW4Archipelago.csproj`,
+   the third argument of `[BepInPlugin]` in `src/CW4Archipelago/Plugin.cs`
+   (this is the string BepInEx logs, and the one the test-install step below
+   has you look for), and
    `world_version` in `apworld/cw4/archipelago.json`.
-7. `tools/package-release.ps1` - writes `dist/CW4Archipelago-vX.Y.Z.zip`
+8. `tools/package-release.ps1` - writes `dist/CW4Archipelago-vX.Y.Z.zip`
    and `dist/cw4.apworld`.
-8. Test-install the zip into a clean game folder; check
+9. Test-install the zip into a clean game folder; check
    `BepInEx/LogOutput.log` for the mod + MultiClient.Net load lines.
-9. Create the GitHub release with both artifacts.
+10. Create the GitHub release with both artifacts.
 
 ## Decompiling game code for reference
 
