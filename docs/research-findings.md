@@ -1,7 +1,29 @@
 # Creeper World 4 + Archipelago: Feasibility Research
 
-Date: 2026-08-24. All facts below were verified against the installed game
-on this machine, not recalled from documentation.
+**Started 2026-08-24; appended to through 2026-08-31 across six sessions.** Every
+fact was verified against the installed game on this machine, not recalled from
+documentation - but "verified" means verified ON ITS DATE. Later sessions overturn
+earlier conclusions in a dozen places.
+
+**How to read it.** This is an append-only log, and its chronology is NOT
+monotonic: the newest material sits at both the front and the back with older
+material in between, so position does not tell you recency. Where a later finding
+overturns an earlier one, the earlier one carries a `SUPERSEDED` or `CORRECTED`
+marker pointing forward. If you find a confident claim with no such marker and it
+disagrees with the code, trust the code and add the marker.
+
+**Current verdict per topic** - the answer, and where the reasoning is:
+
+| Topic | Current answer |
+|---|---|
+| Unit naming | FOUR name spaces. Build-pane keys, unit names, data names, and BUTTON object names. `porter` = `DeliveryPad` + `DeliveryDrone`. See "Unit naming" and "A fourth name space" |
+| Killing a unit | Health is one of FOUR paths. `impervious` + `DESTROY_ON_UNEVEN_TERRAIN` covers damage and terrain, but **not nullification** - see "Nullification is a fourth removal path" |
+| Energy | The store IS `commandBase.ammo`, the ceiling IS `MAX_AMMO`. `energyProduction` and `statEnergy*` are recomputed summaries: writing them is cosmetic |
+| Mission map | Event-driven off `Span.Start` and `SpanNetworkPlanet.Refresh`. Marker colour is `_color` (lowercase); glyph shape is the material, selected by writing `objective`. Refresh APPENDS markers |
+| Cache collection | `mustCollect` shrinking is the signal. `InfoCache.Retrieved` is NOT on the pickup path; a collected cache is destroyed |
+| Power zones | None in the campaign, and the reader is verified by positive control |
+| Save archiving | `saves/farsite` is moved per slot. **mcs.dat is left alone** - Steam Cloud restores it |
+| Build panes | Five separate stacked GameObjects, not one shared strip |
 
 ## Environment
 
@@ -134,6 +156,12 @@ data-driven, so new custom units are handled without code changes, and it cleanl
 separates the 3 player units from the 8 map/editor-only ones. Implemented as
 `IsPlayerCmod` in both mods.
 
+NOTE 2026-08-31: this said "both mods" from the start but was only true of
+CW4DevTools for three days - the randomizer's `GameUtil.IsPlayerUnit` had no
+CMOD branch at all, so trap stun, ammo drain and spore targeting silently
+skipped the player's airship, bertha and sweeper. Found by a documentation
+audit, not by play. It is now genuinely in both.
+
 Verified: spawning `c5b44bd0-...` (SWEEPER) now logs `instant-built`, where before
 it was skipped entirely.
 
@@ -244,10 +272,19 @@ portals; in CW4DevTools it meant instant build / infinite resources /
 indestructible ignored them. Fixed by carrying the real names as aliases
 (`GameUtil.IsPlayerUnit`, `DevTools.PlayerKeys`).
 
-Also player-buildable but absent from `UnitRules` entirely: `SuperTower`,
+Also present in the registry and absent from `UnitRules` entirely: `SuperTower`,
 `Reactor`, `DeliveryPad`, `StoragePad`, `Stash`, `TerpDrone`, `GreenarDrone`.
 `SuperTower` is ambiguous - it has a player build button but also appears
 pre-placed on maps, so classifying it as the player's is a judgement call.
+
+**CAUTION added 2026-08-31.** These were called "player-buildable" on the
+strength of a button existing, and the fourth-name-space finding shows that
+reasoning is unsafe: `ReactorButton` is the MINER's button and places a
+`Collector`, so nothing here demonstrates the registry unit `Reactor` is ever
+placed by the player. `Reactor`, `StoragePad` and `Stash` sit in both mods'
+whitelists on this unverified basis. Harmless - a whitelist that is slightly
+too generous costs nothing, whereas missing one of the player's buildings is a
+visible bug - but do not cite this list as proof that a unit is buildable.
 
 **Two player/enemy discriminators that do NOT work:**
 
@@ -275,6 +312,11 @@ select, even after beating Founders. It is not missing and it is not locked:
     DEVPLANET 'Ever After' guid=story20 unlocked=True links=0 world=(36,59,-67) screen=(-9432,23230) onScreen=False
 
 All 21 planets (story0..story20) exist on the level select and every one reports
+(**NOTE: a later section calls them 'SpanNetworkPlanet (0..19)', which is 20
+objects. The two cannot both be right. `planets:dump` prints `DEVPLANETS count=`
+and `DEVLINES count=`, so this is one command away from being settled; it has
+not been. Nothing in the mod depends on the total - it resolves planets by
+title - so this is untidiness rather than a live hazard.**)
 `unlocked=True`. The whole campaign spiral sits inside roughly x -10..4, z 13..19;
 story20 sits at x=36, z=-67 - about 90 units away, far outside the framed view
 and unreachable by "Center View". It is also the terminal node (`links=0`), so
@@ -285,7 +327,13 @@ view on it and the planet appears fully unlocked, green ring and objective icons
 and all, alone in empty space. So this is not a rendering fault and not a lock:
 the planet is simply placed about 82 units from a campaign that spans roughly
 20x16 units, with no visible line leading to it. The Farsite view (`Span`) pans
-by free drag and exposes no clamp fields, so a player CAN drag there - across a
+by free drag. **CORRECTION: there ARE clamp fields** - `SpanMissionNetwork`
+carries `minDragX`/`maxDragX`/`minDragY`/`maxDragY`, which `planets:dump` reads
+and reports, so whether a planet can be reached depends on those limits and not
+on its position alone. This section's conclusion ("unsignposted, not
+unreachable") was therefore never established. It stopped mattering because the
+mod MOVES Ever After onto the map next to Wallis rather than relying on a drag,
+but do not cite the no-clamp claim. Original text: a player CAN drag there - across a
 screen of empty starfield, with nothing indicating a direction.
 
 The connection is real in the data: every planet links to the next, `story19 ->
@@ -381,7 +429,11 @@ else:
 | `Tower.efficiency` | no measurable effect on generation |
 
 The proof that the summaries are cosmetic: with `statEnergyGeneration` pinned at
-3,000,001 the store still filled at the same ~2/sec as it did at GEN 1.
+3,000,001 the store still filled at the same rate as it did at GEN 1.
+(That rate is the ~1/sec measured in the table above; an earlier version of
+this line said ~2/sec, which contradicted its own baseline. The rate is not
+the point - UNCHANGED is - but a proof that cites two different numbers for
+one measurement is a weaker proof than it needs to be.)
 
 **This was a live bug in CW4DevTools.** InfiniteResources (F7) wrote
 `energyStore` and `energyProduction`, so it showed millions of GEN and delivered
@@ -424,12 +476,58 @@ on, which held `health` at `MAX_HEALTH` every frame.
 overrides `DestroyUnit`. Together they mean **a unit can vanish at full health**,
 so no health clamp can ever be a complete "indestructible".
 
-Consequence for both mods: to make something unkillable, set `impervious = true`
-and clear `DESTROY_ON_UNEVEN_TERRAIN` rather than fighting the health bar. To
+Consequence for both mods: to make something unkillable against DAMAGE and
+TERRAIN, set `impervious = true` and clear `DESTROY_ON_UNEVEN_TERRAIN` rather than
+fighting the health bar. That is not the whole story - see the next section. To
 make something killable in a hostile effect, the same fields are the levers -
 note that a trap which set `DESTROY_ON_UNEVEN_TERRAIN` would be permanent and
 therefore off-limits under the traps design rule (temporary and recoverable
 only).
+
+## Nullification is a fourth removal path, and `impervious` does not stop it (2026-08-29)
+
+Recorded here because `Appliers/FinaleLock.cs` and `DevCommands.cs` both cite this
+file for these facts and, until 2026-08-31, none of them were in it. A dangling
+citation is worse than no citation: the reader concludes the recipe above is
+complete.
+
+**Nullifying is not damage.** The obelisk reactors on Founders ship `impervious`
+already and are still nullifiable. So the "unkillable" recipe in the section above
+- `impervious` plus clearing `DESTROY_ON_UNEVEN_TERRAIN` - leaves a unit fully
+removable by a nullifier.
+
+The switch is `UnitManager.CAN_NULLIFY`, and it has two traps:
+
+1. **The sim resets it every tick**, so a write only holds for a frame. Holding it
+   means writing every frame.
+2. **Worse, the unit leaves `GameSpace.nullifiableUnits` and never comes back
+   within the mission.** That is a soft-lock waiting to happen if the unit was an
+   objective, and it makes the per-instance nullify counter register a phantom
+   nullification, because progress is measured by that set shrinking.
+
+Both are why `CW4DevTools` dropped its per-frame `CAN_NULLIFY` hold, and why the
+randomizer's finale lock does NOT write unit state at all. It filters
+`Nullifier.GetNullifierTargets` with a Harmony postfix instead: no state is
+mutated, nothing can leak into a save, the lock lifts the instant the gate opens,
+and the nullify counter is untouched.
+
+`null:protect` in CW4DevTools writes `CAN_NULLIFY` for experiments and touches
+`impervious` deliberately NOT at all - these structures are already impervious in
+vanilla and still nullifiable, which is how the whole thing was measured.
+
+**There is no hook for nullification.** Nothing on `UnitManager` or `GameSpace` is
+named for it, and `Nullifier.FireAtUnit` is private and fires repeatedly while the
+beam is up rather than once on success. So nullify PROGRESS is the one counted
+objective with no event, and `LocationWatcher` finds it by polling
+`nullifiableUnits` about once a second.
+
+One more measured oddity from the same work, also cited by `LocationWatcher` and
+also missing here: **`MissionObjectiveData.enabled` and `count` are unreliable.**
+Farsite's Collect slot reads `enabled=False` with `count=0` while two collectable
+caches sit on the map, and on a real cache pickup the Collect objective flipped to
+DONE while its `count` never moved off 0. Use the live sets (`mustCollect`,
+`gs.totems`, `nullifiableUnits`), not the objective fields.
+
 
 `UnitConstants` also carries `IMPERVIOUS` as a per-TYPE default; the per-instance
 `UnitManager.impervious` is what actually gates damage at runtime.
@@ -439,7 +537,14 @@ only).
 `<Name>BuildGhost`, and each unit on the map with its type, data name and
 whether the player filter accepts it.
 
-## Open questions
+## Open questions (2026-08-24) - ALL ANSWERED, kept for the record
+
+Every question below has since been answered: per-mission unit requirements by the
+manual playthrough (`docs/design/mission-requirements-worksheet.md`), the ERN
+representation by `Core/ErnRules.cs` and `Appliers/ErnGranter.cs`, and the three
+questions that outlived those by
+`docs/design/2026-08-31-open-questions-worksheet.md`, whose title is "ANSWERED,
+all three closed". Do not treat this section as a to-do list.
 
 - Which campaign missions require which units (needed for AP logic spheres).
 - Totems and pre-placed structures are outside `SetUnitCanBuild`; deferred.
@@ -527,7 +632,8 @@ running with locks enforced. Zero UI interaction.
 - BuildButton visibility is DYNAMIC (each button re-checks flags per frame):
   live LOCKING works instantly.
 - Button CREATION is static at pane build: live UNLOCKING needs a pane
-  rebuild - UnitBuildPane.Refresh() is NOT enough. Rebuild mechanism TBD
+  rebuild - UnitBuildPane.Refresh() is NOT enough. **ANSWERED below:
+  `UnitBuildPane.SetEnabledButtons()`, which CREATES missing buttons.** Was: TBD
   (candidates: SetEnabledButtons, gameObject toggle, Show; test via pane:
   commands in probe v0.11).
 - Units available at pane-creation time show correctly (mortar test passed
@@ -640,6 +746,10 @@ testing - real players launch from the (AP-gated) galaxy UI.
 - The AP client replaces the file-command channel with the websocket
 
 ## UI refresh recipe - FINAL (v0.20, user-verified)
+
+**SUPERSEDED - see "Correction to the shared button strip theory" below, which
+overturns the central claim of this section. The heading says FINAL and
+user-verified; it is neither on this point.**
 
 The five UnitBuildPanes share one physical button strip, managed by LeftPane
 (fields: structUnitBuildPane..customUnitBuildPane, structTab..customTab
@@ -840,6 +950,9 @@ opens the story sector screen from the main menu ("story:open").
   panel (sprites Icon_Magic1/Money1/PieChart/Time/Diamond/Terror), all
   Image.color tintable.
 - Overview per-planet markers = 63 SpanNetworkPlanetObjective instances
+  (**STALE: counted with `FindObjectsOfType`, which skips inactive objects, and
+  the mod deactivates every locked planet's marker container. The measured
+  per-mission set in `MissionObjectivesTests` sums to 66.**)
   (fields: objective type int, complete bool) under 'Objectives'; each a
   quad mesh. complete=true -> green material, false -> white material
   (SpanNetworkPlanetComplete<N>Material, Shader Forge/
@@ -849,7 +962,10 @@ opens the story sector screen from the main menu ("story:open").
   {NONE,LOCKED,UNLOCKED,PARTIAL,COMPLETE} + 6 status materials - not used by
   story planets but proves the game's design language.
 
-### Tracker recolor: PROVEN with caveat
+### Tracker recolor: PROVEN with caveat - SUPERSEDED, see "TRACKER VISUALS" below
+
+The shader-swap and texture-carrying workaround described here was replaced by a
+one-line `material.SetColor("_color", c)`, which is what `TrackerView` does.
 Setting complete=false + swapping instance material shader to
 Sprites/Default + .color => arbitrary colors (red/yellow/grey/blue shown
 live on the map). Caveat: renders as solid squares - glyph texture sits in
@@ -857,7 +973,11 @@ a custom ShaderForge property; fix = carry texture across the swap
 (GetTexture->SetTexture _MainTex) or pre-tint copies of the white texture.
 
 ### material.color lessons
-- Marker/planet materials ignore .color (no such property) - silent no-op.
+- Marker/planet materials ignore Unity's `.color` SHORTHAND (which resolves
+  `_Color`) - silent no-op. **This does NOT mean they have no colour property:**
+  the marker property is `_color`, lowercase, and setting it works. See the next
+  section. The original wording ("no such property") led to the opposite
+  conclusion.
 - The game repaints marker state per frame; one-shot flips of 'complete'
   do show, but material swaps happen on state change only.
 
@@ -876,7 +996,11 @@ Verified on-screen: red skull, yellow I, blue I, grey X with all else green.
 - Planet mesh shader = AmplifyStandard: NO color property; has _Contrast,
   _Emission, _Smoothness ranges (dimming candidates), textures per material.
   Planet greying still open (contrast/emission experiments, or overlay).
+  **ANSWERED below: `GameObject/LockedPlanet` is the game's own locked visual,
+  driven by `forceUnlocked`. No shader work was needed.**
 - Planet rings: not yet located (not sprites, not lines, not planet children).
+  **ANSWERED below: `SelectionIndicator` and `CompletionIndicator`, both
+  inactive children of the planet.**
 - Live updates confirmed: all marker changes render same-frame with the
   page open; camera pan/zoom tracks correctly (world-space quads).
 
@@ -920,7 +1044,11 @@ SpanNetworkPlanet API (all native):
   itself natively; call Refresh() per planet for live updates. **
 
 Line colors verified live (red/grey shown). Save archiving verified:
-byte-rename storyN->xtoryN inside mcs.dat (same length, content rewrite -
+**SUPERSEDED: the mcs.dat rewrite below was abandoned.** Steam Cloud restores
+the file, and the mod now owns the map's display from AP state and leaves
+mcs.dat alone (`SaveArchiver`: "mcs.dat is left untouched"). Only the
+`saves/farsite` move shipped. `grep xtory` finds nothing in the repo. Original
+text: byte-rename storyN->xtoryN inside mcs.dat (same length, content rewrite -
 Steam Cloud syncs it instead of restoring), saves/farsite move works
 (NOT cloud-restored), full round-trip proven including the game's native
 fresh-campaign "?" display on clean state.
@@ -986,7 +1114,8 @@ Four things follow, and three of them corrected an earlier belief:
 3. **A collected cache is DESTROYED**, not flagged. The `InfoCache` count went to
    zero, so anything reading `retrieved` after the fact reads nothing.
 4. **`InfoCache.Retrieved` is never called on the pickup path.** `cachePokes`
-   stayed at 0 through a real collection, so `CacheRetrievedPatch` had never
+   stayed at 0 through a real collection, so that patch (then
+   `CacheRetrievedPatch`, now `CacheDestroyedPatch` after the hook moved) had never
    fired once in play and the once-a-second poll had been doing all of the work,
    silently. The hook is now a postfix on `InfoCache.DestroyUnit`, which is what a
    pickup actually does.
@@ -1016,7 +1145,8 @@ message/lore reveal, not the collection. Three consequences:
    guess that "the message pops when a cache is collected, so the hook very
    likely coincides with a pickup" was reasonable-sounding, which is exactly what
    made it dangerous.
-2. SUPERSEDED: "`cache:take` cannot simulate a pickup." Replaced by
+2. SUPERSEDED: "`cache:take` cannot simulate a pickup." That command has since
+   been REMOVED, not merely superseded. Replaced by
    `cache:destroy`, which drives `DestroyUnit` - the effect a pickup has.
 3. **The cache path needs a hands-on pickup to confirm end to end.** This one
    held, and it is what caught the error: synthetic mouse input does not reach
@@ -1052,7 +1182,11 @@ donor landed at x=1.65).
 
 `SpanNetworkPlanetObjective` has no Awake, Start or Update, so the property
 setter is doing it - it swaps in `SpanNetworkPlanetComplete{index}Material`,
-whose texture is `ObjNullify` / `ObjTotem` / `ObjReclaim` / `ObjCollect` /
+whose texture is named for the objective TYPE at that index - 0 `ObjNullify`,
+1 `ObjTotem`, 2 `ObjReclaim`, 4 `ObjCollect`, 5 `ObjCustom`. Index 3 (Hold) was
+never observed because no campaign mission draws a Hold marker; do not read the
+list as five consecutive indices. Superseded wording listed:
+`ObjNullify` / `ObjTotem` / `ObjReclaim` / `ObjCollect` /
 `ObjCustom` by index. Re-pointing an icon therefore needs no donor marker, no
 prefab lookup and no material copying. (`spanNetworkPlanetObjectivePrefab` exists
 in the game but its owning type was never confirmed, and this makes it moot.)
