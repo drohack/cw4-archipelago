@@ -56,7 +56,24 @@ try {
 } finally { Pop-Location }
 $tpl = Join-Path $ap "build/templates/Creeper World 4.yaml"
 if (-not (Test-Path $tpl)) { throw "template not found at $tpl" }
-Copy-Item $tpl (Join-Path $dist "Creeper World 4.yaml") -Force
-Write-Output "wrote $(Join-Path $dist 'Creeper World 4.yaml')"
+$yaml = Join-Path $dist "Creeper World 4.yaml"
+Copy-Item $tpl $yaml -Force
+
+# Stamp OUR minimum Archipelago version into the template.
+#
+# The generator writes the version of whatever clone produced it, and this repo
+# develops against a clone that tracks main - so the template came out saying
+# "requires 0.6.8", a version that is not released. A player on the current
+# release would be told their Archipelago is too old. The minimum lives in
+# archipelago.json and is what CI actually tests against, so take it from there
+# rather than hard-coding it in two places.
+$meta = Get-Content (Join-Path $repo "apworld\cw4\archipelago.json") -Raw | ConvertFrom-Json
+$minAp = $meta.minimum_ap_version
+if (-not $minAp) { throw "minimum_ap_version missing from archipelago.json" }
+$text = Get-Content $yaml -Raw
+$patched = [regex]::Replace($text, '(?m)^(\s*version:\s*)\S+(\s*#)', "`${1}$minAp`${2}")
+if ($patched -eq $text) { throw "could not stamp the AP version into the yaml" }
+Set-Content -Path $yaml -Value $patched -Encoding utf8
+Write-Output "wrote $yaml (requires Archipelago $minAp)"
 
 Write-Output "release artifacts ready in $dist"
