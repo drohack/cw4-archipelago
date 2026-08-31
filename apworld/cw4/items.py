@@ -91,6 +91,9 @@ FILLER_ITEMS = BUILD_LIMIT_ITEMS + [ENERGY_STORAGE_ITEM, BASE_GENERATION_ITEM]
 # but none may make a mission unwinnable, which is why permanent terrain
 # deformation was dropped during the feasibility spike. Names must match
 # CW4Archipelago.Core.TrapRules exactly; a test pins that.
+# Every trap that HAS an id. Emitter Overdrive is deliberately still here and
+# deliberately not in POOL_TRAP_ITEMS below: dropping the name outright would
+# renumber every id after it, and ids are the one thing that must not move.
 TRAP_ITEMS = [
     "Spore Strike",
     "Spore Scatter",
@@ -100,6 +103,31 @@ TRAP_ITEMS = [
     "Unit Stun",
     "Ammo Drain",
 ]
+
+# Emitter Overdrive is NOT generated (designer, 2026-08-31).
+#
+# The traps spike set the rule that admits an effect to the pool: it must fire on
+# essentially every mission, or carry a fallback for the ones it cannot. Its own
+# reasoning for that rule is that "a trap item that silently does nothing is a bad
+# item" - the player spends a check, receives a trap, nothing happens, and the
+# whole trap pool starts to feel broken.
+#
+# Emitter Overdrive meets neither half. It no-ops where a mission ships no
+# emitters, logging "no emitters on this map - trap had no effect", and it has no
+# fallback. Emitters are present at mission START on 11 of 20 missions, so it is
+# dead on roughly a quarter to a third of the campaign. Every other trap depends
+# only on things every mission has: the world grid, the energy store, and the
+# player's own units.
+#
+# HELD LOOSELY, and here is exactly what would reopen it. The 11-of-20 figure
+# counts emitters at mission start only; enemies arrive during play, so real
+# coverage is better and possibly much better. If someone measures emitter counts
+# a few minutes in and it is more like 16 of 20, "essentially every mission"
+# becomes arguable and this decision should be revisited. Nothing else was
+# removed to make that easy: the effect, the applier mapping, the trap: debug
+# command and the yaml weight all still work, so putting the name back in this
+# list is the whole change.
+POOL_TRAP_ITEMS = [t for t in TRAP_ITEMS if t != "Emitter Overdrive"]
 
 _all_names = (
     MISSION_UNLOCK_ITEMS + UNIT_ITEMS + BONUS_UNIT_ITEMS
@@ -193,6 +221,9 @@ def trap_weights(world) -> dict:
         "Spore Scatter": o.trap_weight_spore_scatter.value,
         "Creeper Surge": o.trap_weight_creeper_surge.value,
         "Energy Drain": o.trap_weight_energy_drain.value,
+        # Read but unused while Emitter Overdrive is out of the pool - see
+        # POOL_TRAP_ITEMS. Kept so the option keeps working if it goes back in,
+        # and so an existing yaml naming it is not an error.
         "Emitter Overdrive": o.trap_weight_emitter_overdrive.value,
         "Unit Stun": o.trap_weight_unit_stun.value,
         "Ammo Drain": o.trap_weight_ammo_drain.value,
@@ -208,7 +239,8 @@ def trap_sequence(world, count: int) -> list:
     """
     if count <= 0:
         return []
-    weights = {k: v for k, v in trap_weights(world).items() if v > 0}
+    weights = {k: v for k, v in trap_weights(world).items()
+               if v > 0 and k in POOL_TRAP_ITEMS}
     if not weights:
         return filler_sequence(world, count)
     kinds = list(weights)

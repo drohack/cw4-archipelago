@@ -266,3 +266,33 @@ class TestFullFinaleGate(bases.CW4TestBase):
             "Nullifier", "Greenar Refinery", "Factory",
         ])
         self.assertFalse(self.can_reach_location(VICTORY_EVENT))
+
+
+class TestEmitterOverdriveIsNotGenerated(bases.CW4TestBase):
+    """Emitter Overdrive is out of the pool, and the id map still holds it.
+
+    The traps spike admits an effect only if it fires on essentially every
+    mission or carries a fallback. Emitter Overdrive does neither - it no-ops
+    where a mission has no emitters, which is roughly a quarter to a third of
+    the campaign - so it is not generated (designer, 2026-08-31).
+
+    Both halves are asserted on purpose. Dropping the NAME rather than just the
+    pool entry would renumber every item id after it, which is the one thing
+    that must not move.
+    """
+
+    def test_no_emitter_overdrive_in_the_pool(self) -> None:
+        names = [i.name for i in self.multiworld.itempool]
+        self.assertNotIn("Emitter Overdrive", names)
+
+    def test_the_id_is_still_reserved(self) -> None:
+        from ..items import ITEM_NAME_TO_ID, TRAP_ITEMS, POOL_TRAP_ITEMS
+        self.assertIn("Emitter Overdrive", ITEM_NAME_TO_ID)
+        self.assertIn("Emitter Overdrive", TRAP_ITEMS)
+        self.assertNotIn("Emitter Overdrive", POOL_TRAP_ITEMS)
+
+    def test_the_other_six_are_still_generated(self) -> None:
+        # A weight-filter bug could silently empty the trap pool; this is the
+        # canary for that.
+        from ..items import POOL_TRAP_ITEMS
+        self.assertEqual(6, len(POOL_TRAP_ITEMS))
