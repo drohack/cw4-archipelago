@@ -624,6 +624,53 @@ accident.
 Scripts read the game location from `CW4_DIR` (defaults to the maintainer's
 path) and write outputs under `$TEMP`.
 
+## Releases
+
+### What a release contains, and why three files
+
+Surveyed from BepInEx-based Archipelago mods that ship both halves, since there
+is no written standard:
+
+| Project | Assets |
+|---|---|
+| unbeatAP `v0.7.2-alpha` | `unbeatAP.zip` + `unbeatable_arcade.apworld` |
+| R.E.P.O. `0.4.3` | `RepoAP.zip` + `repo.apworld` + `R.E.P.O.yaml` |
+| Here Comes Niko `0.8.7` | one mod zip; its apworld lives in a separate repo |
+| Cuphead `alpha03g.3` | one mod zip, platform-suffixed |
+
+We own the mod AND the world, so we follow the R.E.P.O. shape - one release, three
+assets:
+
+- `CW4Archipelago-vX.Y.Z.zip` - the mod. Unzips into the game folder, adding
+  `BepInEx/plugins/CW4Archipelago/`. This is the only file most players touch.
+- `cw4.apworld` - for whoever GENERATES the multiworld, which is often not the
+  same person or machine.
+- `Creeper World 4.yaml` - a ready-to-use options file, generated from the
+  options themselves so it cannot drift from the real defaults. Without it a
+  player has to install Archipelago and generate a template before they can play.
+
+Versions are semantic and the plugin and world share one number: a release is a
+matched pair. Tag as `vX.Y.Z`. Public numbering starts at v0.1.0 - the 0.4.0 and
+0.2.0 that predate it were internal counters that never left the build machine.
+
+Every release needs notes saying what changed. `CHANGELOG.md` is the source; the
+release notes are its section for that version. The convention worth copying from
+Here Comes Niko is a Known Issues section - for us that is mainly "no full
+playthrough yet", which a player deserves to know before spending an evening.
+
+### Releases are built locally, and cannot be built in CI
+
+CI cannot produce the mod zip. `CW4Archipelago.csproj` references
+`$(GameDir)/BepInEx/interop/Assembly-CSharp.dll` and nine more - interop
+assemblies BepInEx generates from Creeper World 4's own IL2CPP code. They are
+derived from the game, so a public runner cannot legitimately have them and they
+must never be committed here. `.github/workflows/ci.yml` therefore covers the
+Core layer, the apworld and the ASCII rule, and stops there.
+
+So: run `tools/package-release.ps1` on a machine with the game, then attach the
+three files from `dist/` with `gh release create`. The only route to a fully
+automated plugin build is a self-hosted runner on a machine that owns the game.
+
 ## Release checklist
 
 1. Game closed; `dotnet build` clean for all projects.
@@ -646,11 +693,15 @@ path) and write outputs under `$TEMP`.
    (this is the string BepInEx logs, and the one the test-install step below
    has you look for), and
    `world_version` in `apworld/cw4/archipelago.json`.
-8. `tools/package-release.ps1` - writes `dist/CW4Archipelago-vX.Y.Z.zip`
-   and `dist/cw4.apworld`.
-9. Test-install the zip into a clean game folder; check
+8. Add the version's section to `CHANGELOG.md`.
+9. `tools/package-release.ps1` - writes all three assets into `dist/`:
+   `CW4Archipelago-vX.Y.Z.zip`, `cw4.apworld` and `Creeper World 4.yaml`.
+10. Sanity-check the yaml asset by generating from it, solo and multiworld. It is
+   the file players start from, so "the defaults generate" is worth proving
+   rather than assuming.
+11. Test-install the zip into a clean game folder; check
    `BepInEx/LogOutput.log` for the mod + MultiClient.Net load lines.
-10. Create the GitHub release with both artifacts.
+12. Create the GitHub release with both artifacts.
 
 ## Decompiling game code for reference
 

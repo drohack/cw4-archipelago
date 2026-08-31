@@ -121,10 +121,11 @@ class TrapWeightEnergyDrain(Range):
 class TrapWeightEmitterOverdrive(Range):
     """Relative weight of Emitter Overdrive, a timed boost to enemy emitters.
 
-    CURRENTLY INERT: Emitter Overdrive is not generated. It no-ops on missions
-    with no emitters and has no fallback, which the traps spike ruled out - see
-    POOL_TRAP_ITEMS in items.py. The option is kept so an existing yaml naming it
-    is not an error, and so the trap works if it is ever put back.
+    CURRENTLY UNUSED: this trap is not generated, so the weight has no effect.
+    It does nothing on missions that have no emitters, which is a third of the
+    campaign, and a trap that silently does nothing is worse than no trap. The
+    option is kept so that an existing yaml naming it is not an error, and so it
+    starts working again if the trap returns.
     """
     display_name = "Trap Weight: Emitter Overdrive"
     range_start = 0

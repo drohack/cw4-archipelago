@@ -1,6 +1,10 @@
-# Build both release artifacts into dist/:
-#   CW4Archipelago-v<version>.zip  (unzip into the game folder)
-#   cw4.apworld                    (drop into Archipelago custom_worlds/)
+# Build the three release assets into dist/:
+#   CW4Archipelago-v<version>.zip  the mod - unzip into the game folder
+#   cw4.apworld                    for whoever GENERATES the multiworld
+#   Creeper World 4.yaml           a ready-to-use options file for a player
+#
+# Three assets on one release is the convention other BepInEx Archipelago mods
+# use when they own both halves - see docs/developing.md, "Releases".
 # Requirements: src\GameDir.props set up, game closed, Archipelago clone at
 # repo root (for the spec-correct apworld packager).
 $ErrorActionPreference = "Stop"
@@ -38,4 +42,21 @@ try {
 } finally { Pop-Location }
 Copy-Item (Join-Path $ap "build\apworlds\cw4.apworld") $dist -Force
 Write-Output "wrote $(Join-Path $dist 'cw4.apworld')"
+
+# --- sample yaml ---
+# Shipped as a third asset so a player has something that works without first
+# installing Archipelago and generating a template themselves. R.E.P.O.'s
+# Archipelago mod ships its yaml the same way. Generated from the options
+# themselves, so it cannot drift from the defaults the world actually uses.
+Push-Location $ap
+try {
+    $env:SKIP_REQUIREMENTS_UPDATE = "1"
+    python -c "import Options; Options.generate_yaml_templates('build/templates')"
+    if ($LASTEXITCODE -ne 0) { throw "yaml template generation failed" }
+} finally { Pop-Location }
+$tpl = Join-Path $ap "build/templates/Creeper World 4.yaml"
+if (-not (Test-Path $tpl)) { throw "template not found at $tpl" }
+Copy-Item $tpl (Join-Path $dist "Creeper World 4.yaml") -Force
+Write-Output "wrote $(Join-Path $dist 'Creeper World 4.yaml')"
+
 Write-Output "release artifacts ready in $dist"
