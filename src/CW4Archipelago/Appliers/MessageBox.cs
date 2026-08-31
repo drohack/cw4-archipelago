@@ -538,7 +538,17 @@ public sealed class ApMessageBox
     }
 
     private static string Escape(string s)
-        => string.IsNullOrEmpty(s) ? "" : s.Replace("<", "<​");   // neutralize stray tags
+        // The \u200b is a ZERO-WIDTH SPACE, written as an ESCAPE and not as the
+        // character itself. It sits just after the "<" so TextMeshPro cannot read a
+        // stray angle bracket in a server message as the start of a rich-text tag,
+        // which would swallow the rest of the line.
+        //
+        // It was a literal here until 2026-08-31, which made it invisible in the
+        // source and in every diff. That is the exact shape of a bug this project has
+        // already hit: a bulk "make it ASCII" pass deletes what it cannot see, the
+        // build still succeeds, the tests still pass, and tag escaping is silently
+        // gone. As an escape it is visible, greppable and survives that pass.
+        => string.IsNullOrEmpty(s) ? "" : s.Replace("<", "<\u200b");
 
     private void TrimLines()
     {
