@@ -82,6 +82,11 @@ MISSION_EXTRA = {
     # snipers: "You need snipers to get past them. no way to do any objectives
     # without." The ONLY mission where a sniper is in logic.
     16: [["Sniper"]],
+    # NOT here, and tested rather than assumed: story15. The worksheet suspected
+    # mining might be needed for energy there, so it was played with only its
+    # logic requirements and no Miner - "Yes very doable with no miners on Tower
+    # of Darkness. not a requirement." Economy stays outside logic, and
+    # test_miner_gates_nothing pins that.
 }
 
 # Per-objective requirements, mission by mission, EXCLUDING whatever completing
@@ -178,6 +183,20 @@ DEFENSIVE = ["Sniper", "Missile Launcher"]
 
 # We Were Never Alone is the first mission with spores; skimmers arrive at 14 and
 # air sacs at 19, so the pressure only grows from there.
+#
+# Playtested on story15, 2026-08-31, with exactly that mission's logic
+# requirements granted and nothing else. The designer's words, and the second
+# sentence is the load-bearing one:
+#
+#   "the snipers are a little more important."
+#   "snipers are not needed, but nice to haves. you can beat the level without
+#    them."
+#
+# THIS IS NOT A HEDGE, and it must not be read as one. Archon's two MISSION_EXTRA
+# entries came from genuine hedges ("I think super hard to do anything without a
+# nullifier") and were promoted to requirements on purpose. This is the opposite:
+# an explicit statement that the level is beatable without. It belongs in the
+# casual tier and nowhere else. Do not promote it.
 CASUAL_DEFENSE_FROM = 6
 
 

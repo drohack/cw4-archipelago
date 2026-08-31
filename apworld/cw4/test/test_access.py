@@ -250,6 +250,39 @@ class TestAccess(CW4TestBase):
                 for group in entry:
                     self.assertNotIn("Missile Launcher", group)
 
+    def test_miner_gates_nothing(self) -> None:
+        # Economy is deliberately outside logic. Tower of Darkness was the one
+        # mission where the worksheet suspected mining might be needed for energy
+        # ("not a lot of land for towers"), so it was played with EXACTLY its logic
+        # requirements granted and no Miner, no Pylon, no Platform, no Terp and no
+        # energy items at all. Designer's verdict, 2026-08-31:
+        #
+        #   "Yes very doable with no miners on Tower of Darkness. not a
+        #    requirement. the snipers are a little more important."
+        #
+        # So Miner stays a filler item that gates nothing. If a future change puts
+        # it into logic, this test is where the counter-evidence has to be argued.
+        from ..rules import requirement_groups
+        for casual in (False, True):
+            groups = requirement_groups(casual)
+            for table in (groups["mission_requirements"], groups["location_requirements"]):
+                for entry in table.values():
+                    for group in entry:
+                        self.assertNotIn("Miner", group)
+
+    def test_sniper_on_tower_of_darkness_is_casual_only(self) -> None:
+        # The other half of the same verdict. First pass: snipers are "a little
+        # more important" on story15. Then, explicitly: "snipers are not needed,
+        # but nice to haves. you can beat the level without them."
+        #
+        # So this is NOT a hedge to be promoted later. Compare The Compound, where
+        # the note is absolute ("no way to do any objectives without") and the
+        # sniper IS in logic. story15 must therefore ask for a sniper under casual
+        # and NOT under standard - which is what this asserts in both directions.
+        from ..rules import mission_requirements
+        self.assertNotIn(["Sniper", "Missile Launcher"], mission_requirements(15, casual=False))
+        self.assertIn(["Sniper", "Missile Launcher"], mission_requirements(15, casual=True))
+
     def test_defensive_units_are_progression_because_casual_uses_them(self) -> None:
         # Classification is per item NAME, not per seed, so anything that gates
         # under EITHER tier must be progression - otherwise a casual seed could
