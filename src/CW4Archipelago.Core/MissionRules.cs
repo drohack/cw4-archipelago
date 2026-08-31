@@ -119,6 +119,71 @@ public static class MissionRules
             : new List<string>();
     }
 
+    /// <summary>The objective slots each mission actually CONTAINS, in ascending
+    /// order. Independent of Archipelago: this is what is in the map.
+    ///
+    /// Mirrors the apworld's INSTANCE_COUNTS / RECLAIM_MISSIONS / CUSTOM_MISSIONS
+    /// (apworld/cw4/locations.py), and was checked against the live game: the
+    /// mission map's own authored icon set agrees with it on nineteen of the
+    /// twenty missions. The exception is Farsite, where the map draws a Totems
+    /// icon and the mission has no totems at all - measured, and vanilla does the
+    /// same. MissionObjectivesTests pins that comparison so a game update that
+    /// changes either side shows up as a failed test rather than a wrong map.
+    ///
+    /// This exists because the AP location list answers "which objectives are
+    /// CHECKS", which is a per-seed question and is unknown until a server says
+    /// so. "Which objectives does this mission have" is neither of those things,
+    /// and the map should not be showing a totems icon on a mission with no
+    /// totems just because nobody is connected yet.</summary>
+    public static readonly IReadOnlyDictionary<int, int[]> MissionObjectives = new Dictionary<int, int[]>
+    {
+        [1] = new[] { 4, 5 },        [2] = new[] { 0, 1, 4 },
+        [3] = new[] { 0, 1, 4 },     [4] = new[] { 0, 1, 4 },
+        [5] = new[] { 0, 1, 4 },     [6] = new[] { 0, 2 },
+        [7] = new[] { 0, 1, 2, 4 },  [8] = new[] { 0, 1, 2 },
+        [9] = new[] { 0, 1, 2, 4 },  [10] = new[] { 0, 1, 2, 4 },
+        [11] = new[] { 0, 1, 4 },    [12] = new[] { 0, 1, 2, 4 },
+        [13] = new[] { 0, 1, 4 },    [14] = new[] { 0, 1, 2, 4 },
+        [15] = new[] { 0, 1, 2, 4 }, [16] = new[] { 0, 1, 4 },
+        [17] = new[] { 0, 2, 4 },    [18] = new[] { 0, 1, 2, 4 },
+        [19] = new[] { 0, 1, 4, 5 }, [20] = new[] { 0, 1, 2, 5 },
+    };
+
+    /// <summary>Which objective slots this slot actually has checks for, in
+    /// ascending order.
+    ///
+    /// The mission map draws one icon per objective in the MAP FILE's authored
+    /// list, which is not always the mission's real objective set. Farsite draws
+    /// a Totems icon and has no totems at all - measured live, and vanilla does
+    /// the same - so that icon stands for a category with no checks while its two
+    /// caches and its custom objective get no icon at all.
+    ///
+    /// This is the answer the map should be drawing instead: the objective slots
+    /// that have locations in THIS slot. On nineteen of the twenty missions it
+    /// agrees with what the game already draws, so it is a no-op there.</summary>
+    public static List<int> ExpectedObjectiveIndices(SlotState state, int mission)
+    {
+        var found = new List<int>();
+        for (int i = 0; i < ObjectiveTypes.Length; i++)
+            if (LocationsForObjective(state, mission, i).Count > 0)
+                found.Add(i);
+        if (found.Count > 0)
+            return found;
+
+        // Nothing known for this mission, which means no server has told us yet -
+        // AllLocations is empty until a connection, and a cached slot only covers
+        // the seed it came from. Fall back to what the MISSION contains.
+        //
+        // Returning nothing here was a real bug: the map leaves Farsite unlocked
+        // (it is the default starter) and so displayed vanilla's totems icon on a
+        // mission with no totems, every time the game was opened without a
+        // connection. The fallback is not a guess - it is measured, and it agrees
+        // with the game's own icons on nineteen of twenty missions.
+        return MissionObjectives.TryGetValue(mission, out var authored)
+            ? new List<int>(authored)
+            : found;
+    }
+
     /// <summary>All of this slot's locations belonging to the mission (from the server list).</summary>
     public static List<string> LocationsFor(SlotState state, int mission)
     {
