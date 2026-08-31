@@ -18,10 +18,12 @@ public static class GameUtil
     // must filter on the authoritative list instead - the unit keys the player
     // can actually build, matched through UnitManager.GetDataName().
     //
-    // GetDataName() returns the build-pane key for every buildable except the
-    // rift lab, which reports "CommandBase" rather than the "riftlab" key
-    // UnitRules uses; cannon/tower/mortar/sniper/sprayer/terp were all verified
-    // to match, so CommandBase is the lone alias.
+    // GetDataName() does NOT return the build-pane key for every buildable, and
+    // an earlier version of this comment claimed CommandBase was "the lone
+    // alias". It is not: riftlab, pylon, miner, porter and ernportal are all
+    // build-pane keys with no registry entry, and three more units are CMODs that
+    // return a GUID instead of any name at all. The full table is in
+    // docs/research-findings.md, "Unit naming"; the aliases are below.
     private static HashSet<string>? _playerKeys;
 
     // WHY THIS LIST EXISTS: Core.UnitRules.ItemToUnit holds BUILD-PANE KEYS, not
@@ -85,7 +87,36 @@ public static class GameUtil
         {
             if (u == null || u.enemy) return false;
             var key = u.GetDataName();
-            return key != null && _playerKeys.Contains(key);
+            if (key == null) return false;
+            if (_playerKeys.Contains(key)) return true;
+            // A CMOD unit's GetDataName() returns a GUID, never a name, so no
+            // name whitelist can ever match one - and airship, bertha and sweeper
+            // are CMODs. Without this they fall through, which meant trap stun,
+            // ammo drain and spore targeting silently skipped three of the
+            // player's units: the same bug class that skipped pylons and miners
+            // until 2026-08-28, fixed in CW4DevTools at the time but never here.
+            //
+            // The ownership test is data-driven on purpose, so a new custom unit
+            // needs no code change: a non-empty playerMenuUnitName means the unit
+            // is offered in the PLAYER's build menu, which cleanly separates the
+            // three player CMODs from the map/editor-only ones.
+            return IsPlayerCmod(key);
+        }
+        catch { return false; }
+    }
+
+    /// <summary>Whether a CMOD GUID belongs to a unit the player can build.
+    /// Mirrors DevTools.IsPlayerCmod - kept as its own copy because the two
+    /// plugins must not depend on each other.</summary>
+    private static bool IsPlayerCmod(string guid)
+    {
+        try
+        {
+            var cmods = GameSpace.instance?.cmods;
+            if (cmods == null || !cmods.ContainsKey(guid)) return false;
+            var cmod = cmods[guid];
+            if (cmod == null) return false;
+            return !string.IsNullOrEmpty(cmod.playerMenuUnitName);
         }
         catch { return false; }
     }
