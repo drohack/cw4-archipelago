@@ -1,0 +1,138 @@
+name: CI
+
+# What this can and cannot do, up front, because the limit is not obvious.
+#
+# It CANNOT build the BepInEx plugin. CW4Archipelago.csproj references
+# $(GameDir)/BepInEx/interop/Assembly-CSharp.dll and friends - interop assemblies
+# BepInEx GENERATES from Creeper World 4's own IL2CPP code. They are derived from
+# the game, so a public runner cannot legitimately have them and they must never
+# be committed here. The plugin is built on a machine that owns the game.
+#
+# It CAN check everything that does not need the game, which is more than it
+# sounds: the whole rules-and-state layer plus the Archipelago world. Those are
+# where the logic lives and where a regression is most likely.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  core:
+    name: Core rules and state (no game required)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      # No GameDir.props and no game installed: this project is pure C# on
+      # purpose, and that property is worth protecting. If someone adds a Unity
+      # reference to Core, this job is what fails.
+      - name: Build
+        run: dotnet build src/CW4Archipelago.Core/CW4Archipelago.Core.csproj -c Release
+      - name: Test
+        run: dotnet test src/CW4Archipelago.Core.Tests/CW4Archipelago.Core.Tests.csproj -c Release --verbosity normal
+
+  apworld:
+    name: Archipelago world
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # The world's tests run inside an Archipelago checkout, the same way they
+      # do locally via tools/ap-sync.ps1. Pinned to the minimum version the world
+      # declares, so CI tests what the world claims to support rather than
+      # whatever is on main today.
+      - name: Check out Archipelago
+        uses: actions/checkout@v4
+        with:
+          repository: ArchipelagoMW/Archipelago
+          ref: 0.6.8
+          path: Archipelago
+
+      - name: Install Archipelago requirements
+        working-directory: Archipelago
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Sync the world into the checkout
+        run: cp -r apworld/cw4 Archipelago/worlds/cw4
+
+      - name: Test
+        working-directory: Archipelago
+        env:
+          SKIP_REQUIREMENTS_UPDATE: '1'
+        run: python -m unittest discover -s worlds/cw4/test -t .
+
+      # A generated seed is the check the unit tests cannot make: it exercises
+      # fill, which is where an item/location count mismatch or an unreachable
+      # location actually surfaces.
+      - name: Generate a seed
+        working-directory: Archipelago
+        env:
+          SKIP_REQUIREMENTS_UPDATE: '1'
+        run: |
+          mkdir -p Players
+          printf 'name: CITester\ngame: Creeper World 4\nCreeper World 4: {}\n' > Players/cw4.yaml
+          python Generate.py --player_files_path Players --outputpath out --seed 1
+
+      # The apworld is just the package directory zipped, so build it directly
+      # rather than depending on an Archipelago internal that may move.
+      - name: Package cw4.apworld
+        run: |
+          cd apworld
+          zip -r ../cw4.apworld cw4 -x '*/__pycache__/*'
+          cd ..
+          unzip -l cw4.apworld
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cw4-apworld
+          path: cw4.apworld
+
+  ascii:
+    name: ASCII only
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # This project bans non-ASCII in source, docs and commit messages, for a
+      # concrete reason: Python on Windows encodes redirected stdout as cp1252,
+      # so one em dash in a print() kills a script, and the same characters are
+      # invisible next to a hyphen when pasted into code. Two exceptions are
+      # deliberate and are skipped below: box-drawing characters in diagrams, and
+      # non-Latin text that IS the data.
+      - name: Check for non-ASCII
+        run: |
+          python3 - <<'PY'
+          import pathlib, sys
+          # Box-drawing, by CODEPOINT. Writing the glyphs here would put the
+          # banned characters into the file that bans them - and this file is
+          # a .yml, so the check would fail itself.
+          ALLOW = {0x2500, 0x2502, 0x250C, 0x2510, 0x2514, 0x2518,
+                   0x251C, 0x2524, 0x252C, 0x2534, 0x253C}
+          EXTS = {".cs", ".py", ".md", ".sh", ".ps1", ".yml", ".yaml", ".json", ".csproj"}
+          SKIP = {"Archipelago", ".git", "bin", "obj", "__pycache__", "dist"}
+          bad = []
+          for p in pathlib.Path(".").rglob("*"):
+              if any(part in SKIP for part in p.parts) or p.suffix not in EXTS:
+                  continue
+              try:
+                  text = p.read_text(encoding="utf-8")
+              except (UnicodeDecodeError, OSError):
+                  continue
+              for n, line in enumerate(text.splitlines(), 1):
+                  for ch in line:
+                      if ord(ch) > 127 and ord(ch) not in ALLOW:
+                          bad.append(f"{p}:{n}: U+{ord(ch):04X}")
+                          break
+          for b in bad:
+              print(b)
+          print(f"{len(bad)} non-ASCII lines")
+          sys.exit(1 if bad else 0)
+          PY
