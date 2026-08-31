@@ -428,11 +428,16 @@ public static class DevTools
     /// that catches the next "pylon" without a false positive: it keys off
     /// isBuilding, not off HasBuildBar (which is true on every finished unit).
     ///
-    /// Known unresolved: "porter" has no match in the game's 88-name registry
-    /// (Farsite grants it at story12), so a placed porter should surface here.
-    /// The literal "porter" in PlayerKeys can never match, because GetDataName()
-    /// only ever returns a registry name - do not read its presence as coverage.
-    /// Unverified candidates: Strider, Workall, Transformer, Max.</summary>
+    /// "porter" has no match in the game's 88-name registry, and the literal
+    /// "porter" in PlayerKeys can never match because GetDataName() only ever
+    /// returns a registry name - do not read its presence as coverage. Resolved
+    /// 2026-08-31: the PORTER button is DeliveryPadButton, and a hand-placed
+    /// porter dumps as DeliveryPad plus DeliveryDrone, both already below and both
+    /// reading =MINE. This warning stayed quiet about them, which is the proof.
+    ///
+    /// Strider, Workall, Transformer and Max are NOT the player's: all four
+    /// spawn successfully and read =other, i.e. they are map/editor units, and
+    /// they are what trips this warning when spawned deliberately.</summary>
     private static void ReportSkippedBuild(UnitManager u)
     {
         try

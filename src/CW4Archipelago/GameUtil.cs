@@ -38,10 +38,29 @@ public static class GameUtil
     // DeliveryPad, StoragePad, Stash and the drones. SuperTower is ambiguous
     // (player button, but also pre-placed on maps).
     //
-    // STILL UNRESOLVED: "porter". Farsite grants it at story12 but the registry
-    // has no Porter, so its real name is unknown and per-unit effects will skip
-    // it. The literal "porter" in UnitRules cannot match - GetDataName() only
-    // returns registry names.
+    // PORTER, resolved 2026-08-31, and it needed a FOURTH name space to explain.
+    // Button GameObject names match neither the build-pane key nor the unit name:
+    // granting one item at a time and watching structButtons go 1 -> 2 -> 3, then
+    // reading the pane's own labels against the GameObject list, gives
+    //
+    //     label PYLON  -> SuperTowerButton      label MINER  -> ReactorButton
+    //     label PORTER -> DeliveryPadButton
+    //
+    // So the porter is the DELIVERY family, and DeliveryPad, DeliveryDrone,
+    // StoragePad and Stash are all already in this list - per-unit effects were
+    // covering porters after all. The registry (dumped in full into
+    // research-findings.md) contains no Porter and spawn:Porter places nothing,
+    // which is consistent: "porter" is only ever a build-pane key.
+    //
+    // CONFIRMED by building one, 2026-08-31, because a button's object name does
+    // not prove which prefab it places - PYLON's button is SuperTowerButton yet
+    // the unit is TowerBridge. A hand-placed porter dumps as
+    //
+    //     DeliveryPad/DeliveryPad=MINEx1   DeliveryDrone/DeliveryDrone=MINEx1
+    //
+    // both already in this list, and ReportSkippedBuild stayed quiet about them
+    // (its only complaints were Pod and Shot - an enemy and a projectile). So
+    // there was never a coverage gap here.
     //
     // Full three-name-space explanation, the discriminators that do NOT work
     // (UnitManager.enemy, UnitConstants.ENEMY), and how to re-derive the mapping:
