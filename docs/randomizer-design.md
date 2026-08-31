@@ -311,16 +311,28 @@ to its right.
 - **Terp**: buried caches on 12, 16, 17, 18, 19.
 - **Sprayer / bluite**: never sufficient alone.
 - **Air units**: never the only way to reach anything.
-- **Miner / economy**: still open. Tower energy carries most maps; Tower of
-  Darkness is the one where mining "might" be needed. Left out and flagged
-  rather than guessed - the single place where too-loose logic could strand a
-  player.
+- **Miner / economy**: ANSWERED 2026-08-31, and it stays out of logic. Tower of
+  Darkness was the one mission where mining "might" be needed, so it was played
+  with exactly its logic requirements granted and no Miner, no Pylon, no Platform,
+  no Terp and no energy items - the worst case a seed can hand a player.
+  Designer's verdict: *"Yes very doable with no miners on Tower of Darkness. not a
+  requirement. the snipers are a little more important."* Followed by the
+  clarification that settles it: *"snipers are not needed, but nice to haves. you
+  can beat the level without them."* That is difficulty-tier material and the
+  casual tier already covers it from mission 6 onward. It is explicitly NOT a
+  hedge - unlike Archon's two entries, which were hedges and were promoted on
+  purpose - so it must not be promoted into `MISSION_EXTRA` later.
+  `test_miner_gates_nothing` and
+  `test_sniper_on_tower_of_darkness_is_casual_only` pin both halves.
 
 ### Still not in logic, deliberately
 
 Factory-for-storage as a general rule, Miner, and anything about ERNs. The
 worksheet does not establish them as required, and guessing would risk
 unwinnable seeds in the one direction that matters.
+
+Miner is no longer a guess: it was the one item this could have got wrong, and the
+mission it could have got wrong is now played and reported above.
 
 ## Traps, energy items and the option set (2026-08-30) - IMPLEMENTED
 
@@ -421,11 +433,15 @@ KNOWN GAPS in this survey, do not treat as complete:
   game also has greenar CRYSTALS (`greenarCrystal`, `greenarLocations`,
   `CreateGreenar`). Missions 2,3,4 have Totems objectives with zero counted
   greenar, which is most likely crystals rather than a contradiction.
-- **powerZoneCells read 0 on all 20 missions** and is UNVERIFIED - there is no
-  positive control, and a uniform-zero result already fooled an earlier survey.
-  Weak corroboration only: story19 has no power zones and its ReactorButton is
-  off. Power zones are the bright blue ground Reactors are built on; a Reactor
-  can be swapped to produce bluite, so this is a second bluite source.
+- ~~**powerZoneCells read 0 on all 20 missions** and is UNVERIFIED~~ -
+  **CLOSED 2026-08-31, the zeros are real.** See "Power zones: verified absent"
+  in [research-findings.md](research-findings.md). Three checks: a second
+  independent reader (the raw `World.powerZone` int array) agrees with
+  `GetPowerZone`, `rawLen == width*height` on every map tried, and a positive
+  control - writing three cells with `SetPowerZone` makes both readers report
+  three, then restores. So the campaign genuinely has no power zones, and the
+  "second bluite source" concern does not apply to it. `resources:zonetest`
+  re-runs the whole check.
 
 ### Unit names: build-pane keys are NOT unit names (2026-08-28)
 
@@ -436,6 +452,11 @@ trap stun, weapon drain and spore targeting passed over pylons and miners.
 
     riftlab -> CommandBase      pylon      -> TowerBridge
     miner   -> Collector        ernportal  -> ERNInterface
+    porter  -> DeliveryPad (+ DeliveryDrone)
+
+A FOURTH name space explains why porter took so long: build-BUTTON object names
+match neither the key nor the unit. PYLON's button is `SuperTowerButton`, MINER's
+is `ReactorButton`, PORTER's is `DeliveryPadButton`.
 
 Full write-up - the three name spaces, the mapping table, the two player/enemy
 discriminators that do NOT work, and how to re-derive it all with CW4DevTools -

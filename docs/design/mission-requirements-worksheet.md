@@ -234,10 +234,10 @@ Known-good defaults, so you only note deviations:
 
 - Objectives present (required): Nullify 9, 4 Totems, Collect 1
 - Objectives (optional): reclaim
-- Min units to complete:
+- Min units to complete: cannon, nullifier, chronat, refinery, factory - PLAYED 2026-08-31 with exactly this set and nothing else (no miner, pylon, platform, terp, sniper, missile launcher, and no energy/storage items): "Yes very doable with no miners"
 - Required for an OBJECTIVE only: Need beacon to get to the center where all enemies are. nullifier to nullify enemies. Refinery, factory for liftic for totems.
-- Helped but not needed:
-- Objective notes: darkness must be lifted with beacons of light - which unit?
+- Helped but not needed: snipers - "not needed, but nice to haves. you can beat the level without them" (so: casual tier, NOT logic, and not a hedge to promote later). pylon/platform per the notes below. miner: NOT needed, tower energy carries the opening.
+- Objective notes: darkness must be lifted with beacons of light - ANSWERED, that is the CHRONAT (the mission's own intro says "We need beacons of light to lift the darkness").
 - Blockers:
 - Notes: First level with darkness. No easy way to get item. need to fight back creep to do it. You can beat this level without pylon/platform, but they do make it easier since it's a big map, and there's a bit of space. RESO at start for mining, but you might need it for energy at the start since there's not a lot of land for towers. once you get some of the other corners it gets a little easier. There's redite (factory) for missles here. blobs, spores, eggs, skimmers are all about eaquily bad here. so snipers and missles make it easier. Techincally might not be needed. but hard mode if not.
 
@@ -381,10 +381,22 @@ playthrough", for the resulting tables.
    mentions are negatives); Shield is required on Archon, treated the same way as
    the Nullifier hedge on that same mission. The many nice-to-have notes are
    difficulty-tier material, not logic.
-5. Reactor / SuperTower / DeliveryPad - still open, still unmodelled.
-6. Power zones - still open (automated scan read zero, unverified).
-7. Miner / economy - PARTIAL. Tower energy carries most maps; Tower of Darkness
-   is the one where mining "might" be needed. Left out of logic and flagged.
+5. Reactor / SuperTower / DeliveryPad - ANSWERED as a NAMING question, still
+   unmodelled as buildings. These are BUTTON object names, not units: PYLON's
+   button is SuperTowerButton, MINER's is ReactorButton, PORTER's is
+   DeliveryPadButton. So they are not three unmodelled extra buildings at all -
+   they are three buttons the mod already drives through pylonAvailable,
+   minerAvailable and porterAvailable.
+6. Power zones - ANSWERED. There are none in the campaign, and that is now proven
+   rather than assumed: two independent readers agree at zero, and writing three
+   cells with SetPowerZone makes both report three. The "bright blue reactor
+   ground" was almost certainly RESO, misread through the ReactorButton name.
+7. Miner / economy - ANSWERED. Tower of Darkness was played with exactly its logic
+   requirements and no Miner, Pylon, Platform, Terp or energy items: "Yes very
+   doable with no miners on Tower of Darkness. not a requirement. the snipers are
+   a little more important." Clarified: "snipers are not needed, but nice to
+   haves. you can beat the level without them." Economy stays out of logic;
+   snipers stay in the casual tier and are explicitly not a hedge.
 8. Air units - ANSWERED. Never the only way to reach anything.
 9. Rift lab pre-placed - still only story1.
 
@@ -405,8 +417,11 @@ Original list below.
    a player never gets them. Are any needed to win a mission?
 6. **Power zones** (bright blue reactor ground) - do any Farsite missions have
    it? An automated scan read zero on all 20 and is unverified.
+   ANSWERED: no, and the scan is now verified by a positive control.
 7. **Miner / economy** - which missions actually demand mining, versus just
    running on tower energy?
+   ANSWERED: none of them. Tower of Darkness, the only candidate, plays fine
+   without a Miner.
 8. **Air units** - any mission where air is the only way to reach something?
 9. **Rift lab pre-placed** - only story1 measured as pre-placed, checked ~24s
    after load. You mentioned "some levels" - if you spot another, note it here,

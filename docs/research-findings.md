@@ -106,7 +106,7 @@ exists publicly. This would be the first.
 | `pylon` | `TowerBridge` |
 | `miner` | `Collector` (+ `CollectorPanel3`, `CollectorPanel5`) |
 | `ernportal` | `ERNInterface` |
-| `porter` | **not found** - see below |
+| `porter` | the DELIVERY family - see "A fourth name space" below |
 | `airship`, `bertha`, `sweeper` | **not found** - see below |
 | everything else | direct case-insensitive match |
 
@@ -141,14 +141,98 @@ Also corrected: **enemy units DO build.** `Pod` appeared as "building but not in
 the player list", so "enemy structures do not build" - used earlier to justify a
 diagnostic - is false. The whitelist is what keeps enemies out, not that.
 
-`porter` remains unpinned as a name, but reported working in play, so it resolves
-to one of the whitelisted names. If it is ever skipped, the report below names it.
+`porter` is resolved as of 2026-08-31 - see "A fourth name space" below. It was
+never a registry name at all.
 
 Note the list in both mods contains the literal string `"porter"`, which makes a
 naive audit report it as covered. It is not: `GetDataName()` can only ever
 return a registry name, so that entry can never match. `DevTools.ReportSkippedBuild`
 exists to catch precisely this - it warns when a unit is under construction but
 fails the player filter, which is what a placed porter should trigger.
+
+### A fourth name space: BUTTON object names (2026-08-31)
+
+The porter went unresolved for so long because there are **four** name spaces, not
+three, and the fourth matches neither of the others. Build-button GameObject names
+are historical and internal.
+
+Derived by granting one item at a time and watching `DEBUG UNITS: structButtons`
+go 1 -> 2 -> 3, then reading the struct pane's own on-screen labels against the
+GameObject list from `pane:dump` (six labels, six buttons, same order, and three
+of the six align by name which pins the ordering):
+
+| Pane label | Button GameObject | Build-pane key |
+|---|---|---|
+| TOWER | `TowerButton` | `tower` |
+| PYLON | **`SuperTowerButton`** | `pylon` |
+| MINER | **`ReactorButton`** | `miner` |
+| REFINERY | `GreenarRefineryButton` | `greenarrefinery` |
+| TERP | `TerpButton` | `terp` |
+| PORTER | **`DeliveryPadButton`** | `porter` |
+
+**This resolves the contradiction with "Corrections and panel-flag results
+(v0.23 final)" further down this file.** That entry said *"'Reactor' and
+'DeliveryPad' are INTERNAL names for the MINER and PORTER buttons"* - correct
+about the BUTTONS. The mapping table above it says `miner -> Collector` - correct
+about the UNITS. Both are right; they are describing different name spaces, and
+`SuperTowerButton` for PYLON is the third of the same kind.
+
+So the porter is the DELIVERY family, and `DeliveryPad`, `DeliveryDrone`,
+`StoragePad` and `Stash` were **already** in both mods' whitelists - per-unit
+effects were covering porters, and the "STILL UNRESOLVED" note overstated the
+risk. `spawn:Porter` places nothing, consistent with "porter" being a build-pane
+key only.
+
+**CONFIRMED by building one, same day.** A button's object name does not prove
+which prefab it places - PYLON's button is `SuperTowerButton` while its unit is
+`TowerBridge` - so the last step was a hand-placed porter. It dumps as
+
+    DeliveryPad/DeliveryPad=MINEx1   DeliveryDrone/DeliveryDrone=MINEx1
+
+Both were already whitelisted, both read `=MINE`, and
+`DevTools.ReportSkippedBuild` said nothing about them - its only complaints in
+that session were `Pod` and `Shot`, an enemy and a projectile, both correctly
+excluded. **So `porter` is `DeliveryPad` + `DeliveryDrone`, and there was never a
+coverage gap.** Note `Shot` is not in the 88-name registry at all, which is worth
+remembering if a projectile ever needs classifying.
+
+**Two oracles that do NOT work, so nobody re-tries them:**
+
+- **The build-ghost dump.** `DevTools.DumpUnits` claims ghost -> prefab ->
+  `GetDataName()` is "the decisive mapping with no guessing". It is not: every one
+  of the ~60 ghosts reports `(no UnitManager)`, so the prefab carries no
+  `UnitManager` to read a name from. The ghost NAMES are still useful (they are
+  registry names, and there is no `PorterBuildGhost` at all, which is itself the
+  clue that porter is not a unit name).
+- **`pane:dump`'s ON/off for availability.** It reads `activeInHierarchy`, which
+  on the struct tab reflects PAGING, not availability - all six buttons read `=ON`
+  with zero items granted. `DEBUG UNITS: structButtons=N` is the reliable count.
+
+### The 88-name registry, dumped (2026-08-31)
+
+Recorded here because it was nowhere in the repo and every naming question needs
+it. `DEVTOOLS ENEMY=false (88)`, alphabetical:
+
+    ACBomber, ACBomberPad, ActivationAntenna, AirSac, AirSacBubble,
+    AirSacCauldron, Blob, BlobNest, BlueFab, Bomber, BomberPad, Cannon, Chronat,
+    Collector, CollectorPanel3, CollectorPanel5, CommandBase, Conversion,
+    Crazonium, Crystal, CytocreepLauncher, Damper, DeliveryDrone, DeliveryPad,
+    Denier, Driver, Emitter, ERN, ERNInterface, Fabricator, Fabricator2, Factory,
+    FatMan, Flope, Forb, GrayFab, GreenarDrone, GreenarMother, GreenarRefinery,
+    InfoCache, Max, Microrift, MissileLauncher, Monolith, Mortar, Nullifier,
+    Payload, PayloadPad, Platform, Pod, PowerZone, Pterosaur, PterosaurNest,
+    Rain, RainDrop, Reactor, RedFab, ResourceBlue, ResourceRed, Rocket,
+    RocketPad, Runway, Shield, Shrapnel, Singularity, SkimmerFactory, Sniper,
+    Sparker, Spore, SporeLauncher, Sprayer, Stash, StoragePad, Strafer,
+    StraferPad, Strider, SuperTower, SurviveBase, Terp, TerpDrone, Totem, Tower,
+    TowerBridge, Transformer, Ultrac, VineRoot, Wall, Workall
+
+No `Porter`. `UnitConstants.ENEMY` reads false for all 88, so the split the dump
+prints is not a player/enemy answer - see the discriminators above.
+
+`Strider`, `Workall`, `Transformer` and `Max` - the "unverified candidates" a
+comment once offered for the porter - all spawn successfully and read `=other`.
+They are map/editor units, not the player's.
 
 Verified: `CreateUnitAtPosition("pylon")` and `("miner")` return **null**;
 `("TowerBridge")` and `("Collector")` place successfully.
@@ -627,6 +711,10 @@ matching the selected tab toggle (ResyncStrip in probe v0.23).
   buttons (display names differ). No extra buildables beyond the 26 flags
   plus mission-embedded CPACK units. Struct tab = exactly 6 buttons fully
   unlocked; no scroll overflow.
+  **RECONCILED 2026-08-31** - this is about BUTTON object names and it is
+  correct; the `miner -> Collector` row near the top of this file is about UNIT
+  names and is also correct. See "A fourth name space", which adds
+  `SuperTowerButton` for PYLON and settles the porter.
 - factory and ernportal do not use pane buttons: each has a DEDICATED panel
   next to the build pane (Factory ware rows / ERN PORT avail+buried).
   Verified live in both directions: locking removes the panel, unlocking
@@ -1010,4 +1098,44 @@ already agrees, and self-correcting if a game update changes the map data. It
 runs from `Paint`, i.e. on map open, planet refresh and Archipelago state change.
 Measured idle on an open map: 1,250 frames with the Refresh, paint and recolour
 counters completely unmoved, and exactly one reconcile per planet.
+
+## Power zones: verified absent from the campaign (2026-08-31)
+
+`powerZoneCells` read 0 on all 20 missions and was distrusted, for a good reason:
+this project had already shipped exactly this failure once. The re-fog scan keyed
+off `GetIsFogTerrain` (the DERIVED "currently dark" flag) instead of
+`GetFogTerrain` (the map's definition) and confidently reported "no fog cells" on
+a mission with 7845 of them. A uniform zero is what that looks like from outside.
+
+So it was settled with three checks rather than one, via `resources:zonetest`
+(story19, story15, story5):
+
+| Check | Result |
+|---|---|
+| `GetPowerZone(x, y)` loop | 0 |
+| Raw `World.powerZone` int array, an INDEPENDENT reader | 0 |
+| `rawLen` vs `width * height` | equal on all three (49152, 50176, 23040) |
+| **Positive control:** `SetPowerZone` three cells, re-count | **both readers report 3** |
+| Restore | back to 0 |
+| `resources: powerZone scan failed` in the log | never |
+
+**Verdict: the reader works, so the zeros are the map's real answer.** The
+campaign has no power zones, and the "a Reactor can be swapped to produce bluite,
+so this is a second bluite source" concern does not apply to it.
+
+`World` also has a `desiredPowerZone` - an `Il2CppReferenceArray<HashSet<Int32>>`,
+i.e. per-column sets rather than a terrain layer. That is player/UI intent, not
+the map, and is NOT the definition/derived pair the fog bug taught us to look for.
+There is no such pair here.
+
+A second, unit-based reader was added to `resources:dump` at the same time
+(`powerZoneUnits`), because the 88-name registry contains a `PowerZone` type and
+there is a `PowerZoneBuildGhost` - so zones exist as objects and counting only
+terrain could have missed a map that carries them another way. It also reads 0.
+
+**Where the confusion came from, most likely.** The docs described power zones as
+"the bright blue ground Reactors are built on". The MINER's button object is named
+`ReactorButton` (see "A fourth name space"), and the ground miners work is what
+the play notes call RESO throughout - never "power zone". A button name almost
+certainly got read as a unit name, and RESO ground became "reactor ground".
 

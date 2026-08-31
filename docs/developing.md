@@ -526,8 +526,8 @@ story:open, clickplanet:<storyN>, limit:<unit>, ern:status, gatecheck:<storyN>,
 say:<text>, showall:on|off, shot:<path>, msgbox:set, msgbox:dump, canvas:dump,
 hud:dump, minimap:dump, menu:dump, toast:<text>, finale:need <n>, finale:beat
 <n>, loc:add <location>, perf, glyphs:dump [planet title], totem:complete,
-cache:destroy, counts:dump, totems:dump, pane:dump, resources:dump, diag:span,
-diag:watch [seconds], diag:refresh <planet title>.
+cache:destroy, counts:dump, totems:dump, pane:dump, resources:dump,
+resources:zonetest, diag:span, diag:watch [seconds], diag:refresh <planet title>.
 
 Four of those exist for the event-driven work and are worth knowing:
 `glyphs:dump` reads each objective glyph back off the live object - colour named
@@ -564,9 +564,38 @@ nothing), `set k=v` for live tuning in depth units, and the diagnostics `aim`
 arguments use the tuned defaults in `TrapEffects.cs`. These are dormant; no trap
 is wired to an AP item yet.
 
+Two oracles that LOOK authoritative and are not - both cost time before being
+caught, so they are worth knowing about before reaching for them:
+
+- **The build-ghost dump** (`DEVTOOLS build ghosts`) claims ghost -> prefab ->
+  `GetDataName()` is "the decisive mapping with no guessing". Every one of the ~60
+  ghosts actually reports `(no UnitManager)`. The ghost NAMES are still useful -
+  they are registry names, and the absence of a `PorterBuildGhost` was itself the
+  clue that "porter" is not a unit name.
+- **`pane:dump`'s `=ON`/`=off`** reads `activeInHierarchy`, which on the struct tab
+  reflects PAGING, not availability: all six buttons read `=ON` with zero items
+  granted. `DEBUG UNITS: structButtons=N` is the count that actually tracks the
+  availability flags - watching it go 1 -> 2 -> 3 while granting one item at a
+  time is what mapped the buttons to their flags.
+
+`resources:zonetest` is the pattern to copy for any "the count reads zero"
+question: two independent readers, a bounds check, and a POSITIVE CONTROL that
+writes a known value and reads it back. It closed the power-zone question that a
+year of zeros could not, and the reason it was needed is in
+[research-findings.md](research-findings.md) - the fog scan once reported "no fog
+cells" on a mission with 7845 of them.
+
 The probe (`src/CW4APProbe`) keeps its own file-command protocol
 (`probe-unlocks.txt`) and older batteries (`tools/battery2.sh`,
 `tools/erntest.sh`, `tools/survey.sh`) for game-mechanism research.
+
+`tools/names-probe.sh` dumps the game's naming: the 88-entry registry, the build
+ghosts, the CMOD GUIDs, and a `spawn:` pass over candidate names (spawn is a name
+oracle - it says outright when a name is not real). `tools/story15-handtest.sh`
+sets up a hands-on test with EXACTLY one mission's logic requirements granted and
+nothing else, which is how a "is this mission possible without X" question gets
+asked faithfully - `UnitGate` enforces the list, so the tester cannot cheat by
+accident.
 
 Scripts read the game location from `CW4_DIR` (defaults to the maintainer's
 path) and write outputs under `$TEMP`.
