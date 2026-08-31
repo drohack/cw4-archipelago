@@ -41,6 +41,29 @@ Whoever generates the multiworld needs `cw4.apworld` (from the same release)
 in their Archipelago installation's `custom_worlds/` folder, and each CW4
 player needs a yaml with `game: Creeper World 4`.
 
+## Yaml options
+
+Every option has a default, so a yaml that names none of them generates a
+sensible seed. The ones most worth setting:
+
+| Option | Default | What it does |
+|---|---|---|
+| `missions_for_finale` | 12 | How many other missions must be completable before the finale can be won. 0 disables the gate. Maximum 19 |
+| `logic_difficulty` | standard | `standard` assumes only what is needed to WIN. `casual` also assumes a sniper or missile launcher from We Were Never Alone onward, so anti-air arrives earlier |
+| `starter_missions` | 2 | How many missions start unlocked, drawn from those whose cache needs no weapon. Range 1 to 6 |
+| `trap_percentage` | 50 | Share of the non-progression slots that are traps. **50 is a lot in a solo game** - lower it if they grate. 0 removes them |
+| `progressive_erns` | 4 | How many Progressive ERN items go in the pool. ERNs are never required, so this is purely pool budget. Range 0 to 40 |
+
+Finer tuning, all optional: seven `trap_weight_*` options (default 100 each)
+set the relative frequency of the individual traps; `energy_storage_step` and
+`energy_storage_decay` shape the storage upgrades; `base_generation_start` and
+`base_generation_ramp` shape the generation upgrades; and three `filler_*_weight`
+options split the leftover slots between energy, generation and build limits.
+
+Fractional values travel as TENTHS because Archipelago ranges are integers - so
+`base_generation_start: 5` means +0.5 energy per second. Each option's own
+description in the yaml template says which unit it uses.
+
 ## Connecting
 
 Use the panel on the main menu: server address and port
@@ -79,5 +102,21 @@ your unlocks and re-sends any checks when the server returns.
 Delete from the game folder: `winhttp.dll`, `doorstop_config.ini`,
 `.doorstop_version`, `changelog.txt`, and the `BepInEx` and `dotnet`
 folders. The game is then fully vanilla; verify files via Steam if unsure.
-Your saves and campaign progress live elsewhere
-(`Documents/My Games/creeperworld4`) and are not touched by uninstalling.
+
+**Your Farsite saves need one extra step, because the mod moves them.** To keep
+one seed's saves from showing up in another, the mod treats
+`Documents/My Games/creeperworld4/saves/farsite` as a slot-specific folder: on
+connecting to a different slot it moves the current contents into
+`Documents/My Games/creeperworld4/archipelago/save-archive/<slot>/` and restores
+that slot's set. Your original, pre-mod campaign saves are archived under the key
+`vanilla`.
+
+So if you uninstall while an Archipelago slot is active, `saves/farsite` holds
+that slot's saves and your vanilla campaign is sitting in the archive. To get it
+back, move the contents of `archipelago/save-archive/vanilla/` into
+`saves/farsite/`. Nothing is ever deleted and every switch is reversible - but
+the archive folder is the only place to look for saves that seem to have
+vanished.
+
+Campaign PROGRESS (`mcs.dat`) is genuinely untouched: the mod drives the mission
+map's display from Archipelago state instead of editing it.
