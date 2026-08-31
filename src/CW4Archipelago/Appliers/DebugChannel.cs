@@ -124,6 +124,7 @@ public sealed class DebugChannel
         if (lower.StartsWith("sim:")) { Sim(line.Substring(4).Trim()); return; }
         if (lower.StartsWith("spawn:")) { Spawn(line.Substring(6).Trim()); return; }
         if (lower == "resources:dump") { ResourceDump(); return; }
+        if (lower == "resources:zonetest") { ZoneTest(); return; }
         if (lower == "pane:dump") { PaneDump(); return; }
         if (lower == "totems:dump") { TotemDump(); return; }
         if (lower == "counts:dump") { CountsDump(); return; }
@@ -843,6 +844,107 @@ public sealed class DebugChannel
         }
     }
 
+    /// <summary>Settle whether powerZoneCells reading 0 on all twenty missions is
+    /// the truth or a broken read.
+    ///
+    /// It has to be settled rather than assumed, because this project has already
+    /// made exactly this mistake once: the re-fog scan keyed off GetIsFogTerrain
+    /// (the DERIVED "currently dark" flag) instead of GetFogTerrain (the map's
+    /// definition) and confidently reported "no fog cells" on a mission with 7845
+    /// of them. A uniform zero is what that failure looks like from the outside.
+    ///
+    /// Three checks, because one reader agreeing with itself proves nothing:
+    ///   1. Count via World.GetPowerZone(x, y), which is what ResourceDump uses.
+    ///   2. Count via the raw World.powerZone array, an INDEPENDENT reader - it is
+    ///      an Il2CppStructArray of int, i.e. the terrain layer itself.
+    ///   3. A POSITIVE CONTROL: write a zone into three cells with SetPowerZone,
+    ///      re-count both ways, then put the old values back. If a written cell
+    ///      does not show up, the reader is wrong and the survey's zeros mean
+    ///      nothing. If it does, the reader works and the campaign genuinely has
+    ///      no power zones.
+    ///
+    /// Not to be confused with World.desiredPowerZone, which is an array of
+    /// HashSets rather than a terrain layer - player/UI intent, not the map.
+    ///
+    /// This MUTATES the world for a moment. It is a debug command in a throwaway
+    /// session, it restores what it changed, and nothing is saved.</summary>
+    private static void ZoneTest()
+    {
+        var gs = GameSpace.instance;
+        var w = gs?.world;
+        if (w == null) { ModCore.Log.LogWarning("zonetest: no world"); return; }
+
+        int width = World.WORLD_CELL_WIDTH, height = World.WORLD_CELL_HEIGHT;
+
+        int ByAccessor()
+        {
+            int n = 0;
+            for (int x = 0; x < width; x++)
+                for (int y = 0; y < height; y++)
+                    if (w.GetPowerZone(x, y) > 0) n++;
+            return n;
+        }
+
+        // The raw layer. Length is reported too: if it is not width*height the
+        // grid assumption behind every full-map scan in the mod is wrong.
+        int rawLen = -1;
+        int ByArray()
+        {
+            try
+            {
+                var arr = w.powerZone;
+                if (arr == null) { rawLen = -2; return -1; }
+                rawLen = arr.Length;
+                int n = 0;
+                for (int i = 0; i < arr.Length; i++)
+                    if (arr[i] > 0) n++;
+                return n;
+            }
+            catch (Exception e)
+            {
+                ModCore.Log.LogWarning($"zonetest: raw array read failed: {e.Message}");
+                return -1;
+            }
+        }
+
+        int before = ByAccessor(), beforeRaw = ByArray();
+        ModCore.Log.LogInfo(
+            $"ZONETEST: grid={width}x{height} (cells={width * height}) rawLen={rawLen} " +
+            $"accessor={before} rawArray={beforeRaw}");
+
+        // Three cells at the centre, so the write cannot land off-grid.
+        var cells = new (int X, int Y)[] { (width / 2, height / 2), (width / 2 + 1, height / 2), (width / 2, height / 2 + 1) };
+        var saved = new int[cells.Length];
+        try
+        {
+            for (int i = 0; i < cells.Length; i++)
+            {
+                saved[i] = w.GetPowerZone(cells[i].X, cells[i].Y);
+                w.SetPowerZone(cells[i].X, cells[i].Y, 1);
+            }
+            int after = ByAccessor(), afterRaw = ByArray();
+            bool accessorSaw = after >= before + cells.Length;
+            bool arraySaw = afterRaw >= beforeRaw + cells.Length;
+            ModCore.Log.LogInfo(
+                $"ZONETEST: wrote {cells.Length} cells -> accessor={after} rawArray={afterRaw} " +
+                $"accessorSawTheWrite={accessorSaw} arraySawTheWrite={arraySaw}");
+            ModCore.Log.LogInfo(accessorSaw && arraySaw
+                ? "ZONETEST: VERDICT reader WORKS - a zero count is the map's real answer"
+                : "ZONETEST: VERDICT reader is WRONG - a written cell did not read back");
+        }
+        catch (Exception e) { ModCore.Log.LogWarning($"zonetest: write failed: {e.Message}"); }
+        finally
+        {
+            try
+            {
+                for (int i = 0; i < cells.Length; i++)
+                    w.SetPowerZone(cells[i].X, cells[i].Y, saved[i]);
+                ModCore.Log.LogInfo($"ZONETEST: restored, accessor back to {ByAccessor()}");
+            }
+            catch (Exception e) { ModCore.Log.LogWarning($"zonetest: restore failed: {e.Message}"); }
+        }
+    }
+
     /// <summary>Per-mission resource survey for the logic pass: which raw
     /// resources a map actually ships. Sprayers need bluite, so "does this
     /// mission have bluite at all" decides whether sprayer can count as offense
@@ -859,7 +961,7 @@ public sealed class DebugChannel
         var gs = GameSpace.instance;
         if (gs == null) { ModCore.Log.LogWarning("resources: no GameSpace"); return; }
 
-        int blue = 0, red = 0, greenar = 0, reactors = 0;
+        int blue = 0, red = 0, greenar = 0, reactors = 0, powerZoneUnits = 0;
         var reactorWares = new System.Collections.Generic.Dictionary<int, int>();
         var other = new System.Collections.Generic.Dictionary<string, int>();
 
@@ -873,6 +975,11 @@ public sealed class DebugChannel
                 case "ResourceBlue": blue++; break;
                 case "ResourceRed": red++; break;
                 case "GreenarMother": greenar++; break;
+            // A second, independent reader for power zones. The 88-name registry
+            // contains a PowerZone type and there is a PowerZoneBuildGhost, so
+            // zones exist as OBJECTS - counting only the terrain layer would miss
+            // a map that carries them some other way.
+            case "PowerZone": powerZoneUnits++; break;
                 case "Reactor":
                     reactors++;
                     try
@@ -908,7 +1015,8 @@ public sealed class DebugChannel
         var wares = string.Join(",", reactorWares.Select(kv => $"ware{kv.Key}x{kv.Value}"));
         var extra = other.Count == 0 ? "" : " otherResource:" + string.Join(",", other.Select(kv => $"{kv.Key}x{kv.Value}"));
         ModCore.Log.LogInfo(
-            $"RESOURCES: bluite={blue} redon={red} greenar={greenar} powerZoneCells={zoneCells} reactors={reactors}" +
+            $"RESOURCES: bluite={blue} redon={red} greenar={greenar} powerZoneCells={zoneCells} " +
+        $"powerZoneUnits={powerZoneUnits} reactors={reactors}" +
             (wares.Length > 0 ? $" ({wares})" : "") + extra);
     }
 
