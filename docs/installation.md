@@ -39,7 +39,11 @@ hidden while the mod is active.
 
 Whoever generates the multiworld needs `cw4.apworld` (from the same release)
 in their Archipelago installation's `custom_worlds/` folder, and each CW4
-player needs a yaml with `game: Creeper World 4`.
+player needs a yaml with `game: Creeper World 4`. A ready-to-use one ships with
+the release as `Creeper World 4.yaml` - drop it in `Players/` and edit the name.
+
+Requires **Archipelago 0.6.7 or newer**, which is what the world is tested
+against in CI.
 
 ## Yaml options
 
