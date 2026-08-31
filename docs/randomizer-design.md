@@ -71,8 +71,9 @@ colors, save archiving): see design/2026-08-25-mod-wiring-design.md.
 - Mission gating: OnLaunch + OnLoad prefixes; map shows native "?" for
   locked missions (mcs rewrite gives clean slate per slot; display owned
   by mod thereafter); LockedPlanet visual + marker recoloring for tracker
-  states (grey locked / red nothing / yellow out-of-logic / green in-logic
-  or done - final palette TBD).
+  states. Palette settled: red not accessible / yellow reachable but not in
+  logic / green reachable and in logic / orange partial / grey finished,
+  per the Archipelago-PopTracker convention in the wiring design.
 - Menu: chronom/markV/colonies/editor hidden; AP login panel functional.
 
 ## Survey data (probe v0.54, automated, 2026-08-25)
@@ -170,6 +171,287 @@ Revised baseline rule sketch per mission:
     collect/custom objectives -> per-mission review
   difficulty options can add sniper/missile "recommended" tiers (like SC2
   logic levels: casual requires defenses, hard does not).
+
+Addendum (user, 2026-08-26) - objective requirements:
+- **Totems objective requires greenar**: totems are activated by feeding them
+  greenar, so the greenar chain (Greenar Refinery) is required wherever a
+  Totems objective is a location. Encoded in rules.objective_requirements.
+  14 missions have one: 2,3,4,5,7,8,9,10,12,13,14,15,16,20.
+- **Nullify objective requires the Nullifier** (4 missions: 2,11,15,20).
+  Already encoded; missions themselves never require it.
+Caveat: Totem.ammoWares is authored PER MAP (ware type -> amount), so a map
+could in principle demand a different ware. GetAmmoWareWanted reads 0 for all
+wares at mission start, so the live requirement was not readable - the blanket
+greenar rule is the designer's, not measured.
+
+## Per-mission logic, derived from the playthrough (2026-08-30) - IMPLEMENTED
+
+The worksheet (design/mission-requirements-worksheet.md) is filled in, and
+`apworld/cw4/rules.py` is built from it, mission by mission.
+
+**Written as an explicit per-mission table, not derived from objective type.**
+The type is not what decides: missions 2, 3 and 4 power their totems from liftic
+lying on the ground while mission 8 needs the whole greenar chain. A first
+version derived rules from the type and was wrong in both directions - it also
+missed that most missions let the player take their cache with nothing but a rift
+lab and one tower.
+
+Reading rules: only what is genuinely REQUIRED becomes logic ("helped but not
+needed" is difficulty-tier material, so snipers and missiles are out, with one
+exception); and where the worksheet hedges, require rather than not, since
+too-tight logic only makes seeds linear while too-loose can make them unwinnable.
+Hedged calls are marked HEDGED in the code with the note they came from.
+
+### Completing a mission
+
+Offense (Cannon OR Mortar) on all 20. Sprayers are excluded: they burn bluite and
+every bluite map was judged short of the resource for a sprayer-only run. Two
+missions add to it:
+
+| Mission | Extra | Source |
+|---|---|---|
+| 12 Archon | Nullifier | HEDGED: an enemy shuts off energy production, "super hard to do anything without a nullifier" |
+| 16 The Compound | Sniper | saw blades die only to snipers, "no way to do any objectives without" |
+
+The Compound is the ONLY mission where a sniper is in logic.
+
+### Caches that need no weapon
+
+Ten Collect checks need NOTHING - not a weapon, not the mission's extras. Nine are
+the cache a player takes with the rift lab and a single tower before the creeper
+arrives, stated mission by mission in the worksheet ("You can get the item
+immediately with rift lab and single tower"): missions 2, 3, 4, 5, 7, 10, 11, 13,
+14. Archon is the tenth for a different reason - its caches are buried, but "If
+you have a pylon and a terp you can get the 2nd item (no weapons needed)", so a
+terp and a pylon stand in for the weapon.
+
+This is what makes a starting weapon unnecessary, and it is why cannon, mortar and
+sprayer can all stay real checks rather than one being handed over up front.
+
+Not waived, because the worksheet says the opposite: More and More ("No easy way
+to get the item at the start ... it starts under creep"), Tower of Darkness ("No
+easy way to get item. need to fight back creep"), The Compound, Sequence, Wallis,
+Founders, Ever After.
+
+### Per-objective requirements
+
+| Objective | Requirement |
+|---|---|
+| Nullify on 2, 20 | Nullifier |
+| Nullify on 11 Shattered | Nullifier + (Porter OR Platform) to cross space |
+| Nullify on 15 Tower of Darkness | Nullifier + Chronat (beacon, to reach the centre) |
+| Totems on 2, 3, 4 | nothing - powered from loose liftic caches |
+| Totems on 5, 7, 8, 9, 10, 12, 13, 14, 15, 16, 20 | Greenar Refinery + Factory |
+| Reclaim on 6 | HEDGED: Nullifier ("probably nessesary") |
+| Collect on 12 Archon | Terp + Pylon (buried; no weapon needed) |
+| Collect on 16, 17, 18 | Terp (buried) |
+| Collect on 19 Founders | Terp + Chronat + Platform |
+| Custom on 19 Founders | Nullifier + Platform (the obelisk reactors, then the neutron reactor) |
+
+### Structural rules
+
+**Mission Complete inherits its objectives.** A mission cannot end until its
+required objectives are done, so its completion check carries the union of their
+requirements plus the mission's own. A waived cache waives the weapon for ITS
+check only.
+
+**Prerequisite expansion.** Platform, Chronat and Rocket Pad need the greenar
+chain to build, so any rule requiring one also requires Greenar Refinery and
+Factory. Done in one place (`rules._expand`) so it cannot be forgotten, and
+deliberately NOT applied to an any-of group like "Porter or Platform", where only
+one branch needs it.
+
+**slot_data contract.** Each `location_requirements` entry is COMPLETE. A
+consumer must not AND it with the mission's entry - a mission's cache is often
+collectable long before the mission is winnable, and combining them would hide
+that.
+
+### Starter missions are RANDOM, and there is no starting weapon
+
+The only real constraint on the opening is that something must be reachable with
+an empty inventory, or the generator has nowhere to place a first item. That
+means a mission whose cache can be taken with the rift lab and a single tower.
+Nothing requires the campaign to start at its beginning - missions are open - so
+the starters are drawn at random from the nine that qualify (2, 3, 4, 5, 7, 10,
+11, 13, 14) and every seed opens somewhere different. `starter_missions` sets how
+many, default 2.
+
+Farsite is NOT eligible despite being mission 1: its Custom objective and rift
+jump both need a weapon, and although its first cache is free, its second is not
+- instances of an objective share a rule, so that pair cannot be split. Archon is
+excluded for a different reason: it waives the weapon but its caches are buried
+behind a Terp and a Pylon.
+
+`items.force_early_mission` additionally forces one more free-cache unlock that
+is not already a starter, so the opening always widens. Without something like
+it, generation failed on 1 of the first 20 seeds tested.
+
+**Every mission's unlock has an item id, including ones that start unlocked.**
+Ids must not shift with the starter set - building them from the non-starters
+was harmless while the set was a constant and would have silently broken the
+client the moment it became an option. Starters simply are not added to the pool.
+
+### Founders is the finale, Ever After is a side branch
+
+From the worksheet's mission 20 notes: "It's a hard map, but not good for a
+finale. I would say currently lock Founders (19) as the finale, and have this as
+an additional level ... have it connected to level 18 as a new branch and it can
+be to the right of Wallis."
+
+Implemented: `FINAL_MISSION = 19` in the apworld and `MissionRules.FinalMission`
+in the mod, so finishing Founders sends the goal and Ever After became an
+ordinary mission with its own Mission Complete check. The location count is
+unchanged at 58. The mod's off-map placement now hangs Ever After off Wallis and
+to its right.
+
+### Cross-mission questions, answered
+
+- **Greenar for totems**: missions 2, 3, 4 run off loose liftic, no refinery.
+- **Porter**: never the only way; one appearance, as an alternative to Platform.
+- **Terp**: buried caches on 12, 16, 17, 18, 19.
+- **Sprayer / bluite**: never sufficient alone.
+- **Air units**: never the only way to reach anything.
+- **Miner / economy**: still open. Tower energy carries most maps; Tower of
+  Darkness is the one where mining "might" be needed. Left out and flagged
+  rather than guessed - the single place where too-loose logic could strand a
+  player.
+
+### Still not in logic, deliberately
+
+Factory-for-storage as a general rule, Miner, and anything about ERNs. The
+worksheet does not establish them as required, and guessing would risk
+unwinnable seeds in the one direction that matters.
+
+## Traps, energy items and the option set (2026-08-30) - IMPLEMENTED
+
+### Traps
+
+The seven effects from the feasibility spike are now items:
+`Spore Strike`, `Spore Scatter`, `Creeper Surge`, `Energy Drain`,
+`Emitter Overdrive`, `Unit Stun`, `Ammo Drain`. Each has a weight option, and
+`trap_percentage` (default 50) sets what share of the non-progression slots they
+take. Every effect is temporary and recoverable - permanent terrain deformation
+was dropped during the spike precisely because it could strand a mission.
+
+**Traps must fire exactly once, and only in a mission.** Two hazards, both
+handled in `Appliers/TrapApplier.cs`:
+
+- Reconnecting re-delivers the WHOLE received-items list. Firing on the receive
+  event would replay every trap the player had ever been sent. Progress is a
+  persisted high-water mark (`SlotState.TrapsApplied`) over that list instead, so
+  it survives a reconnect and a restart.
+- A trap received at the menu has nothing to act on. Those queue and fire on the
+  next mission, one per tick, so a backlog stings repeatedly rather than landing
+  as a single unsurvivable wall.
+
+Trap names are pinned by tests on both sides. The mod dispatches on the exact
+strings, so a rename would otherwise stop traps firing silently rather than fail.
+
+### Energy items
+
+`Energy Storage Upgrade` and `Base Generation Upgrade`, both applied to the rift
+lab - the only real levers CW4 exposes (see research-findings.md, "Energy: the
+store is the rift lab's ammo"). Storage has diminishing returns, generation
+ramps, per the designer:
+
+| Option | Default | Effect |
+|---|---|---|
+| `energy_storage_step` | 50 | first copy's capacity bonus |
+| `energy_storage_decay` | 80 | percent of the previous copy, so 50, 40, 32, 25 |
+| `base_generation_start` | 5 | tenths per second, so +0.5/sec |
+| `base_generation_ramp` | 2 | tenths more per later copy, so 0.5, 0.7, 0.9 |
+
+**Item names carry no amounts.** Ids must be identical across every yaml, so
+`Energy Storage +50` would break the client whenever a player retuned an option.
+The amounts travel in slot_data.
+
+### Degradation over failure
+
+An unfillable preference must not fail generation: zeroing every filler weight
+falls back to build limits, and zeroing every trap weight turns those slots into
+useful items. Both are tested.
+
+### Verified
+
+71 world tests, 80 C# tests, and 80 generated seeds with no failures across
+defaults, ERNs at 0 and 40, generation-only filler, traps at 0 and 100 percent, a
+single starter mission, and 4-player multiworlds.
+
+### Open design options for more locations/items (user, 2026-08-27)
+
+Raised while sizing the pool (59 locations vs 47 real items = 12 filler slots):
+
+1. **Caches as individual locations.** The "blocks you connect the network to"
+   are InfoCaches, and they ARE the Collect objective - `GameSpace.mustCollect`
+   equals the InfoCache count on every mission measured. Today all of a
+   mission's caches collapse into ONE "Collect" check; each could be its own
+   location instead. Counts are in the table below.
+2. **First-nullify as a location.** `GameSpace.nullifiableUnits` is the set the
+   Nullify objective completes on, so per-structure or first-per-mission
+   nullify checks are capturable.
+3. **Rift Lab as an unlockable item.** A few missions ship with the rift lab
+   already placed; most make the player place it. If the Rift Lab becomes an
+   item, only the pre-placed missions are playable without it - a natural
+   starter set and a strong early gate. Logic would read:
+       playable(N) = MissionUnlock(N) AND (riftlab_held OR base_preplaced(N))
+   Requires care: with no Rift Lab item and no pre-placed base, a mission is
+   unstartable, which is the intended gate but must never be the ONLY reachable
+   state (at least one pre-placed mission must be in the starter set).
+   `riftLabPreplaced` in the table below is measured from `GameSpace.commandBase`
+   existing at mission load.
+
+CAVEAT on all counts below: they are measured at MISSION START. Enemies, totems
+and nullifiable structures can appear during play - story2 has both a Nullify
+and a Totems objective yet reports 0 nullifiable and 0 totems at load. Treat
+these as a floor, not a total.
+
+### Per-mission resources (survey, 2026-08-26)
+
+Map deposits at mission start. Feeds the sprayer/bluite and miner questions.
+
+| Resource | Missions |
+|---|---|
+| bluite deposits | 5 (1), 14 (2), 16 (1), 18 (3), 19 (4) |
+| redon | 6 (4), 12 (6), 13 (2), 15 (3), 17 (3), 18 (7), 19 (4), 20 (3), and 1 each on 7,8,9,10,11,16 |
+| greenar (GreenarMother) | 1 each on 5,7,8,9,10,11,12,13,14,16,18,20; 2 on 15; 3 on 17,19 |
+| none at all | 1, 2, 3, 4 |
+
+KNOWN GAPS in this survey, do not treat as complete:
+- **greenar is undercounted**: only GreenarMother units are counted, but the
+  game also has greenar CRYSTALS (`greenarCrystal`, `greenarLocations`,
+  `CreateGreenar`). Missions 2,3,4 have Totems objectives with zero counted
+  greenar, which is most likely crystals rather than a contradiction.
+- **powerZoneCells read 0 on all 20 missions** and is UNVERIFIED - there is no
+  positive control, and a uniform-zero result already fooled an earlier survey.
+  Weak corroboration only: story19 has no power zones and its ReactorButton is
+  off. Power zones are the bright blue ground Reactors are built on; a Reactor
+  can be swapped to produce bluite, so this is a second bluite source.
+
+### Unit names: build-pane keys are NOT unit names (2026-08-28)
+
+`UnitRules.ItemToUnit` holds build-pane keys, not the game's unit names: the
+registry has no `pylon`, `miner`, `porter` or `riftlab`. Comparing those keys
+against `GetDataName()` silently skipped exactly those buildings, which is why
+trap stun, weapon drain and spore targeting passed over pylons and miners.
+
+    riftlab -> CommandBase      pylon      -> TowerBridge
+    miner   -> Collector        ernportal  -> ERNInterface
+
+Full write-up - the three name spaces, the mapping table, the two player/enemy
+discriminators that do NOT work, and how to re-derive it all with CW4DevTools -
+is the canonical reference in
+[research-findings.md](research-findings.md) under "Unit naming". Kept in one
+place on purpose so the two copies cannot drift.
+
+### Buildings the mod does not model (2026-08-26)
+
+The build panes contain `ReactorButton`, `SuperTowerButton` and
+`DeliveryPadButton`. None of the three is among the 26 BuildUnitManager
+`xxxAvailable` flags UnitGate drives, and none is in UnitRules or the item
+pool. They ARE gated by the game (with only Tower granted, all three read
+`=off` while TowerButton reads `=ON`), so this is not an open hole in the
+whitelist - but it is unresolved whether they ever become available in an AP
+run, since per-slot save archiving resets campaign progression.
 
 Addendum (user, 2026-08-25): add an **ERN Spawning** unlock - whether ERNs
 can be spawned at all (for the ERN portal / supercharging units). Late-game

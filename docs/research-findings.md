@@ -82,6 +82,279 @@ exists publicly. This would be the first.
 `ernPortalAvailable` (with `get_`/`set_`), `buildErnPortal`, `SetBuildLimit`,
 `MissionPanelUnlock`, `GalaxyMissionPanel`, `mission21`, `CompleteFarsiteStory`.
 
+## Unit naming: build-pane keys vs unit names (2026-08-28)
+
+**Three different name spaces, and mixing them up costs hours.**
+
+1. **Build-pane keys** - the `BuildUnitManager` availability flags:
+   `cannonAvailable`, `pylonAvailable`, `minerAvailable`, `riftLabAvailable`...
+   26 of them. `Core.UnitRules.ItemToUnit` maps AP items to these. This is all
+   `UnitGate` needs, and it is correct for that purpose.
+2. **Unit names** - the keys of `UnitData.unitConstants`, 88 entries, PascalCase:
+   `Cannon`, `Tower`, `TowerBridge`, `Collector`, `CommandBase`, `Emitter`...
+   This is what `UnitManager.CreateUnitAtPosition(name, pos)` accepts and what
+   the `<Name>BuildGhost` objects are named after.
+3. **Data names** - what `UnitManager.GetDataName()` returns at runtime: the
+   unit name, lowercased (`cannon`, `towerbridge`, `collector`), except the rift
+   lab which returns `CommandBase` with capitals.
+
+**The trap: several build-pane keys do not exist as unit names at all.**
+
+| Build-pane key | Actual unit name |
+|---|---|
+| `riftlab` | `CommandBase` |
+| `pylon` | `TowerBridge` |
+| `miner` | `Collector` (+ `CollectorPanel3`, `CollectorPanel5`) |
+| `ernportal` | `ERNInterface` |
+| `porter` | **not found** - see below |
+| `airship`, `bertha`, `sweeper` | **not found** - see below |
+| everything else | direct case-insensitive match |
+
+### Airship, bertha and sweeper are CMOD units (2026-08-28, CORRECTED)
+
+An earlier version of this section concluded these three "do not exist", because
+they are absent from all three name sources (`unitConstants`, build ghosts,
+`LeftPane.BuildUnitX`). **That conclusion was wrong.** They exist as **CMOD
+units** - CW4's custom-unit system - which is why the `CustomUnitBuildPane` looked
+empty and why they are missing from every name list.
+
+A CMOD unit's `GetDataName()` returns a **GUID**, never a name, so no name
+whitelist can ever match one. Confirmed in-game:
+
+    cmods: 3 player-buildable: AIRSHIP[ca8dfbe4] BERTHA[b2d47782] SWEEPER[c5b44bd0]
+    cmods: 8 with no player menu name (map/editor only)
+
+Those three GUIDs are exactly the ones that showed up as "building but not in the
+player list" while airship, bertha and sweeper kept building at normal speed with
+InstantBuild on.
+
+**The ownership test for CMOD units** is `GameSpace.cmods[guid].playerMenuUnitName`:
+non-empty means the unit is offered in the PLAYER's build menu. This is
+data-driven, so new custom units are handled without code changes, and it cleanly
+separates the 3 player units from the 8 map/editor-only ones. Implemented as
+`IsPlayerCmod` in both mods.
+
+Verified: spawning `c5b44bd0-...` (SWEEPER) now logs `instant-built`, where before
+it was skipped entirely.
+
+Also corrected: **enemy units DO build.** `Pod` appeared as "building but not in
+the player list", so "enemy structures do not build" - used earlier to justify a
+diagnostic - is false. The whitelist is what keeps enemies out, not that.
+
+`porter` remains unpinned as a name, but reported working in play, so it resolves
+to one of the whitelisted names. If it is ever skipped, the report below names it.
+
+Note the list in both mods contains the literal string `"porter"`, which makes a
+naive audit report it as covered. It is not: `GetDataName()` can only ever
+return a registry name, so that entry can never match. `DevTools.ReportSkippedBuild`
+exists to catch precisely this - it warns when a unit is under construction but
+fails the player filter, which is what a placed porter should trigger.
+
+Verified: `CreateUnitAtPosition("pylon")` and `("miner")` return **null**;
+`("TowerBridge")` and `("Collector")` place successfully.
+
+Consequence, and the bug this caused: any code comparing a build-pane key
+against `GetDataName()` silently skips those units. In the randomizer that meant
+trap stun, weapon drain and spore targeting passed over pylons, miners and ERN
+portals; in CW4DevTools it meant instant build / infinite resources /
+indestructible ignored them. Fixed by carrying the real names as aliases
+(`GameUtil.IsPlayerUnit`, `DevTools.PlayerKeys`).
+
+Also player-buildable but absent from `UnitRules` entirely: `SuperTower`,
+`Reactor`, `DeliveryPad`, `StoragePad`, `Stash`, `TerpDrone`, `GreenarDrone`.
+`SuperTower` is ambiguous - it has a player build button but also appears
+pre-placed on maps, so classifying it as the player's is a judgement call.
+
+**Two player/enemy discriminators that do NOT work:**
+
+- `UnitManager.enemy` (per instance): hostile `Pod`, `Ultrac` and `SuperTower`
+  all report `false`; only `Emitter` reports `true`.
+- `UnitConstants.ENEMY` (per type, in `UnitData`): reads `false` for **all 88**
+  types, so it is a default template, not per-map truth.
+
+Hence both mods use an explicit name whitelist. A whitelist rather than a
+blacklist on purpose: missing one of the player's buildings is a visible
+annoyance, but missing one hostile type would make an emitter indestructible.
+
+**Build completion:** `UnitManager.isBuilding` is the only correct signal.
+`HasBuildBar` / `BuildBarCubes` describe the BAR (5 cubes on everything), not
+remaining progress - using them as a fallback flags every finished building.
+`CompleteTheBuild(force: true)` finishes a unit and skips its remaining cost.
+
+## Ever After (story20) is parked off the galaxy map (2026-08-29)
+
+The player reported not being able to find "Ever After" on the Farsite level
+select, even after beating Founders. It is not missing and it is not locked:
+
+    DEVPLANET 'Founders'   guid=story19 unlocked=True links=1 world=(0,59,13)   screen=(1920,890)  onScreen=True
+    DEVPLANET 'Wallis'     guid=story18 unlocked=True links=1 world=(4,59,14)   screen=(2337,994)  onScreen=True
+    DEVPLANET 'Ever After' guid=story20 unlocked=True links=0 world=(36,59,-67) screen=(-9432,23230) onScreen=False
+
+All 21 planets (story0..story20) exist on the level select and every one reports
+`unlocked=True`. The whole campaign spiral sits inside roughly x -10..4, z 13..19;
+story20 sits at x=36, z=-67 - about 90 units away, far outside the framed view
+and unreachable by "Center View". It is also the terminal node (`links=0`), so
+the line that would lead the eye to it runs off-screen as well.
+
+It renders correctly once the camera is there - `span:goto story20` centres the
+view on it and the planet appears fully unlocked, green ring and objective icons
+and all, alone in empty space. So this is not a rendering fault and not a lock:
+the planet is simply placed about 82 units from a campaign that spans roughly
+20x16 units, with no visible line leading to it. The Farsite view (`Span`) pans
+by free drag and exposes no clamp fields, so a player CAN drag there - across a
+screen of empty starfield, with nothing indicating a direction.
+
+The connection is real in the data: every planet links to the next, `story19 ->
+story20`, and story20 is the terminal node with no outgoing link.
+
+story20 itself boots and plays normally - it is the epilogue, opening on "Let's
+start eternity by doing some good" and "WE ARE THE FOUNDERS!", with 241 map
+units. Finishing Founders plays a cutscene that says the story continues later,
+which fits: the epilogue appears to be intended as a story continuation rather
+than a map selection.
+
+**There is also no line to it.** The map holds 19 line objects for 20
+connections, and none of them is the ~82-unit one Founders -> story20 would
+need: that link is simply never drawn. Note that `SpanNetworkPlanet.lines` reads
+empty on EVERY planet and is not where the lines live - each line is a child of
+a planet's `lineContainer`, a `SpanNetworkPlanetLine` whose `LineRenderer` runs
+in LOCAL space from the origin to the neighbour's offset. `SetEnd` takes that
+local offset.
+
+**Fixed in the randomizer** (`Appliers/FinalePlacement.cs`): on entering the map,
+story20 is moved beside Founders and the missing line is created. The spot is
+chosen by sampling directions around Founders at the map's own
+nearest-neighbour spacing and taking the one with the most clearance, so it is
+deterministic and does not collide with the spiral; the new line copies its
+appearance from a line the game built rather than hard-coding colours. All
+cosmetic - no unlock, objective or mission content changes, and clicking the
+planet boots story20 exactly as before. Verified in game: the planet lands at
+local (6.8, -1.7) and the line is indistinguishable from its neighbours.
+
+Re-derive with `story:open`, then `planets:dump` and `span:goto story20`.
+
+## Energy: the store is the rift lab's ammo (2026-08-30)
+
+Investigated because an Archipelago "+energy" / "+storage" item needs a lever.
+There is one, and it is a single writable value for each.
+
+    energy store    = GameSpace.commandBase.ammo
+    store capacity  = GameSpace.commandBase.MAX_AMMO
+
+Measured directly: `gs.energyStore=63` against `riftlab ammo=62.999`, and the
+store sat at exactly 100 - the rift lab's `MAX_AMMO` - until that ceiling was
+raised, after which it climbed straight past:
+
+    at cap                  store=100  riftlab ammo=100  MAX_AMMO=100
+    after MAX_AMMO += 400   store=125  riftlab ammo=125  MAX_AMMO=500
+
+Granting ammo directly persists and the store keeps rising naturally from the
+new level (`ammo 23 -> 423`, then 427, 430, 434), so it is real energy rather
+than a display value.
+
+**So: `+generation` adds to `commandBase.ammo` per tick; `+storage` adds to
+`commandBase.MAX_AMMO`.** Both are single fields, both stick, and both restore.
+
+**And the energy is genuinely SPENT, not just displayed.** That check matters
+because the generation display passed a casual look and turned out to be
+cosmetic. With a cannon left unfinished next to the rift lab, the store drains
+as it builds:
+
+    build Cannon: isBuilding=True  riftlab ammo=65/100
+    watch store=63 -> 59 -> 56 -> 52
+
+So the ceiling is the buffer construction draws from: raising `MAX_AMMO` gives a
+player more sustained building before they stall, which is exactly what a
+"+storage" item should do.
+
+**Generation scales the same way, and is measurable in the fill rate:**
+
+| | store over three samples | rate |
+|---|---|---|
+| baseline | 107, 111, 115 | ~1/sec, matching GEN 1 |
+| +20/sec bonus added to `commandBase.ammo` | 167, 252, 336 | ~21/sec |
+
+The base has NO production-rate field (`PACKET_REQUEST_RATE` governs requests,
+not output), so adding to the rift lab's ammo per tick IS the generation lever -
+indistinguishable from the base producing more, because the store is its ammo.
+
+Note the HUD GEN figure will not move: it is computed from the network. The
+energy is real regardless, which is the opposite of the old bug where the figure
+moved and the energy was not.
+
+### What is NOT the energy economy
+
+These look like the levers and are not - they are summaries the sim RECOMPUTES
+every tick from the network, so writes to them change the readout and nothing
+else:
+
+| Field | Reality |
+|---|---|
+| `GameSpace.energyStore` | mirror of the rift lab's ammo |
+| `GameSpace.energyProduction`, `energyProductionUnClamped` | recomputed each tick |
+| `World.statEnergy*` | HUD display mirrors |
+| `UnitManager.SUPPLY`, `UnitConstants.SUPPLY`, `GameSpace.supplyMax` | the BUILD supply system, unrelated to energy (`supplyMax` equals the base's SUPPLY of 8, while energy capacity is 100) |
+| `Tower.efficiency` | no measurable effect on generation |
+
+The proof that the summaries are cosmetic: with `statEnergyGeneration` pinned at
+3,000,001 the store still filled at the same ~2/sec as it did at GEN 1.
+
+**This was a live bug in CW4DevTools.** InfiniteResources (F7) wrote
+`energyStore` and `energyProduction`, so it showed millions of GEN and delivered
+no energy whatsoever. Now fixed to raise `commandBase.MAX_AMMO` and keep `ammo`
+topped up, restoring the ceiling on release.
+
+### Two traps that cost hours here
+
+**Read ordering.** `DevCommands.Tick()` runs BEFORE the cheats are applied in the
+same frame, so any probe reading a value the cheats write sees the PREVIOUS
+frame's post-sim value. Several "the write did not stick" conclusions were this,
+not the game.
+
+**Units placed by `CreateUnitAtPosition` never join the energy network.** They
+can be completed with `CompleteTheBuild(true)` and survive with Indestructible
+on, and they still claim no land, so they generate nothing - a tower has to claim
+land to produce, and the claim also takes time to grow. Any energy experiment
+built on spawned towers measures nothing. Real towers, placed by hand, do
+produce (GEN 1 -> 1.6).
+
+## How a unit dies: health is only one of the paths (2026-08-29)
+
+Found because platforms kept being destroyed with CW4DevTools' Indestructible
+on, which held `health` at `MAX_HEALTH` every frame.
+
+`UnitManager` carries the per-unit damage model as plain fields (mirrored from
+`UnitData.unitConstants`, so they are readable AND writable per instance):
+
+| Field | Type | Meaning |
+|---|---|---|
+| `impervious` | bool | The game's own indestructibility switch |
+| `MAX_HEALTH` / `health` | float | The ordinary damage path |
+| `CREEPER_DAMAGES` / `ANTICREEPER_DAMAGES` | bool | Whether fluid hurts this unit |
+| `CREEPER_DAMAGES_ONLY_ON_HEIGHT` | bool | Fluid only hurts it above a height |
+| `CREEPER_DAMAGE_AMT` | float | How fast fluid hurts it |
+| `DESTROY_ON_UNEVEN_TERRAIN` | bool | **Removed outright when the ground under it stops being flat - health is never consulted** |
+| `PLAYER_CAN_DESTROY` | bool | Whether the player may scrap it |
+
+`DESTROY_ON_UNEVEN_TERRAIN` is the one that matters, and `Platform` additionally
+overrides `DestroyUnit`. Together they mean **a unit can vanish at full health**,
+so no health clamp can ever be a complete "indestructible".
+
+Consequence for both mods: to make something unkillable, set `impervious = true`
+and clear `DESTROY_ON_UNEVEN_TERRAIN` rather than fighting the health bar. To
+make something killable in a hostile effect, the same fields are the levers -
+note that a trap which set `DESTROY_ON_UNEVEN_TERRAIN` would be permanent and
+therefore off-limits under the traps design rule (temporary and recoverable
+only).
+
+`UnitConstants` also carries `IMPERVIOUS` as a per-TYPE default; the per-instance
+`UnitManager.impervious` is what actually gates damage at runtime.
+
+**How to re-derive all of this:** `CW4DevTools`, Home key (or
+`DumpUnitsOnStart`). It logs the full `unitConstants` registry, every
+`<Name>BuildGhost`, and each unit on the map with its type, data name and
+whether the player filter accepts it.
+
 ## Open questions
 
 - Which campaign missions require which units (needed for AP logic spheres).
@@ -599,3 +872,71 @@ Construction rules for TMP_InputField in IL2CPP:
    textViewport/textComponent/placeholder are assigned - otherwise Awake
    runs unwired and the caret never renders.
 4. Button wiring: onClick.AddListener((UnityEngine.Events.UnityAction)Method).
+
+## Collect objective: how a cache pickup actually works (2026-08-31, story2)
+
+**Supersedes the section below, which had it wrong.** A real hands-on pickup in
+"Home" settled it. Before / after collecting the one cache:
+
+| | before | after a REAL pickup |
+|---|---|---|
+| `GameSpace.mustCollect` / `maxMustCollect` | 1/1 | **0/1** |
+| Collect objective (slot 4) complete? | open | **DONE** |
+| Collect objective (slot 4) `count` | 0 | **0** (unchanged) |
+| `InfoCache` units on the map | 1 | **0** (unit destroyed) |
+| `cachePokes` (did InfoCache.Retrieved fire?) | 0 | **0** |
+| `LOCATION CHECK: Home - Cache 1` | - | sent, exactly once |
+
+Four things follow, and three of them corrected an earlier belief:
+
+1. **`mustCollect` shrinking IS the pickup signal.** `LocationWatcher` reads it
+   correctly, and the check fired end to end with no double-send from the patch
+   plus the safety poll.
+2. **The objective's `count` is NOT the collect tally.** It read 0 both before
+   and after, while the objective itself flipped to DONE and the HUD showed 1/1.
+   Do not use `MissionObjectiveData.count` for Collect progress.
+3. **A collected cache is DESTROYED**, not flagged. The `InfoCache` count went to
+   zero, so anything reading `retrieved` after the fact reads nothing.
+4. **`InfoCache.Retrieved` is never called on the pickup path.** `cachePokes`
+   stayed at 0 through a real collection, so `CacheRetrievedPatch` had never
+   fired once in play and the once-a-second poll had been doing all of the work,
+   silently. The hook is now a postfix on `InfoCache.DestroyUnit`, which is what a
+   pickup actually does.
+
+That last one is the lesson worth keeping: the patch was APPLIED (the log said
+so), it was on a real method with a plausible name, and it did nothing. Only a
+counter on the postfix plus a human collecting a cache could tell the difference.
+Every event hook in the mod now has such a counter, reported by `perf`.
+
+### Earlier, incomplete version of the above (kept for the reasoning)
+
+Measured while trying to test the cache branch of `LocationWatcher` without
+playing the mission. Calling `InfoCache.Retrieved()` on a live cache in "Home":
+
+| | before | after Retrieved() |
+|---|---|---|
+| `InfoCache.retrieved` | 0 | **1** |
+| `GameSpace.mustCollect` / `maxMustCollect` | 1/1 | 1/1 |
+| Collect objective (slot 4) `count` | 0 | 0 |
+| Collect objective complete? | open | open |
+
+So `Retrieved` sets that cache's own flag and moves nothing else. It is the
+message/lore reveal, not the collection. Three consequences:
+
+1. WRONG: "`CacheRetrievedPatch` is a hint, not the signal." It coincides with
+   nothing - measured above, `Retrieved` is not called on a pickup at all. The
+   guess that "the message pops when a cache is collected, so the hook very
+   likely coincides with a pickup" was reasonable-sounding, which is exactly what
+   made it dangerous.
+2. SUPERSEDED: "`cache:take` cannot simulate a pickup." Replaced by
+   `cache:destroy`, which drives `DestroyUnit` - the effect a pickup has.
+3. **The cache path needs a hands-on pickup to confirm end to end.** This one
+   held, and it is what caught the error: synthetic mouse input does not reach
+   CW4's UI, so no script here can close this branch. `tools/cache-handtest.sh`
+   sets up everything either side of the pickup and watches for the check.
+
+Two live signals were expected to agree: `maxMustCollect - mustCollect.Count`
+(what `LocationWatcher` uses) and the Collect objective's own
+`MissionObjectiveData.count`. They do not - `count` never moves. `counts:dump`
+prints both plus every objective's enabled/count/complete state, which is how
+that was caught.
