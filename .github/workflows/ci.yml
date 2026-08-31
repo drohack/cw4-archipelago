@@ -45,14 +45,19 @@ jobs:
           python-version: '3.12'
 
       # The world's tests run inside an Archipelago checkout, the same way they
-      # do locally via tools/ap-sync.ps1. Pinned to the minimum version the world
-      # declares, so CI tests what the world claims to support rather than
-      # whatever is on main today.
+      # do locally via tools/ap-sync.ps1. Pinned to the world's declared minimum
+      # so CI tests what the world claims to support, not whatever is on main.
+      #
+      # This pin caught its own bug on the first run: the world declared 0.6.8,
+      # which is not released - the newest Archipelago tag is 0.6.7, and the local
+      # dev clone simply reports 0.6.8 because it tracks main. A minimum nobody
+      # can install would have told every player to go and get something that does
+      # not exist.
       - name: Check out Archipelago
         uses: actions/checkout@v4
         with:
           repository: ArchipelagoMW/Archipelago
-          ref: 0.6.8
+          ref: 0.6.7
           path: Archipelago
 
       - name: Install Archipelago requirements
