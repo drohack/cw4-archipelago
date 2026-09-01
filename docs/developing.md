@@ -47,13 +47,19 @@ the local generator/server for testing:
 
 ## Testing
 
-Three tiers:
+Four tiers, in ascending cost:
 
 1. **Core unit tests** (no game): `dotnet test src/CW4Archipelago.Core.Tests`.
    Pure C# logic - slot state, rules, tracker colors, persistence.
 2. **apworld tests** (in the Archipelago clone): `tools/ap-sync.ps1` then
    `python -m unittest discover -s worlds/cw4/test -t .` from the clone.
-3. **Game integration batteries**:
+3. **The audit** (in the Archipelago clone): `python ../tools/audit/audit.py`.
+   Not in CI, because it generates real seeds and takes minutes, but it is what
+   answers "what does a seed actually contain" and "does every configuration
+   generate". `docs/randomizer-audit.md` covers what each script measures, which
+   numbers are DERIVED rather than sampled, and the measurement traps that have
+   produced confidently wrong answers before.
+4. **Game integration batteries**:
    - `tools/apbattery.sh` - connect / live items / unit gate / location checks
      / tracker colors / mission gating / offline queue-and-flush.
    - `tools/apbattery2.sh` - goal on the finale, save-load gate decision, live

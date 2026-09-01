@@ -1,0 +1,781 @@
+<title>CW4 Randomizer Audit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Fira+Sans:ital,wght@0,400;0,500;1,400&family=JetBrains+Mono:wght@400;700&display=swap">
+
+<style>
+  /* Light palette is the base. Every colour is a token defined HERE, so the
+     un-stamped "system" state always resolves. */
+  :root {
+    --ground:   #F4F7F8;
+    --surface:  #FFFFFF;
+    --sunken:   #EAEFF1;
+    --ink:      #16232B;
+    --muted:    #5D727C;
+    --faint:    #8CA0A9;
+    --rule:     #D3DEE3;
+    --accent:   #0E7FAE;
+    --accent-soft: #DDEFF7;
+    --pass:     #2F8F63;
+    --warn:     #A9711A;
+    --fail:     #C2402F;
+    --shadow:   0 1px 2px rgba(16,35,45,.06), 0 6px 20px rgba(16,35,45,.05);
+  }
+  /* System dark, unless the viewer explicitly chose light. */
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:   #0D1419;
+      --surface:  #141E25;
+      --sunken:   #101920;
+      --ink:      #DCE7ED;
+      --muted:    #8CA2AD;
+      --faint:    #647883;
+      --rule:     #24323B;
+      --accent:   #46C2F0;
+      --accent-soft: #10303F;
+      --pass:     #4FC08A;
+      --warn:     #E0A344;
+      --fail:     #E56A5B;
+      --shadow:   0 1px 2px rgba(0,0,0,.4), 0 8px 26px rgba(0,0,0,.30);
+    }
+  }
+  /* Explicit dark choice wins over a light OS. */
+  :root[data-theme="dark"] {
+    --ground:   #0D1419;
+    --surface:  #141E25;
+    --sunken:   #101920;
+    --ink:      #DCE7ED;
+    --muted:    #8CA2AD;
+    --faint:    #647883;
+    --rule:     #24323B;
+    --accent:   #46C2F0;
+    --accent-soft: #10303F;
+    --pass:     #4FC08A;
+    --warn:     #E0A344;
+    --fail:     #E56A5B;
+    --shadow:   0 1px 2px rgba(0,0,0,.4), 0 8px 26px rgba(0,0,0,.30);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "Fira Sans", ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif;
+    font-size: 16.5px;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 62rem;
+    margin: 0 auto;
+    padding: clamp(1.75rem, 4vw, 4rem) clamp(1.1rem, 4vw, 2.5rem) 6rem;
+    display: flex;
+    flex-direction: column;
+    gap: 3.25rem;
+  }
+
+  h1, h2, h3 {
+    font-family: "Bricolage Grotesque", "Fira Sans", sans-serif;
+    font-weight: 800;
+    line-height: 1.1;
+    text-wrap: balance;
+    margin: 0;
+  }
+  h1 { font-size: clamp(2rem, 5.2vw, 3.1rem); letter-spacing: -.022em; }
+  h2 { font-size: clamp(1.32rem, 2.9vw, 1.72rem); letter-spacing: -.015em; }
+  h3 {
+    font-size: 1.02rem; font-weight: 600; letter-spacing: -.005em;
+    margin-bottom: .3rem;
+  }
+  p { margin: 0; max-width: 68ch; }
+  a { color: var(--accent); }
+
+  code, .mono, td.num, th.num {
+    font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+  code {
+    font-size: .86em;
+    background: var(--sunken);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: .06em .34em;
+  }
+
+  /* ---------- masthead ---------- */
+  header { display: flex; flex-direction: column; gap: .9rem; }
+  .kicker {
+    font-family: "JetBrains Mono", monospace;
+    font-size: .69rem;
+    letter-spacing: .17em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+  .standfirst { font-size: 1.09rem; color: var(--muted); max-width: 60ch; }
+  .meta {
+    font-family: "JetBrains Mono", monospace;
+    font-size: .74rem;
+    color: var(--faint);
+    display: flex; flex-wrap: wrap; gap: .4rem 1.3rem;
+    padding-top: .6rem;
+    border-top: 1px solid var(--rule);
+  }
+
+  /* ---------- verdict cards ---------- */
+  .verdict {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+    gap: .8rem;
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 9px;
+    padding: 1rem 1.1rem;
+    box-shadow: var(--shadow);
+    display: flex; flex-direction: column; gap: .15rem;
+  }
+  .card .figure {
+    font-family: "Bricolage Grotesque", sans-serif;
+    font-weight: 800;
+    font-size: 2.1rem;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -.03em;
+  }
+  .card .label { font-size: .82rem; color: var(--muted); }
+  .card.good .figure { color: var(--pass); }
+
+  /* ---------- sections ---------- */
+  section { display: flex; flex-direction: column; gap: 1rem; }
+  .sechead { display: flex; flex-direction: column; gap: .35rem; }
+  .sechead .eyebrow {
+    font-family: "JetBrains Mono", monospace;
+    font-size: .7rem;
+    letter-spacing: .15em;
+    text-transform: uppercase;
+    color: var(--faint);
+  }
+  .sechead { border-top: 2px solid var(--ink); padding-top: .8rem; }
+
+  /* ---------- tables ---------- */
+  .scroll { overflow-x: auto; border: 1px solid var(--rule); border-radius: 9px; background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; font-size: .89rem; }
+  th, td { text-align: left; padding: .5rem .8rem; border-bottom: 1px solid var(--rule); white-space: nowrap; }
+  thead th {
+    font-family: "JetBrains Mono", monospace;
+    font-size: .68rem; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--muted); font-weight: 400;
+    background: var(--sunken);
+    position: sticky; top: 0;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  td.num, th.num { text-align: right; }
+  tfoot td {
+    font-weight: 600; background: var(--sunken);
+    border-top: 2px solid var(--rule); border-bottom: none;
+  }
+  .dim { color: var(--faint); }
+  .zero { color: var(--faint); }
+
+  .tag {
+    font-family: "JetBrains Mono", monospace;
+    font-size: .68rem; letter-spacing: .04em;
+    padding: .1rem .42rem; border-radius: 4px; border: 1px solid currentColor;
+  }
+  .tag.pass { color: var(--pass); }
+  .tag.warn { color: var(--warn); }
+  .tag.fail { color: var(--fail); }
+
+  /* ---------- checklist ---------- */
+  ul.checks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .3rem; }
+  ul.checks li {
+    display: grid; grid-template-columns: 4.2rem 1fr; gap: .7rem; align-items: baseline;
+    font-size: .93rem; padding: .28rem 0; border-bottom: 1px solid var(--rule);
+  }
+  ul.checks li:last-child { border-bottom: none; }
+  ul.checks .st {
+    font-family: "JetBrains Mono", monospace; font-size: .7rem; letter-spacing: .08em;
+    color: var(--pass);
+  }
+
+  /* ---------- sphere range bars ---------- */
+  .bars { display: flex; flex-direction: column; gap: .55rem; }
+  .bar-row { display: grid; grid-template-columns: 8.6rem 1fr 8.5rem; gap: .8rem; align-items: center; font-size: .87rem; }
+  .bar-name { font-weight: 500; }
+  .track {
+    position: relative; height: 1.1rem; background: var(--sunken);
+    border: 1px solid var(--rule); border-radius: 5px; overflow: hidden;
+  }
+  .span {
+    position: absolute; top: 0; bottom: 0;
+    background: var(--accent-soft);
+    border-left: 2px solid var(--accent); border-right: 2px solid var(--accent);
+  }
+  .median { position: absolute; top: 0; bottom: 0; width: 3px; background: var(--accent); }
+  .bar-note { font-family: "JetBrains Mono", monospace; font-size: .72rem; color: var(--muted); text-align: right; }
+  .never .track { opacity: .55; }
+  .scale {
+    display: grid; grid-template-columns: 8.6rem 1fr 8.5rem; gap: .8rem;
+    font-family: "JetBrains Mono", monospace; font-size: .66rem; color: var(--faint);
+  }
+  .scale .ticks { display: flex; justify-content: space-between; }
+
+  /* ---------- callouts ---------- */
+  .note {
+    background: var(--surface); border: 1px solid var(--rule);
+    border-left: 3px solid var(--accent); border-radius: 0 8px 8px 0;
+    padding: .85rem 1.05rem; display: flex; flex-direction: column; gap: .5rem;
+  }
+  .note.refuted { border-left-color: var(--warn); }
+  .note.gap { border-left-color: var(--fail); }
+  .note h3 { font-family: "Fira Sans", sans-serif; font-weight: 600; font-size: .95rem; }
+  .note p { font-size: .93rem; }
+
+  .two { display: grid; grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr)); gap: .8rem; }
+
+  footer {
+    border-top: 1px solid var(--rule); padding-top: 1rem;
+    font-family: "JetBrains Mono", monospace; font-size: .72rem; color: var(--faint);
+    display: flex; flex-direction: column; gap: .3rem;
+  }
+</style>
+
+<div class="wrap">
+
+  <header>
+    <div class="kicker">Creeper World 4 / Archipelago</div>
+    <h1>Randomizer Audit</h1>
+    <p class="standfirst">
+      Every number here was measured by generating real seeds and reading what came out,
+      not read off the design docs. Over 1500 seeds, 13 option configurations,
+      multiworlds with and without other games, weapon-arrival sweeps, and a
+      cross-check between the apworld and the game mod.
+    </p>
+    <div class="meta">
+      <span>2026-09-01</span>
+      <span>commit 4d9ce94</span>
+      <span>Archipelago 0.6.7</span>
+      <span>apworld + mod v0.1.1 (unreleased changes on top)</span>
+    </div>
+  </header>
+
+  <div class="verdict">
+    <div class="card good">
+      <div class="figure">0</div>
+      <div class="label">failures across every check</div>
+    </div>
+    <div class="card">
+      <div class="figure">1500+</div>
+      <div class="label">seeds generated, all beatable</div>
+    </div>
+    <div class="card">
+      <div class="figure">236</div>
+      <div class="label">locations, all reachable</div>
+    </div>
+    <div class="card">
+      <div class="figure">236</div>
+      <div class="label">items per seed, pool fills exactly</div>
+    </div>
+  </div>
+
+  <section>
+    <div class="sechead">
+      <div class="eyebrow">Part 1</div>
+      <h2>Locations</h2>
+    </div>
+    <p>
+      One check per <em>instance</em>: every individual cache, totem and nullifiable
+      structure, rather than one check per objective type. Optional objectives count,
+      so clearing a map fully is rewarded.
+    </p>
+    <div class="two">
+      <div class="scroll">
+        <table>
+          <thead><tr><th>Kind</th><th class="num">Count</th><th>Shape</th></tr></thead>
+          <tbody>
+            <tr><td>Nullify targets</td><td class="num">120</td><td class="dim">per instance</td></tr>
+            <tr><td>Totems</td><td class="num">63</td><td class="dim">per instance</td></tr>
+            <tr><td>Info caches</td><td class="num">20</td><td class="dim">per instance</td></tr>
+            <tr><td>Mission complete</td><td class="num">19</td><td class="dim">20 minus the finale</td></tr>
+            <tr><td>Reclaim</td><td class="num">11</td><td class="dim">one per mission</td></tr>
+            <tr><td>Custom objectives</td><td class="num">3</td><td class="dim">one per mission</td></tr>
+          </tbody>
+          <tfoot><tr><td>Total</td><td class="num">236</td><td></td></tr></tfoot>
+        </table>
+      </div>
+      <div class="scroll">
+        <table>
+          <thead><tr><th>Mission</th><th class="num">Checks</th><th>Mission</th><th class="num">Checks</th></tr></thead>
+          <tbody>
+            <tr><td>1 Farsite</td><td class="num">4</td><td>11 Shattered</td><td class="num">9</td></tr>
+            <tr><td>2 Home</td><td class="num">5</td><td>12 Archon</td><td class="num">10</td></tr>
+            <tr><td>3 Not My Mars</td><td class="num">8</td><td>13 The Experiment</td><td class="num">12</td></tr>
+            <tr><td>4 Ruins Repurposed</td><td class="num">10</td><td>14 Somewhere in Spacetime</td><td class="num">15</td></tr>
+            <tr><td>5 We Know Nothing</td><td class="num">8</td><td>15 Tower of Darkness</td><td class="num">16</td></tr>
+            <tr><td>6 We Were Never Alone</td><td class="num">11</td><td>16 The Compound</td><td class="num">20</td></tr>
+            <tr><td>7 Hints</td><td class="num">10</td><td>17 Sequence</td><td class="num">18</td></tr>
+            <tr><td>8 Serious</td><td class="num">5</td><td>18 Wallis</td><td class="num">14</td></tr>
+            <tr><td>9 More and More</td><td class="num">13</td><td>19 Founders</td><td class="num">24</td></tr>
+            <tr><td>10 War and Peace</td><td class="num">16</td><td>20 Ever After</td><td class="num">8</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <ul class="checks">
+      <li><span class="st">PASS</span><span>236 names and 236 ids, all unique and contiguous</span></li>
+      <li><span class="st">PASS</span><span>every name parses to a known mission and objective kind</span></li>
+      <li><span class="st">PASS</span><span>per-kind totals equal the surveyed <code>INSTANCE_COUNTS</code> exactly</span></li>
+      <li><span class="st">PASS</span><span>every location has an access rule, and every item it names exists</span></li>
+    </ul>
+  </section>
+
+  <section>
+    <div class="sechead">
+      <div class="eyebrow">Part 2</div>
+      <h2>What gets randomized, and how much</h2>
+    </div>
+    <p>
+      57 item names hold ids. A single-player seed at default options places 236 of
+      them - one per location. The split below is a real seed, not a formula.
+    </p>
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Item group</th><th class="num">In a default seed</th>
+            <th>Class</th><th>What it does</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>Mission unlocks</td><td class="num">18</td><td><span class="tag pass">progression</span></td><td class="dim">20 exist; the 2 starters are not in the pool</td></tr>
+          <tr><td>Unit unlocks</td><td class="num">21</td><td><span class="tag pass">progression / useful</span></td><td class="dim">13 of them gate something; the rest are convenience</td></tr>
+          <tr><td>Bonus units</td><td class="num">3</td><td>useful</td><td class="dim">Airship, Bertha, Sweeper - never granted in vanilla</td></tr>
+          <tr><td>Progressive ERN</td><td class="num">4</td><td>useful</td><td class="dim">range 0 to 40, never required</td></tr>
+          <tr><td>Base generation upgrade</td><td class="num">54</td><td>useful</td><td class="dim">rift lab energy per tick</td></tr>
+          <tr><td>Energy storage upgrade</td><td class="num">41</td><td>useful</td><td class="dim">rift lab maximum store</td></tr>
+          <tr><td>Traps</td><td class="num">95</td><td><span class="tag warn">trap</span></td><td class="dim">6 kinds; 50 percent of leftovers by default</td></tr>
+          <tr><td>Build limits</td><td class="num zero">0</td><td class="dim">not generated</td><td class="dim">3 ids kept; every building starts unlimited</td></tr>
+        </tbody>
+        <tfoot><tr><td>Total placed</td><td class="num">236</td><td colspan="2"></td></tr></tfoot>
+      </table>
+    </div>
+    <div class="note">
+      <h3>These are derived, and the seeds only check them</h3>
+      <p>
+        <code>create_all_items</code> is straight-line arithmetic, so the pool for
+        any option set has a closed form - generating seeds is the double-check, not
+        the source:
+      </p>
+      <p class="mono" style="font-size:.82rem">
+        real = (20 - starters) + 21 units + 3 bonus + erns<br>
+        remaining = 236 - real<br>
+        traps = remaining * trap_percentage // 100<br>
+        filler = remaining - traps
+      </p>
+      <p>
+        At defaults that is 46 real, 190 remaining, 95 traps, 95 filler. Run against
+        all 12 configurations below and compared with what actually generated:
+        <strong>12 of 12 match exactly</strong>. What is NOT derivable, and so is
+        genuinely sampled: the split of filler between the two energy upgrades and
+        of traps between the six kinds (weighted draws), the sphere any item lands
+        in (the output of a randomized fill), and whether fill succeeds at all.
+        Reachability is neither - it is checked exhaustively over the graph.
+      </p>
+    </div>
+    <div class="note gap">
+      <h3>The two energy upgrades are 40 percent of the pool, and both curves are wrong</h3>
+      <p>
+        95 of the 236 items are Energy Storage or Base Generation. Applying the
+        curves the mod actually uses (<code>EnergyRules.cs</code>) to the counts a
+        default seed produces, they fail in opposite directions:
+      </p>
+      <div class="scroll">
+        <table>
+          <thead><tr><th>item</th><th class="num">copies</th><th>curve</th><th>what that delivers</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>Energy Storage</td><td class="num">41</td>
+              <td class="dim">+50, decaying 80% per copy</td>
+              <td class="dim">99% of its 250 ceiling reached at copy 21. Copy 30 grants 0.08, copy 41 grants 0.007 - about 20 copies are dead items</td>
+            </tr>
+            <tr>
+              <td>Base Generation</td><td class="num">54</td>
+              <td class="dim">+0.5/s, ramping +0.2/s per copy</td>
+              <td class="dim">later copies are STRONGER. All 54 total <strong>313 energy/sec</strong>, against a natural rate of about 3-4/s</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        A ramp is a reasonable curve when a player receives three of something. It
+        is the wrong shape when they receive fifty-four: the reward for a long seed
+        becomes an economy roughly a hundred times the intended one. The rift lab's
+        default ceiling, for scale, is 100.
+      </p>
+    </div>
+    <p>
+      By Archipelago classification the same pool is
+      <strong>31 progression</strong>, <strong>110 useful</strong>,
+      <strong>95 trap</strong>, <strong>0 filler</strong>. The 31 is exactly
+      18 mission unlocks plus the 13 items that appear in an access rule - nothing is
+      marked progression that gates nothing, which would distort the sphere structure.
+    </p>
+  </section>
+
+  <section>
+    <div class="sechead">
+      <div class="eyebrow">Part 3</div>
+      <h2>Generation across the option matrix</h2>
+    </div>
+    <p>
+      Thirteen configurations, each a real <code>Generate.py</code> run. Every one
+      produced a beatable seed with all 236 locations filled and no build-limit items.
+      Spheres are the playthrough depth - how many waves of progression the seed has.
+    </p>
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr><th>Configuration</th><th class="num">Traps</th><th class="num">Energy</th><th class="num">Spheres</th><th>Result</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>defaults</td><td class="num">95</td><td class="num">95</td><td class="num">10</td><td><span class="tag pass">ok</span></td></tr>
+          <tr><td>casual logic</td><td class="num">95</td><td class="num">95</td><td class="num">15</td><td><span class="tag pass">ok</span></td></tr>
+          <tr><td>trap_percentage 0</td><td class="num zero">0</td><td class="num">190</td><td class="num">14</td><td><span class="tag pass">ok</span></td></tr>
+          <tr><td>trap_percentage 100</td><td class="num">190</td><td class="num zero">0</td><td class="num">14</td><td><span class="tag pass">ok</span></td></tr>
+          <tr><td>progressive_erns 0</td><td class="num">97</td><td class="num">97</td><td class="num">15</td><td><span class="tag pass">ok</span></td></tr>
+          <tr><td>progressive_erns 40</td><td class="num">77</td><td class="num">77</td><td class="num">15</td><td><span class="tag pass">ok</span></td></tr>
+          <tr><td>starter_missions 1</td><td class="num">94</td><td class="num">95</td><td class="num">15</td><td><span class="tag pass">ok</span></td></tr>
+          <tr><td>starter_missions 5</td><td class="num">96</td><td class="num">97</td><td class="num">14</td><td><span class="tag pass">ok</span></td></tr>
+          <tr><td>missions_for_finale 0</td><td class="num">95</td><td class="num">95</td><td class="num">14</td><td><span class="tag pass">ok</span></td></tr>
+          <tr><td>missions_for_finale 19</td><td class="num">95</td><td class="num">95</td><td class="num">14</td><td><span class="tag pass">ok</span></td></tr>
+          <tr><td>all filler weights 0</td><td class="num">95</td><td class="num">95</td><td class="num">14</td><td><span class="tag pass">degrades</span></td></tr>
+          <tr><td>all trap weights 0</td><td class="num zero">0</td><td class="num">190</td><td class="num">19</td><td><span class="tag pass">degrades</span></td></tr>
+          <tr><td>4-player multiworld</td><td class="num dim">-</td><td class="num dim">-</td><td class="num dim">-</td><td><span class="tag pass">1024 placed</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="note">
+      <h3>One row of that table used to be luck. It is now fixed.</h3>
+      <p>
+        <code>starter_missions: 1</code> passed here, but re-rolling it 300 times
+        showed it failing to generate about <strong>12 percent</strong> of the
+        time - a <code>FillError</code>, on seeds that were all provably winnable.
+        Found because it turned a new test into an intermittent CI failure. Two
+        causes, both now closed:
+      </p>
+      <div class="scroll">
+        <table>
+          <thead><tr><th>cause</th><th class="num">rate</th><th>fix</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>Two early items, one slot</td>
+              <td class="num">12% to 1.3%</td>
+              <td class="dim">every eligible starter has exactly ONE cache reachable with nothing; the world asked for both a mission unlock and the early weapon</td>
+            </tr>
+            <tr>
+              <td>A scarce slot spent on an item that opens nothing</td>
+              <td class="num">1.3% to 0%</td>
+              <td class="dim">a lone Factory is half of the Greenar pair; the fill does not look ahead</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        The fix is <code>bootstrap_opening</code>, in <code>pre_fill</code>: while
+        the opening is too narrow to survive a wasted placement, the world places
+        items itself, drawn at random from those that actually open something. It
+        is not a script - 1 to 6 placements across 40 seeds, eight different items
+        seen first - and it stops as soon as there is slack.
+      </p>
+      <p>
+        It runs only where it is needed. With another game in the multiworld the
+        funnel stops being one: the fill parks Creeper World 4 unlocks in that
+        world and fills its opening with that game's items. Running the bootstrap
+        there is not free either - it drove foreign items in the opening from 7 to
+        0 - so it stands down unless every player is playing this game.
+      </p>
+    </div>
+    <div class="note">
+      <h3>The two "degrades" rows are the interesting ones</h3>
+      <p>
+        Both are unfillable preferences, and neither is allowed to fail generation.
+        Zeroing every trap weight turns those slots into useful items. Zeroing every
+        filler weight falls back to a single kind - and that seed came out
+        <strong>95 energy storage, 0 base generation</strong>, which is the new
+        fallback working. It used to fall back to build limits, so removing those
+        items would have quietly turned the safety net into 95 items that do nothing.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <div class="sechead">
+      <div class="eyebrow">Part 4</div>
+      <h2>Reachability and cross-language agreement</h2>
+    </div>
+    <div class="two">
+      <div>
+        <h3>Logic</h3>
+        <ul class="checks">
+          <li><span class="st">PASS</span><span>21 regions, 256 locations (236 checks + 20 events)</span></li>
+          <li><span class="st">PASS</span><span>every location reachable holding all items</span></li>
+          <li><span class="st">PASS</span><span>goal satisfiable</span></li>
+          <li><span class="st">PASS</span><span>every seed produced a playthrough, so every seed is beatable in order</span></li>
+        </ul>
+      </div>
+      <div>
+        <h3>Apworld vs. the game mod</h3>
+        <ul class="checks">
+          <li><span class="st">PASS</span><span>all 20 mission titles identical</span></li>
+          <li><span class="st">PASS</span><span>final mission agrees (Founders, not Ever After)</span></li>
+          <li><span class="st">PASS</span><span>per-mission objective slots match the location set</span></li>
+          <li><span class="st">PASS</span><span>all 7 trap names exist in <code>TrapRules</code></span></li>
+        </ul>
+      </div>
+    </div>
+    <p>
+      The third of those is worth its own sentence: the mod's objective table was
+      previously pinned against the live game's own map icons, and the apworld's
+      location counts against the campaign survey - but nothing checked the two
+      against <em>each other</em>. A disagreement there would show as a mission map
+      drawing an icon for a category with no checks, or a check with no icon. They agree
+      on all 20.
+    </p>
+  </section>
+
+  <section>
+    <div class="sechead">
+      <div class="eyebrow">Part 5</div>
+      <h2>When do the weapons arrive?</h2>
+    </div>
+    <p>
+      Twenty default seeds, mean depth 13.6 spheres. These are true placement
+      depths from <code>MultiWorld.get_spheres()</code> - the sphere of the location
+      actually holding the item - so items that logic never asks for are measured
+      too. The bar is the range across seeds, the line is the median.
+    </p>
+    <div class="bars">
+      <div class="scale"><span></span><span class="ticks"><span>sphere 1</span><span>8</span><span>16</span></span><span></span></div>
+
+      <div class="bar-row">
+        <span class="bar-name">Cannon</span>
+        <span class="track">
+          <span class="span" style="left:0%; width:80%"></span>
+          <span class="median" style="left:20%"></span>
+        </span>
+        <span class="bar-note">1 - 13, med 4 &middot; 29% in</span>
+      </div>
+      <div class="bar-row">
+        <span class="bar-name">Nullifier</span>
+        <span class="track">
+          <span class="span" style="left:0%; width:53.3%"></span>
+          <span class="median" style="left:20%"></span>
+        </span>
+        <span class="bar-note">1 - 9, med 4 &middot; 29% in</span>
+      </div>
+      <div class="bar-row">
+        <span class="bar-name">Mortar</span>
+        <span class="track">
+          <span class="span" style="left:0%; width:93.3%"></span>
+          <span class="median" style="left:33.3%"></span>
+        </span>
+        <span class="bar-note">1 - 15, med 6 &middot; 35% in</span>
+      </div>
+      <div class="bar-row">
+        <span class="bar-name">Terp</span>
+        <span class="track">
+          <span class="span" style="left:13.3%; width:66.7%"></span>
+          <span class="median" style="left:53.3%"></span>
+        </span>
+        <span class="bar-note">3 - 13, med 9 &middot; 62% in</span>
+      </div>
+      <div class="bar-row">
+        <span class="bar-name">Miner</span>
+        <span class="track">
+          <span class="span" style="left:13.3%; width:73.4%"></span>
+          <span class="median" style="left:53.3%"></span>
+        </span>
+        <span class="bar-note">3 - 14, med 9 &middot; 71% in</span>
+      </div>
+      <div class="bar-row">
+        <span class="bar-name">Sniper</span>
+        <span class="track">
+          <span class="span" style="left:13.3%; width:86.7%"></span>
+          <span class="median" style="left:60%"></span>
+        </span>
+        <span class="bar-note">3 - 16, med 10 &middot; 67% in</span>
+      </div>
+      <div class="bar-row">
+        <span class="bar-name">Sprayer</span>
+        <span class="track">
+          <span class="span" style="left:26.7%; width:66.6%"></span>
+          <span class="median" style="left:53.3%"></span>
+        </span>
+        <span class="bar-note">5 - 15, med 9 &middot; 75% in</span>
+      </div>
+      <div class="bar-row">
+        <span class="bar-name">Missile Launcher</span>
+        <span class="track">
+          <span class="span" style="left:26.7%; width:66.6%"></span>
+          <span class="median" style="left:53.3%"></span>
+        </span>
+        <span class="bar-note">5 - 15, med 9 &middot; 75% in</span>
+      </div>
+    </div>
+
+    <div class="note">
+      <h3>Missile Launcher is the latest-arriving item in the game</h3>
+      <p>
+        Median sphere 9 of 13.6, three quarters of the way in, in the last 40
+        percent of <strong>14 seeds out of 20</strong> and dead last in 3 - very
+        slightly worse than Sprayer, which was previously the record holder.
+      </p>
+      <p>
+        That falls out of the logic rather than the fill. Missile Launcher appears
+        in exactly one rule, <code>DEFENSIVE = ["Sniper", "Missile Launcher"]</code>,
+        which applies only under <code>logic_difficulty: casual</code> from mission
+        6 onward - and even there it is an OR with Sniper, so holding a Sniper makes
+        it redundant. Under default logic it gates nothing at all, so nothing ever
+        pulls it forward.
+      </p>
+      <p>
+        Sniper is the useful contrast: it looks like the same kind of item but sits
+        at median 58 percent, because The Compound genuinely requires one
+        (<code>MISSION_EXTRA[16]</code>) and that single rule is enough to give it
+        a place in the sphere structure.
+      </p>
+    </div>
+
+    <div class="note">
+      <h3>The opener is a clean coin flip: Cannon 10, Mortar 10</h3>
+      <p>
+        Cannon and Mortar are one OR group (<code>OFFENSE</code>), so logic needs
+        either and never both. Whichever lands early <em>is</em> the opening weapon,
+        and the other is logically redundant for the rest of that seed.
+      </p>
+      <p>
+        An earlier pass over these same seeds reported 13-7 and it was an artefact of
+        the method: it read the spoiler's playthrough, which lists only the items
+        needed to <em>win</em>, so it cannot see the redundant half of an OR pair at
+        all. Measuring real placement depth gives 10-10. Reversing the pair to
+        <code>["Mortar", "Cannon"]</code> and regenerating produced identical seeds
+        either way, so list order does not choose the winner.
+      </p>
+    </div>
+
+    <div class="note refuted">
+      <h3>Choosing the opener costs you the other weapon</h3>
+      <p>
+        <code>early_weapon</code> now makes the coin flip a choice. It is placement,
+        not logic - a rule saying a mission needs a mortar specifically would be false
+        wherever a cannon also works - so it uses Archipelago's
+        <code>early_items</code>, the same mechanism that already forces a second
+        mission unlock early.
+      </p>
+      <p>
+        It costs less than a first look suggests, and getting that wrong is
+        instructive. Comparing Cannon-under-unforced against Cannon-under-mortar
+        shows a big regression - but under <code>unforced</code> Cannon opens half
+        the seeds, and under <code>mortar</code> it never does, so that compares two
+        different jobs. Comparing BY ROLE, 20 seeds each:
+      </p>
+      <div class="scroll">
+        <table>
+          <thead>
+            <tr><th>setting</th><th class="num">opening weapon</th><th class="num">second weapon</th><th class="num">second in final sphere</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>no forcing <span class="dim">(before the option)</span></td><td class="num">median 2 (1 to 4)</td><td class="num">median 9, 67% in</td><td class="num">0 / 20</td></tr>
+            <tr><td><code>random</code> <span class="dim">(default)</span></td><td class="num">median 1 (always)</td><td class="num">median 10, 75% in</td><td class="num">3 / 20</td></tr>
+            <tr><td><code>mortar</code></td><td class="num">median 1 (always)</td><td class="num">median 8, 67% in</td><td class="num">2 / 20</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        The second weapon lands about two thirds of the way in whatever you choose.
+        That is a property of an OR pair - the loser is redundant for the whole seed
+        and nothing pulls a redundant item forward - and it was already true before
+        the option existed. What forcing buys is a weapon in the very first sphere
+        instead of somewhere in the first four; the only real cost is the extreme
+        tail, 0 seeds in 20 becoming 2 or 3.
+      </p>
+      <p>
+        The option is <code>mortar</code>, <code>cannon</code> or <code>random</code>,
+        defaulting to random. <code>random</code> is not defined by the world:
+        Archipelago accepts it for any choice and resolves it per seed, and defining
+        it would raise - <code>Options.py</code> asserts that "Choice option 'random'
+        cannot be manually assigned". Over 100 default seeds the split came out
+        51 Mortar to 49 Cannon.
+      </p>
+      <p>
+        A fourth value that reproduced the first row exactly was built and then
+        removed. It worked, but once the by-role numbers showed the whole difference
+        was a weapon in sphere 1 versus sphere 1 to 4, it could not justify the space
+        it took up in every player's yaml.
+      </p>
+    </div>
+
+    <div class="note gap">
+      <h3>"Mortar, then Sprayer, then Cannon, all by mid" is not available</h3>
+      <p>
+        Archipelago gives a world two placement controls: force an item into sphere 1
+        (<code>early_items</code>), or pin it to a chosen location
+        (<code>place_locked_item</code>). There is nothing for "somewhere in the
+        middle". Bounding the second weapon to mid-game would mean pinning it, which
+        takes it out of the shuffle and stops it ever travelling to another player in
+        a multiworld. That trade has not been made.
+      </p>
+      <p>
+        Sprayer is the latest-arriving of the three and always has been - median 75
+        percent of the way in, in the last 40 percent of 14 seeds out of 20. It is in
+        no rule deliberately (sprayers burn bluite, and every bluite map was judged
+        short of the resource for a sprayer-only run), so it is never progression and
+        never pulled forward. It could be nudged early as a non-logic item without
+        asserting anything false - that lever exists and is unused.
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <div class="sechead">
+      <div class="eyebrow">Part 6</div>
+      <h2>What this audit does not cover</h2>
+    </div>
+    <div class="note gap">
+      <h3>Still the big one: no full playthrough</h3>
+      <p>
+        Everything above is structural. It proves seeds generate, fill, and are
+        beatable in principle, and that the mod and the apworld agree on names. It says
+        nothing about whether the result is <em>fun</em>: trap frequency at 95 items a
+        seed, energy-item pacing at 95 upgrades, and how early the casual tier lands are
+        all unmeasured in play.
+      </p>
+    </div>
+    <div class="two">
+      <div class="note">
+        <h3>Economy is outside logic on purpose</h3>
+        <p>
+          Miner gates nothing. Tower of Darkness was the suspected exception and was
+          played without one to check: "very doable with no miners". A test pins it.
+        </p>
+      </div>
+      <div class="note">
+        <h3>Two items exist but are not generated</h3>
+        <p>
+          Emitter Overdrive (dead on a third of the campaign) and the three build-limit
+          items (dead on all of it). Ids retained so seeds and clients stay compatible.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <span>Measured 2026-09-01 against commit 9406452, Archipelago 0.6.7.</span>
+    <span>1500+ generated seeds, 166 apworld tests, 104 C# tests, in-game battery 14/14.</span>
+  </footer>
+
+</div>
