@@ -149,7 +149,16 @@ echo "[ab2]   tower limit $TB -> $TN"
 if [ "${TB:--1}" -ge 0 ]; then
   [ "${TN:-0}" -eq "$(( ${TB:-0} + 1 ))" ]; verdict $? "limited unit (tower) +1 applied ($TB -> $TN)"
 else
-  echo "[ab2] NOTE: tower is unlimited by default too - build-limit items are no-ops; apworld filler should be reconsidered."
+  # Tower is unlimited too, and so is every other building - which is the whole
+  # reason Build Limit items are no longer generated (2026-09-01). This branch used
+  # to print a NOTE saying the filler "should be reconsidered". It has been, so the
+  # note is now an assertion rather than a dangling to-do: output that prints on
+  # every run is a bad place to keep an open question, because it stops being read.
+  #
+  # The names still have ids, so /send still delivers the item, and the applier is
+  # still expected to leave an unlimited unit alone. That is what is checked here.
+  [ "${TN:-0}" -eq "${TB:--1}" ]
+  verdict $? "unlimited tower also left alone (why the item is not generated)"
 fi
 
 # --- (E) ERN item drives the granter (spawn-beside-rift-lab proven live;
