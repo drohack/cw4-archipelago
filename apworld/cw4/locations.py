@@ -85,6 +85,27 @@ def mission_complete_location_name(mission: int) -> str:
     return f"{MISSION_TITLES[mission]} - Mission Complete"
 
 
+def location_names_for_mission(mission: int) -> list:
+    """Every location belonging to one mission, in table order.
+
+    Shared so that the location table, the name groups and the opening-width
+    calculation cannot disagree about what a mission contains - they each used to
+    rebuild this list from INSTANCE_COUNTS by hand.
+    """
+    caches, totems, nullifiable = INSTANCE_COUNTS[mission]
+    names = [instance_location_name(mission, "Cache", i) for i in range(1, caches + 1)]
+    names += [instance_location_name(mission, "Totem", i) for i in range(1, totems + 1)]
+    names += [instance_location_name(mission, "Nullify", i)
+              for i in range(1, nullifiable + 1)]
+    if mission in RECLAIM_MISSIONS:
+        names.append(single_location_name(mission, "Reclaim"))
+    if mission in CUSTOM_MISSIONS:
+        names.append(single_location_name(mission, "Custom"))
+    if mission != FINAL_MISSION:
+        names.append(mission_complete_location_name(mission))
+    return names
+
+
 def _build_locations():
     """Ordered location names, grouped per mission.
 

@@ -25,6 +25,7 @@ from .locations import (
     INSTANCE_COUNTS,
     RECLAIM_MISSIONS,
     instance_location_name,
+    location_names_for_mission,
     mission_complete_location_name,
     single_location_name,
 )
@@ -55,21 +56,7 @@ ITEM_NAME_GROUPS = {
 
 def _mission_locations(n: int) -> set:
     """Every location belonging to one mission."""
-    caches, totems, nullify = INSTANCE_COUNTS[n]
-    names = set()
-    for i in range(1, caches + 1):
-        names.add(instance_location_name(n, "Cache", i))
-    for i in range(1, totems + 1):
-        names.add(instance_location_name(n, "Totem", i))
-    for i in range(1, nullify + 1):
-        names.add(instance_location_name(n, "Nullify", i))
-    if n in RECLAIM_MISSIONS:
-        names.add(single_location_name(n, "Reclaim"))
-    if n in CUSTOM_MISSIONS:
-        names.add(single_location_name(n, "Custom"))
-    if n != FINAL_MISSION:
-        names.add(mission_complete_location_name(n))
-    return names
+    return set(location_names_for_mission(n))
 
 
 def _by_kind(kind: str) -> set:
