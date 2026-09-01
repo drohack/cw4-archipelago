@@ -168,6 +168,22 @@ WAIVES_MISSION_REQUIREMENTS = {
     (13, "Collect"), (14, "Collect"),
 }
 
+# Waived for ONE INSTANCE rather than for the whole objective type.
+#
+# Farsite needs this and is the only mission that does. The worksheet splits its
+# two caches: "first item can get with just tower, 2nd item needs weapon to get
+# over creep." A per-TYPE waiver cannot express that - it would waive the weapon
+# for both and claim the second cache is free, which is false - so Farsite was
+# excluded from the starter set entirely. That was the wrong trade: it made
+# mission 1 the one mission that can never open a seed, when the designer's whole
+# point was that ANY mission with a free collectible should be able to.
+#
+# Locations are per instance, so the rule can be too. Keyed
+# (mission, kind, instance); instances are numbered by activation order.
+WAIVES_INSTANCE = {
+    (1, "Collect", 1),
+}
+
 
 # Anti-air, for the casual logic tier. The worksheet never makes these a WIN
 # requirement - "technically you don't need snipers", "possible without missles" -
@@ -290,17 +306,36 @@ def mission_complete_requirements(mission: int, casual: bool = False) -> list:
     return groups
 
 
+def _instance_index(name: str) -> int | None:
+    """The trailing instance number of a per-instance location name, or None."""
+    tail = name.rsplit(" ", 1)[-1]
+    return int(tail) if tail.isdigit() else None
+
+
 def location_requirements(name: str, mission: int, casual: bool = False) -> list:
     """The COMPLETE requirement for one location, by name.
 
-    Every instance of an objective type shares its type's rule, so this is a
-    lookup on the location's prefix rather than a per-instance table.
+    Instances of an objective type usually share their type's rule - the game
+    cannot tell one totem from another, and neither can logic. WAIVES_INSTANCE is
+    the exception, for the one case where the worksheet distinguishes them:
+    Farsite's first cache is free and its second is not.
     """
     if name == mission_complete_location_name(mission):
         return mission_complete_requirements(mission, casual)
     kind = location_kind(name)
     if not kind:
         return []
+    index = _instance_index(name)
+    if index is not None and (mission, kind, index) in WAIVES_INSTANCE:
+        # The instance's own requirements, without the mission's. Built the same
+        # way requirements_for_kind does, minus the mission block.
+        groups = []
+        if kind == "Nullify":
+            groups.append(["Nullifier"])
+        for group in OBJECTIVE_OWN.get((mission, kind), []):
+            if list(group) not in groups:
+                groups.append(list(group))
+        return _expand(groups)
     return requirements_for_kind(mission, kind, casual)
 
 

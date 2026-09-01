@@ -24,12 +24,33 @@ class TestAccess(CW4TestBase):
         # waives the mission's requirements AND has none of its own. Archon
         # waives the weapon but needs a Terp and Pylon, so it must not qualify.
         from ..items import STARTER_ELIGIBLE
-        from ..rules import OBJECTIVE_OWN, WAIVES_MISSION_REQUIREMENTS
+        from ..rules import OBJECTIVE_OWN, WAIVES_INSTANCE, WAIVES_MISSION_REQUIREMENTS
         eligible = {
             m for (m, kind) in WAIVES_MISSION_REQUIREMENTS
             if kind == "Collect" and not OBJECTIVE_OWN.get((m, "Collect"))
         }
+        # A per-INSTANCE waiver qualifies too: it is enough that ONE cache on the
+        # mission is free, which is exactly Farsite's case.
+        eligible |= {
+            m for (m, kind, _i) in WAIVES_INSTANCE
+            if kind == "Collect" and not OBJECTIVE_OWN.get((m, "Collect"))
+        }
         self.assertEqual(set(STARTER_ELIGIBLE), eligible)
+
+    def test_farsites_two_caches_have_different_rules(self) -> None:
+        # The reason WAIVES_INSTANCE exists. The worksheet: "first item can get
+        # with just tower, 2nd item needs weapon to get over creep." If these ever
+        # come out equal, the split has been lost and Farsite either lies about
+        # its second cache or cannot open a seed.
+        from ..rules import location_requirements
+        first = location_requirements("Farsite - Cache 1", 1)
+        second = location_requirements("Farsite - Cache 2", 1)
+        self.assertEqual([], first, "Farsite's first cache must need nothing")
+        self.assertIn(["Cannon", "Mortar"], second, "the second cache needs a weapon")
+
+    def test_farsite_can_open_a_seed(self) -> None:
+        from ..items import STARTER_ELIGIBLE
+        self.assertIn(1, STARTER_ELIGIBLE)
 
     def test_no_weapon_is_granted(self) -> None:
         precollected = [i.name for i in self.multiworld.precollected_items[self.player]]

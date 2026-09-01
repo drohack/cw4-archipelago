@@ -24,19 +24,21 @@ MISSION_TITLES = {
 # mission whose cache can be taken with the rift lab and a single tower, with no
 # weapon and no other building.
 #
-# Farsite is deliberately NOT in this list even though it is mission 1: its
-# Custom objective and its rift jump both need a weapon, and while the worksheet
-# says its FIRST cache is free, its second needs one - and instances of an
-# objective share a rule, so the pair cannot be split. Nothing else requires the
-# campaign to start at its beginning: missions are open, so any of these makes a
-# perfectly good opening and picking at random varies the start between seeds.
+# Farsite IS eligible, via a per-instance waiver. The worksheet splits its two
+# caches - "first item can get with just tower, 2nd item needs weapon to get over
+# creep" - and an earlier version excluded mission 1 outright because a per-TYPE
+# waiver could not say that without also claiming the second cache was free.
+# rules.WAIVES_INSTANCE says it properly, so Farsite can open a seed like any
+# other mission. Nothing requires the campaign to start at its beginning either:
+# missions are open, so picking at random varies the opening between seeds.
 #
 # Archon is excluded despite waiving the weapon, because its caches are buried:
 # they need a Terp and a Pylon, so they are not free.
 #
-# Kept in step with rules.WAIVES_MISSION_REQUIREMENTS by a test - rules.py cannot
-# be imported here without a cycle (locations imports items).
-STARTER_ELIGIBLE = (2, 3, 4, 5, 7, 10, 11, 13, 14)
+# Kept in step with rules.WAIVES_MISSION_REQUIREMENTS and rules.WAIVES_INSTANCE
+# by a test - rules.py cannot be imported here without a cycle (locations imports
+# items).
+STARTER_ELIGIBLE = (1, 2, 3, 4, 5, 7, 10, 11, 13, 14)
 
 # EVERY mission's unlock exists as an item name, including the ones that end up
 # starting unlocked. Item ids must not depend on which missions a seed happens to
