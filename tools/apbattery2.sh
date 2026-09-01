@@ -67,26 +67,47 @@ echo "[ab2]   save-archive active='$ACTIVE'"
 echo "$ACTIVE" | grep -q "$SLOT"; verdict $? "saves isolated to this slot (active=$ACTIVE)"
 
 # --- (A) save-load gate DECISION (same check the OnLoad patch uses) ---
+# Missions that can NEVER start unlocked, so they are guaranteed locked at the
+# start of any seed. STARTER_ELIGIBLE is (1,2,3,4,5,7,10,11,13,14), so anything
+# outside that is safe: 6, 8, 9, 12, 15, 16, 17, 18, 19, 20.
+#
+# This used to assert "story3 locked, story1 unlocked - starter". Both were wrong.
+# Starter missions became RANDOM per seed, so story3 is only sometimes locked and
+# story1 is never a starter at all - Farsite is now eligible but still has to be
+# drawn. A test that hard-codes which missions a seed opened with is asserting
+# something only the seed knows.
+LOCKED_A=story16      # The Compound
+LOCKED_B=story17      # Sequence
 echo "[ab2] step 3: save-load gate decision"
+echo "[ab2]   seed shape: $(grep 'AP SEED SHAPE:' "$L" | tail -1 | sed 's/.*AP SEED SHAPE: //')"
 mark
-send "gatecheck:story3"; sleep 1        # locked
-send "gatecheck:story1"; sleep 1        # starter, unlocked
-since | grep -q "GATECHECK: 'story3' allowed=False"; verdict $? "locked mission load denied"
-since | grep -q "GATECHECK: 'story1' allowed=True"; verdict $? "unlocked mission load allowed"
+send "gatecheck:$LOCKED_A"; sleep 1
+since | grep -q "GATECHECK: '$LOCKED_A' allowed=False"; verdict $? "locked mission load denied"
+# Then prove the gate OPENS, by sending the unlock rather than assuming a starter.
+mark
+srv "/send $SLOT Mission Unlock: The Compound"
+wait_since "AP ITEM RECEIVED: Mission Unlock: The Compound" 20
+send "gatecheck:$LOCKED_A"; sleep 1
+since | grep -q "GATECHECK: '$LOCKED_A' allowed=True"; verdict $? "unlocked mission load allowed"
 
 # --- (B) live tracker update while the level-select page is open ---
 echo "[ab2] step 4: live tracker update while viewing"
 mark
 send "story:open"; sleep 6
 send "tracker:dump"; sleep 2
-since | grep -q "TRACKER: story10 'War and Peace' status=Locked"; verdict $? "story10 locked before item"
+# Sequence, not War and Peace. story10 IS starter-eligible, so a seed can hand it
+# to you already open - and when it did, this assertion failed while the NEXT one
+# passed, because a mission that is already unlocked cannot be seen to unlock.
+# An intermittent failure that looks like a regression is worse than a constant
+# one.
+since | grep -q "TRACKER: $LOCKED_B 'Sequence' status=Locked"; verdict $? "$LOCKED_B locked before item"
 mark
-srv "/send $SLOT Mission Unlock: War and Peace"
-wait_since "AP ITEM RECEIVED: Mission Unlock: War and Peace" 20
+srv "/send $SLOT Mission Unlock: Sequence"
+wait_since "AP ITEM RECEIVED: Mission Unlock: Sequence" 20
 srv "/send $SLOT Cannon"
 sleep 4
 send "tracker:dump"; sleep 2
-since | grep -qE "TRACKER: story10 'War and Peace' status=(InLogic|Partial)"; verdict $? "story10 unlocked live while page open"
+since | grep -qE "TRACKER: $LOCKED_B 'Sequence' status=(InLogic|Partial|OutOfLogic)"; verdict $? "$LOCKED_B unlocked live while page open"
 
 # --- (C) server-message toasts (receive path) ---
 echo "[ab2] step 5: server message received (toast path)"
@@ -97,8 +118,10 @@ wait_since "AP MESSAGE:" 20; verdict $? "server message received for toast"
 # --- (D) build-limit item: unlimited stays unlimited; limited unit increases ---
 echo "[ab2] step 6: build-limit item"
 mark
-send "boot:story10"
-if ! wait_since "New GameSpace" 45; then echo "[ab2] FATAL: story10 load failed"; fi
+# Boot a mission this run has definitely unlocked - step 3 sent The Compound's
+# unlock - rather than one the seed may or may not have opened.
+send "boot:$LOCKED_A"
+if ! wait_since "New GameSpace" 45; then echo "[ab2] FATAL: $LOCKED_A load failed"; fi
 sleep 4
 send "ada:close"; sleep 1
 # cannon is unlimited (base -1); a +1 must NOT turn it into a cap of 0.

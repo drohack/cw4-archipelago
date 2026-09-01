@@ -216,6 +216,14 @@ public sealed class ApClient
         _retryCount = 0;   // healthy connection re-arms the retry budget
         SetStatus(ConnectionStatus.Connected, $"connected as {slot} (seed {seed})");
         _log.LogInfo($"AP CONNECTED slot='{slot}' seed='{seed}' locations={allLocations.Count} received={received.Count}");
+        // The seed's shape, in one greppable line. Which missions start unlocked
+        // is decided per seed and was previously invisible: a player asking "why
+        // can I only play these two?" had no answer, and a test had no choice but
+        // to hard-code a guess - which is exactly how apbattery2 came to assert
+        // that story1 is always a starter, years after that stopped being true.
+        _log.LogInfo(
+            $"AP SEED SHAPE: starters=[{string.Join(",", hints.StarterMissions)}] " +
+            $"missionsForFinale={hints.MissionsForFinale}");
 
         FlushPending();
         Persist();
