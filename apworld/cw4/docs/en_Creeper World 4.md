@@ -3,8 +3,8 @@
 ## What does randomization do to this game?
 
 The Farsite Expedition campaign (20 missions) is opened up. Mission access, unit
-unlocks (cannon, mortar, terp, and the rest), ERNs, build limits, energy and
-storage upgrades, and optional traps are shuffled into the multiworld item pool.
+unlocks (cannon, mortar, terp, and the rest), ERNs, energy and storage upgrades,
+and optional traps are shuffled into the multiworld item pool.
 
 Missions are open: any mission whose unlock you hold is playable, in any order
 your units can handle. You can also enter a mission you cannot yet finish and

@@ -69,6 +69,9 @@ BONUS_UNIT_ITEMS = ["Airship", "Bertha", "Sweeper"]
 PROGRESSIVE_ERN = "Progressive ERN"
 PROGRESSIVE_ERN_COUNT = 4
 
+# Every name that HAS an id. Like Emitter Overdrive these are deliberately still
+# here and deliberately not generated - see POOL_FILLER_KINDS below. Dropping the
+# names outright would renumber every id after them, and ids must not move.
 BUILD_LIMIT_ITEMS = [
     "Build Limit +1 (Tower)",
     "Build Limit +1 (Cannon)",
@@ -88,6 +91,27 @@ ENERGY_STORAGE_ITEM = "Energy Storage Upgrade"
 BASE_GENERATION_ITEM = "Base Generation Upgrade"
 
 FILLER_ITEMS = BUILD_LIMIT_ITEMS + [ENERGY_STORAGE_ITEM, BASE_GENERATION_ITEM]
+
+# Build limits are NOT generated (designer, 2026-09-01).
+#
+# Every building starts at the game's "unlimited" sentinel of -1, so there is no
+# limit to raise. UnitGate.ApplyLimits already refuses to touch those, and
+# correctly: writing base+1 over an unlimited unit would CAP something that had no
+# cap, turning a bonus item into a penalty. The consequence is that a build-limit
+# item does nothing, on every unit, on every mission - not "nothing yet", nothing
+# at all.
+#
+# That is the same rule Emitter Overdrive was removed under, only more so: it fails
+# on the whole campaign rather than a third of it. At the default weights this was
+# 24 of 256 items in a seed, so roughly one check in ten paid out a message with
+# nothing behind it, and there was no in-game signal to notice.
+#
+# HELD LOOSELY, and cheap to reopen. Nothing else was removed: the ids, the
+# UnitRules mapping, UnitGate's base-capture and increment, and the yaml weight all
+# still work. If a mission is found that ships a real limit - or if limits are ever
+# introduced deliberately, which is the more likely route - putting "build_limit"
+# back in this list is the whole change.
+POOL_FILLER_KINDS = [ENERGY_STORAGE_ITEM, BASE_GENERATION_ITEM]
 
 # Traps. Every effect is temporary and recoverable by design - a trap may sting,
 # but none may make a mission unwinnable, which is why permanent terrain
@@ -253,6 +277,9 @@ def filler_weights(world) -> dict:
     return {
         ENERGY_STORAGE_ITEM: world.options.filler_energy_storage_weight.value,
         BASE_GENERATION_ITEM: world.options.filler_base_generation_weight.value,
+        # Read but unused while build limits are out of the pool - see
+        # POOL_FILLER_KINDS. Kept so the option keeps working if they go back in,
+        # and so an existing yaml naming it is not an error.
         "build_limit": world.options.filler_build_limit_weight.value,
     }
 
@@ -260,13 +287,15 @@ def filler_weights(world) -> dict:
 def filler_sequence(world, count: int) -> list:
     """`count` filler item names, drawn by the configured weights.
 
-    Falls back to build limits if a player zeroes every weight, because the pool
+    Falls back to energy storage if a player zeroes every weight, because the pool
     still has to be filled - an empty draw would fail generation rather than
-    respecting an unfillable preference.
+    respecting an unfillable preference. This used to fall back to build limits,
+    which now means falling back to an item that does nothing.
     """
-    weights = {k: v for k, v in filler_weights(world).items() if v > 0}
+    weights = {k: v for k, v in filler_weights(world).items()
+               if v > 0 and k in POOL_FILLER_KINDS}
     if not weights:
-        weights = {"build_limit": 1}
+        weights = {ENERGY_STORAGE_ITEM: 1}
     kinds = list(weights)
     picks = world.random.choices(kinds, weights=[weights[k] for k in kinds], k=count)
     out = []

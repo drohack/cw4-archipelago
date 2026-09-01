@@ -842,6 +842,13 @@ matching the selected tab toggle (ResyncStrip in probe v0.23).
 - Build limits: BuildUnitManager.SetBuildCountLimit/GetBuildCountLimit work -
   unit names must be LOWERCASE ('tower', 'cannon'; 'Tower' fails silently,
   readback -1). UI badge + behavioral cap still to verify in unpaused play.
+  UPDATE 2026-09-01: setting a limit works and is enforced, but RAISING one does
+  not, because every building's base limit IS -1 (unlimited). UnitGate skips
+  those on purpose - base+1 over unlimited would cap a unit that had no cap - so
+  `Build Limit +1` items are inert everywhere and are no longer generated. Note
+  the readback value -1 is overloaded here: it is both the "wrong case" failure
+  above and the legitimate "unlimited" answer, which is why the two took a while
+  to tell apart.
 - Mission gating: allowed-set + Harmony prefix on GalaxyMissionPanel.OnLaunch
   returning false blocks launch; BootMission also gated. Verified:
   boot:story2 denied while story1/story7 allowed.

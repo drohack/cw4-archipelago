@@ -61,8 +61,11 @@ sensible seed. The ones most worth setting:
 Finer tuning, all optional: seven `trap_weight_*` options (default 100 each)
 set the relative frequency of the individual traps; `energy_storage_step` and
 `energy_storage_decay` shape the storage upgrades; `base_generation_start` and
-`base_generation_ramp` shape the generation upgrades; and three `filler_*_weight`
-options split the leftover slots between energy, generation and build limits.
+`base_generation_ramp` shape the generation upgrades; and the `filler_*_weight`
+options split the leftover slots between energy storage and base generation.
+(`filler_build_limit_weight` is still accepted but does nothing - build limits are
+not generated, because every building starts unlimited so there is no limit for a
+"+1" to raise.)
 
 Fractional values travel as TENTHS because Archipelago ranges are integers - so
 `base_generation_start: 5` means +0.5 energy per second. Each option's own

@@ -141,6 +141,11 @@ public sealed class UnitGate
             // A negative base is the game's "unlimited" sentinel - a +N to
             // unlimited is meaningless, and setting a concrete value would
             // actually CAP a unit that had no cap. Leave those alone.
+            //
+            // This turns out to be EVERY building: all of them start unlimited, so
+            // this branch always taken is why Build Limit items did nothing and are
+            // no longer generated. The guard stays right as written - it is the
+            // item that was wrong, not the refusal.
             if (baseLimit < 0)
                 continue;
             try { bum.SetBuildCountLimit(kv.Key, baseLimit + kv.Value); } catch { }

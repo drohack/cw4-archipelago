@@ -217,7 +217,14 @@ class FillerBaseGenerationWeight(Range):
 
 
 class FillerBuildLimitWeight(Range):
-    """Relative weight of Build Limit increases among the filler items."""
+    """Relative weight of Build Limit increases among the filler items.
+
+    CURRENTLY UNUSED: build limits are not generated, so the weight has no effect.
+    Every building starts unlimited, so there is no limit for a "+1" to raise and
+    the item does nothing on any unit on any mission. The option is kept so that an
+    existing yaml naming it is not an error, and so it starts working again if
+    build limits return.
+    """
     display_name = "Filler Weight: Build Limits"
     range_start = 0
     range_end = 100

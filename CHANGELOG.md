@@ -3,6 +3,28 @@
 Versions follow semantic versioning. The plugin and the apworld share one number,
 so a release is a matched pair - if you update one, update the other.
 
+## Unreleased
+
+- **Build limit items are no longer generated.** Every building in CW4 starts at
+  the game's "unlimited" sentinel, so there was no limit for a "+1" to raise and
+  the item did nothing - on any unit, on any mission. At the default weights that
+  was 24 items in a 256-item seed, roughly one check in ten paying out nothing.
+  The three names keep their ids, so existing seeds and clients are unaffected,
+  and `filler_build_limit_weight` is still accepted in a yaml; it just has no
+  effect. The "Build Limits" item group is gone, because a group that matches
+  nothing is worse than a name that does not exist - a yaml naming it would
+  appear to work.
+  Setting a limit does work and is enforced; only raising an unlimited one does
+  not. If limits are ever introduced deliberately, the item comes straight back.
+- **Farsite can open a seed again.** Mission 1 had been excluded from the starter
+  set because its two caches have different requirements - the first is free, the
+  second needs a weapon - and requirements were per objective TYPE, which could
+  not express that. They are now per instance where needed, so Farsite is
+  eligible without claiming its second cache is free.
+- The mod logs the seed's shape on connect (`AP SEED SHAPE: starters=[...]`).
+  Which missions start unlocked is decided per seed and was previously invisible,
+  so "why can I only play these two?" had no answer anywhere.
+
 ## v0.1.1 - Archipelago conventions
 
 No gameplay changes; the mod DLL is functionally identical to v0.1.0. This adds

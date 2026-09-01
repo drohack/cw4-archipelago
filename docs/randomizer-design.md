@@ -36,7 +36,7 @@ See also: [AP feature comparison + recommendations](design/2026-08-26-ap-feature
 | Unit unlocks | 21 | Every key in `UnitRules.ItemToUnit` except the three bonus units. **Pylon is an item** - only `riftlab` and `tower` are always available |
 | Bonus units | 3 | Airship, Bertha, Sweeper. These are CMOD units: `GetDataName()` returns a GUID, never a name |
 | `Progressive ERN` | `progressive_erns`, default 4 | Range 0-40. Never required to finish a mission, so this is purely pool budget |
-| `Build Limit +1 (<Unit>)` | filler | Increments over the game's own default limits |
+| `Build Limit +1 (<Unit>)` | **not generated** | Every building starts at the "unlimited" sentinel of -1, so there is no limit to raise and the item does nothing. Ids kept, pool entry removed - see the build-limits note below |
 | Energy storage / base generation | filler | Two items, applied to the rift lab. See "Energy items" below |
 | Traps | 6 | Share of the non-progression slots set by `trap_percentage`, default 50. Seven effects exist; Emitter Overdrive is deliberately not generated - see the traps section |
 
@@ -456,12 +456,41 @@ The amounts travel in slot_data.
 ### Degradation over failure
 
 An unfillable preference must not fail generation: zeroing every filler weight
-falls back to build limits, and zeroing every trap weight turns those slots into
+falls back to energy storage, and zeroing every trap weight turns those slots into
 useful items. Both are tested.
+
+The filler fallback used to be build limits, which stopped being a safe default
+the moment build limits left the pool - the degradation would have degraded to an
+item that does nothing. Worth noting as a shape: a fallback names a specific item,
+so removing any item means checking whether something falls back to it.
+
+### Build limits are not generated (2026-09-01)
+
+`SetBuildCountLimit` works, and the cap it writes is enforced - that was verified
+in real play, where `limit:tower:3` produced a badge and the game refused a fourth
+tower. What does not work is the item, because of the gap between setting a limit
+and raising one.
+
+Every building starts at -1, the game's "unlimited" sentinel. `UnitGate.ApplyLimits`
+deliberately skips those, and has to: writing base+1 over an unlimited unit would
+CAP a unit that had no cap, so a bonus item would arrive as a penalty. With every
+base unlimited, every increment is skipped, and a `Build Limit +1` item does
+nothing on any unit on any mission.
+
+At the default weights that was 24 items in a 256-item seed - about one check in
+ten paying out nothing, with no in-game signal that anything was missing. Same
+rule that removed Emitter Overdrive, applied to a worse case: that trap is dead on
+a third of the campaign, this item was dead on all of it.
+
+Held loosely. The ids, the `UnitRules.ItemToUnit` mapping, `UnitGate`'s base
+capture and increment, the `limit:` debug command and the yaml weight all still
+work, so re-adding the name to `POOL_FILLER_KINDS` is the whole change. The likely
+route back is limits being introduced deliberately rather than a mission being
+found that ships one.
 
 ### Verified
 
-108 world tests and 104 C# tests as of 2026-08-31. The 80-generated-seed sweep
+132 world tests and 104 C# tests as of 2026-09-01. The 80-generated-seed sweep
 below predates the per-instance rework and is NOT recorded in the repo, so treat
 it as history rather than a current guarantee; it covered
 defaults, ERNs at 0 and 40, generation-only filler, traps at 0 and 100 percent, a

@@ -91,6 +91,14 @@ public static class UnitRules
     }
 
     /// <summary>Per-unit build-limit increments over the game's defaults.</summary>
+    /// <remarks>
+    /// Returns an empty dictionary in practice as of 2026-09-01: the apworld no
+    /// longer generates Build Limit items, because every building's base limit is
+    /// the game's "unlimited" sentinel and ApplyLimits correctly refuses to write
+    /// over that. Kept working, and tested, so that re-adding the items to the
+    /// pool is a one-line apworld change - see apworld/cw4/items.py,
+    /// POOL_FILLER_KINDS.
+    /// </remarks>
     public static Dictionary<string, int> LimitIncrements(SlotState state)
     {
         var limits = new Dictionary<string, int>();

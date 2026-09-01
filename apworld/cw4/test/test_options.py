@@ -72,6 +72,41 @@ class TestAllWeightsZero(bases.CW4TestBase):
         self.assertEqual(len(self.multiworld.itempool), len(locations))
 
 
+class TestBuildLimitsNeverGenerate(bases.CW4TestBase):
+    """Build limits are out of the pool, and this is the test that keeps them out.
+
+    The weight is turned UP to 100 and the two real fillers to zero, so the ONLY
+    thing the old code could have drawn is a build limit. If they ever return to
+    the pool by accident rather than by decision, this fails.
+
+    It also covers the fallback: with every poolable weight at zero the draw has
+    nothing to pick, and the pool still has to fill exactly.
+    """
+    options = {
+        "filler_build_limit_weight": 100,
+        "filler_energy_storage_weight": 0,
+        "filler_base_generation_weight": 0,
+    }
+
+    def test_no_build_limit_item_is_generated(self) -> None:
+        from ..items import BUILD_LIMIT_ITEMS
+        names = [i.name for i in self.multiworld.itempool]
+        for name in BUILD_LIMIT_ITEMS:
+            self.assertNotIn(name, names)
+
+    def test_the_pool_still_fills_exactly(self) -> None:
+        locations = [l for l in self.multiworld.get_locations(self.player)
+                     if l.address is not None]
+        self.assertEqual(len(self.multiworld.itempool), len(locations))
+
+    def test_the_names_keep_their_ids(self) -> None:
+        # Removed from the pool, NOT from the id table. Renumbering ids would
+        # break every existing client and seed, which is why the names stay.
+        from ..items import BUILD_LIMIT_ITEMS, ITEM_NAME_TO_ID
+        for name in BUILD_LIMIT_ITEMS:
+            self.assertIn(name, ITEM_NAME_TO_ID)
+
+
 class TestTraps(bases.CW4TestBase):
     def test_traps_are_about_half_the_leftovers(self) -> None:
         from ..items import TRAP_ITEMS
@@ -297,6 +332,11 @@ class TestEmitterOverdriveIsNotGenerated(bases.CW4TestBase):
         from ..items import POOL_TRAP_ITEMS
         self.assertEqual(6, len(POOL_TRAP_ITEMS))
 
+    def test_only_the_two_energy_upgrades_are_poolable_filler(self) -> None:
+        from ..items import BASE_GENERATION_ITEM, ENERGY_STORAGE_ITEM, POOL_FILLER_KINDS
+        self.assertEqual([ENERGY_STORAGE_ITEM, BASE_GENERATION_ITEM],
+                         list(POOL_FILLER_KINDS))
+
 
 class TestArchipelagoConventions(bases.CW4TestBase):
     """The encouraged-feature list from Archipelago's own "adding games" doc.
@@ -314,6 +354,23 @@ class TestArchipelagoConventions(bases.CW4TestBase):
             self.assertTrue(names, f"item group '{group}' is empty")
             for name in names:
                 self.assertIn(name, ITEM_NAME_TO_ID, f"group '{group}' names a missing item")
+
+    def test_every_item_group_member_can_actually_be_generated(self) -> None:
+        # Stronger than "is a real item", and it is the check that was missing:
+        # "Build Limits" was a group of three items that all existed and none of
+        # which were ever placed. A player writing `non_local_items: [Build Limits]`
+        # got no error and no effect - the same silent failure the docstring above
+        # warns about, arrived at from the other direction.
+        from ..groups import ITEM_NAME_GROUPS
+        from ..items import (BONUS_UNIT_ITEMS, MISSION_UNLOCK_ITEMS,
+                             POOL_FILLER_KINDS, POOL_TRAP_ITEMS, PROGRESSIVE_ERN,
+                             UNIT_ITEMS)
+        poolable = (set(MISSION_UNLOCK_ITEMS) | set(UNIT_ITEMS) | set(BONUS_UNIT_ITEMS)
+                    | {PROGRESSIVE_ERN} | set(POOL_FILLER_KINDS) | set(POOL_TRAP_ITEMS))
+        for group, names in ITEM_NAME_GROUPS.items():
+            for name in names:
+                self.assertIn(name, poolable,
+                              f"group '{group}' names '{name}', which is never generated")
 
     def test_every_location_group_member_is_a_real_location(self) -> None:
         from ..groups import LOCATION_NAME_GROUPS

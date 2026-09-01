@@ -12,7 +12,6 @@ from the items that actually exist.
 from .items import (
     BASE_GENERATION_ITEM,
     BONUS_UNIT_ITEMS,
-    BUILD_LIMIT_ITEMS,
     ENERGY_STORAGE_ITEM,
     MISSION_UNLOCK_ITEMS,
     POOL_TRAP_ITEMS,
@@ -45,7 +44,11 @@ ITEM_NAME_GROUPS = {
     "Weapons": {n for n in _WEAPONS if n in set(UNIT_ITEMS) | set(BONUS_UNIT_ITEMS)},
     "Economy": {n for n in _ECONOMY if n in set(UNIT_ITEMS) | set(BONUS_UNIT_ITEMS)},
     "Traps": set(POOL_TRAP_ITEMS),
-    "Build Limits": set(BUILD_LIMIT_ITEMS),
+    # No "Build Limits" group: those items are not generated, so the group would
+    # match nothing. Groups exist to be typed into a yaml or a !hint, and one that
+    # silently resolves to an empty set is worse than a name that does not exist -
+    # `exclude_locations` would appear to work and do nothing. Groups derive from
+    # the POOL_ tables for exactly this reason, the way "Traps" does.
     "Upgrades": {ENERGY_STORAGE_ITEM, BASE_GENERATION_ITEM, PROGRESSIVE_ERN},
 }
 

@@ -4,9 +4,9 @@ An [Archipelago](https://archipelago.gg) multiworld randomizer for
 [Creeper World 4](https://knucklecracker.com/creeperworld4/cw4.php)'s
 Farsite Expedition campaign.
 
-Mission access, unit unlocks (cannon, mortar, terp, and the rest), ERNs, build
-limits, energy and storage upgrades, and optional traps are shuffled into the
-multiworld item pool. Completing objectives and missions sends checks to other
+Mission access, unit unlocks (cannon, mortar, terp, and the rest), ERNs, energy
+and storage upgrades, and optional traps are shuffled into the multiworld item
+pool. Completing objectives and missions sends checks to other
 players; their checks send you your units.
 
 Missions are open: any mission whose unlock you hold is playable in any order.
@@ -31,8 +31,8 @@ still unproven in practice.
 
 Covered so far:
 - Connect / auto-connect / reconnect with a per-slot offline cache
-- Items applied live: unit unlocks, mission unlocks, progressive ERNs, build
-  limits, energy storage and base generation, and six optional traps
+- Items applied live: unit unlocks, mission unlocks, progressive ERNs, energy
+  storage and base generation, and six optional traps
 - **236 locations**: every cache, totem and nullify target is its own check
   (203 of those), plus reclaim, custom objectives and mission completions
 - Per-mission logic derived from a manual playthrough, with a casual tier that
