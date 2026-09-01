@@ -32,6 +32,29 @@ send() { printf '%s\n' "$1" > "$CMD"; sleep "${2:-3}"; }
 state() { grep -oE "DEVSTATE .*" "$LOG" | tail -1; }
 field() { state | grep -oE "$1=[-0-9]+" | cut -d= -f2; }
 
+# Park the randomizer for the duration, and restore it however we exit - a
+# battery that needs a condition should create it, not assert it and blame the
+# operator. Renaming the folder does NOT work: BepInEx scans subfolders
+# recursively, so it must move out of plugins/ entirely.
+PLUGINS="$G/BepInEx/plugins"
+PARKED="$G/BepInEx/plugins-disabled"
+RESTORE_RANDOMIZER=0
+restore_randomizer() {
+  if [ "$RESTORE_RANDOMIZER" = "1" ] && [ -d "$PARKED/CW4Archipelago" ]; then
+    mkdir -p "$PLUGINS"
+    mv "$PARKED/CW4Archipelago" "$PLUGINS/CW4Archipelago" 2>/dev/null \
+      && echo "  (randomizer restored to plugins/)"
+  fi
+}
+trap restore_randomizer EXIT
+if [ -d "$PLUGINS/CW4Archipelago" ]; then
+  mkdir -p "$PARKED"
+  rm -rf "$PARKED/CW4Archipelago"
+  mv "$PLUGINS/CW4Archipelago" "$PARKED/CW4Archipelago" \
+    && RESTORE_RANDOMIZER=1 \
+    && echo "  (randomizer parked for this run; it will be restored at the end)"
+fi
+
 echo "== setup: known config, game closed =="
 taskkill //F //IM CW4.exe >/dev/null 2>&1; sleep 3
 [ -f "$CFG" ] || { echo "no config yet - run the game once first"; exit 1; }
@@ -54,6 +77,12 @@ echo "== waiting for load =="
 for i in $(seq 1 120); do grep -q "Dev Tools loaded" "$LOG" 2>/dev/null && break; sleep 2; done
 
 grep -q "Dev Tools loaded" "$LOG"; check "plugin loads" $?
+# The randomizer must be ABSENT for this battery. Its unit gate fights the
+# AllBuildings cheat over the same availability flags every frame, so a run with
+# both installed measures the argument rather than the cheat. The setup step
+# above parks it and the exit trap puts it back, so this assertion is now about
+# whether that worked - it used to fail whenever the mod happened to be
+# installed, which trained everyone to ignore a red line.
 ! grep -q "Loading \[CW4 Archipelago" "$LOG"; check "randomizer NOT loaded" $?
 
 echo "== boot $MISSION =="

@@ -156,6 +156,51 @@ data-driven, so new custom units are handled without code changes, and it cleanl
 separates the 3 player units from the 8 map/editor-only ones. Implemented as
 `IsPlayerCmod` in both mods.
 
+**CMODs register LAZILY, and measuring before that fooled a whole investigation
+(2026-09-01).** `GameSpace.cmods` reports 0 player-buildable on every campaign
+mission at load. Turn the availability flags on - by god mode's AllBuildings, or
+by the randomizer granting the items, both work identically - and it becomes:
+
+    DEVTOOLS cmods: 3 player-buildable: AIRSHIP[ca8dfbe4] BERTHA[b2d47782] SWEEPER[c5b44bd0]
+
+So a scan of all 20 missions reading zero does NOT mean the campaign has no
+custom units; it means nothing had asked for them yet. That reading, plus
+`pane:dump`'s unreliable ON/off, led to a confident and wrong conclusion that
+Airship, Bertha and Sweeper were dead items in the pool. They are not. Their
+buttons are the CMODUNITBUTTON slots - one in the AIR pane, two in SPECIAL -
+which is three buttons for three units, and they are absent from
+CustomUnitBuildPane entirely.
+
+The lesson is the one this file keeps relearning: a zero is not a finding until
+something has been made non-zero on purpose. See "Power zones" for the same
+shape, done right.
+
+**The CMOD ownership fix is VERIFIED (2026-09-01, hands-on).** With an airship,
+a bertha and a sweeper built on Founders, all three trap effects that filter on
+ownership reached them, and the two controls both held:
+
+    TRAP drain: emptied 3 weapon(s), 550 ammo removed
+    TRAP stun: 3 player unit(s) stunned; 10 cannot be stunned, 74 not the player's
+    TRAP spore: aim=PlayerBuilding onto 13 candidate building(s)
+
+    CModUnitManager/ca8dfbe4-...=MINE     AIRSHIP
+    CModUnitManager/b2d47782-...=MINE     BERTHA
+    CModUnitManager/c5b44bd0-...=MINE     SWEEPER
+    CModUnitManager/0c43b01a-...=other x4 the map's own
+    CModUnitManager/e76d9994-...=other x4 the map's own
+    CModUnitManager/abe9d7ea-...=other    the neutron reactor
+
+The negative control is what makes this meaningful: the map's own custom units
+have GUID data names too, and a fix that accepted anything GUID-shaped would have
+claimed all ten. Confirmed visually at the same time - ammo vanishing from the
+airship and bertha, the sweeper running dry mid-fire, spores aimed at the sweeper
+and a stun on the bertha.
+
+Note the histogram in `trap:status` is capped at the 14 commonest types, so units
+with a count of 1 - which is every hand-built one - do not appear in it. Read
+`playerUnits=` and `withAmmo=` instead, or the units-on-map dump. That cap cost an
+hour of confusion here.
+
 NOTE 2026-08-31: this said "both mods" from the start but was only true of
 CW4DevTools for three days - the randomizer's `GameUtil.IsPlayerUnit` had no
 CMOD branch at all, so trap stun, ammo drain and spore targeting silently
