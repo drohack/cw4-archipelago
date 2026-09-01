@@ -296,3 +296,70 @@ class TestEmitterOverdriveIsNotGenerated(bases.CW4TestBase):
         # canary for that.
         from ..items import POOL_TRAP_ITEMS
         self.assertEqual(6, len(POOL_TRAP_ITEMS))
+
+
+class TestArchipelagoConventions(bases.CW4TestBase):
+    """The encouraged-feature list from Archipelago's own "adding games" doc.
+
+    Name groups are the easy ones to get wrong: they are plain strings, nothing
+    validates them at import, and a typo or a renamed item leaves a group that
+    silently matches nothing. A player writing `non_local_items: [Units]` would
+    get no error and no effect.
+    """
+
+    def test_every_item_group_member_is_a_real_item(self) -> None:
+        from ..groups import ITEM_NAME_GROUPS
+        from ..items import ITEM_NAME_TO_ID
+        for group, names in ITEM_NAME_GROUPS.items():
+            self.assertTrue(names, f"item group '{group}' is empty")
+            for name in names:
+                self.assertIn(name, ITEM_NAME_TO_ID, f"group '{group}' names a missing item")
+
+    def test_every_location_group_member_is_a_real_location(self) -> None:
+        from ..groups import LOCATION_NAME_GROUPS
+        from ..locations import LOCATION_NAME_TO_ID
+        for group, names in LOCATION_NAME_GROUPS.items():
+            self.assertTrue(names, f"location group '{group}' is empty")
+            for name in names:
+                self.assertIn(name, LOCATION_NAME_TO_ID, f"group '{group}' names a missing location")
+
+    def test_mission_groups_cover_every_location(self) -> None:
+        # The 20 per-mission groups should partition the whole location set, so
+        # `exclude_locations: [<mission>]` cannot miss a check.
+        from ..groups import LOCATION_NAME_GROUPS
+        from ..items import MISSION_TITLES
+        from ..locations import LOCATION_NAME_TO_ID
+        covered = set()
+        for n in range(1, 21):
+            covered |= LOCATION_NAME_GROUPS[MISSION_TITLES[n]]
+        self.assertEqual(set(LOCATION_NAME_TO_ID), covered)
+
+    def test_presets_name_real_options_and_values(self) -> None:
+        from ..options import options_presets, CW4Options
+        fields = set(CW4Options.type_hints)
+        for preset, settings in options_presets.items():
+            for key in settings:
+                self.assertIn(key, fields, f"preset '{preset}' sets unknown option '{key}'")
+
+    def test_option_groups_cover_every_game_option(self) -> None:
+        # A grouped option shows under its heading; an ungrouped one is filed
+        # under a generic bucket, which is how an option quietly becomes hard to
+        # find on the webhost.
+        import inspect
+        from Options import Option
+        from .. import options as opt
+        grouped = {o.__name__ for g in opt.option_groups for o in g.options}
+        # Every Option subclass DEFINED in our options module - which is exactly
+        # the set of game-specific options, and needs no guessing about which of
+        # Archipelago's common options are inherited.
+        ours = {
+            name for name, obj in vars(opt).items()
+            if inspect.isclass(obj) and issubclass(obj, Option) and obj.__module__ == opt.__name__
+        }
+        # Subset, not equality: Archipelago APPENDS its own "Item & Location
+        # Options" group (LocalItems, StartInventory, ExcludeLocations and the
+        # rest) to every world's list at import, so the grouped set is always a
+        # superset of ours. What matters is that none of OURS is left out - an
+        # ungrouped option gets filed under a generic "Game Options" heading,
+        # which is how an option quietly becomes hard to find on the webhost.
+        self.assertEqual(set(), ours - grouped)

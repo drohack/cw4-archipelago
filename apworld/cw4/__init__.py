@@ -10,13 +10,15 @@ from typing import Any
 from worlds.AutoWorld import WebWorld, World
 from BaseClasses import Tutorial
 
-from . import items, locations, regions, rules
+from . import groups, items, locations, regions, rules
+from . import options
 from .options import CW4Options
 
 
 class CW4WebWorld(WebWorld):
     game = "Creeper World 4"
     theme = "ice"
+    bug_report_page = "https://github.com/drohack/cw4-archipelago/issues"
     setup_en = Tutorial(
         "Multiworld Setup Guide",
         "A guide to installing the Creeper World 4 mod and connecting to a multiworld.",
@@ -26,6 +28,9 @@ class CW4WebWorld(WebWorld):
         ["droha"],
     )
     tutorials = [setup_en]
+
+    option_groups = options.option_groups
+    options_presets = options.options_presets
 
 
 class CW4World(World):
@@ -43,6 +48,12 @@ class CW4World(World):
 
     location_name_to_id = locations.LOCATION_NAME_TO_ID
     item_name_to_id = items.ITEM_NAME_TO_ID
+
+    # A group name is usable anywhere an item or location name is - in !hint and
+    # in yaml lists - so these turn "keep my units local" into one line instead
+    # of twenty-four. See groups.py.
+    item_name_groups = groups.ITEM_NAME_GROUPS
+    location_name_groups = groups.LOCATION_NAME_GROUPS
 
     starter_missions: list
 

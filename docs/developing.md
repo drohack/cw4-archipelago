@@ -626,6 +626,19 @@ path) and write outputs under `$TEMP`.
 
 ## Releases
 
+### Follow Archipelago's documentation, not intuition
+
+Where Archipelago defines something, use its definition and cite it. Its
+`docs/adding games.md` lists the hard requirements and the encouraged features
+for a world, and `docs/world api.md` and `docs/apworld specification.md` cover
+the rest; naming rules live in the code that does the naming. Two of the rules
+below were reverse-engineered from the source rather than assumed, after a guess
+went the wrong way.
+
+Where Archipelago defines nothing - what a RELEASE PAGE should contain, for
+instance - the next best thing is what shipped mods actually do, surveyed below
+rather than invented.
+
 ### What a release contains, and why three files
 
 Surveyed from BepInEx-based Archipelago mods that ship both halves, since there
@@ -648,6 +661,15 @@ assets:
 - `Creeper World 4.yaml` - a ready-to-use options file, generated from the
   options themselves so it cannot drift from the real defaults. Without it a
   player has to install Archipelago and generate a template before they can play.
+
+  **The filename is Archipelago's, not ours, and must not be "tidied".**
+  `Options.generate_yaml_templates` writes `get_file_safe_name(game_name) +
+  ".yaml"`, and `Utils.get_file_safe_name` strips only the characters a
+  filesystem forbids - `<>:"/\|?*`. Spaces are kept. So the correct name is
+  literally the game name: `Creeper World 4.yaml`. GitHub displays the download
+  as `Creeper.World.4.yaml` because IT rewrites spaces in release assets; that is
+  GitHub's doing and is not a reason to rename the file. Presets follow the same
+  rule as `<Game> - <Preset>.yaml`.
 
 Versions are semantic and the plugin and world share one number: a release is a
 matched pair. Tag as `vX.Y.Z`. Public numbering starts at v0.1.0 - the 0.4.0 and

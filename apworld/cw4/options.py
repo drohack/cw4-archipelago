@@ -6,7 +6,7 @@ and percentages as whole percents; each docstring says which.
 """
 from dataclasses import dataclass
 
-from Options import Choice, PerGameCommonOptions, Range
+from Options import Choice, OptionGroup, PerGameCommonOptions, Range
 
 
 class ProgressiveErns(Range):
@@ -245,3 +245,56 @@ class CW4Options(PerGameCommonOptions):
     filler_energy_storage_weight: FillerEnergyStorageWeight
     filler_base_generation_weight: FillerBaseGenerationWeight
     filler_build_limit_weight: FillerBuildLimitWeight
+
+
+# Eighteen options in one flat list is a wall. Grouped, the webhost shows the
+# three a player has to decide about first and files the tuning behind them.
+# Declared here rather than in the world class, matching how the worlds in the
+# Archipelago tree do it (messenger, blasphemous, ahit).
+option_groups = [
+    OptionGroup("Goal and Logic", [
+        MissionsForFinale,
+        LogicDifficulty,
+        StarterMissions,
+    ]),
+    OptionGroup("Traps", [
+        TrapPercentage,
+        TrapWeightSporeStrike,
+        TrapWeightSporeScatter,
+        TrapWeightCreeperSurge,
+        TrapWeightEnergyDrain,
+        TrapWeightEmitterOverdrive,
+        TrapWeightUnitStun,
+        TrapWeightAmmoDrain,
+    ], start_collapsed=True),
+    OptionGroup("Item Pool", [
+        ProgressiveErns,
+        FillerEnergyStorageWeight,
+        FillerBaseGenerationWeight,
+        FillerBuildLimitWeight,
+    ], start_collapsed=True),
+    OptionGroup("Energy Upgrades", [
+        EnergyStorageStep,
+        EnergyStorageDecay,
+        BaseGenerationStart,
+        BaseGenerationRamp,
+    ], start_collapsed=True),
+]
+
+# The three things people ask for before they have played a seed. Each is a
+# complete answer rather than a hint, so a player can pick one and generate.
+options_presets = {
+    "No traps": {
+        "trap_percentage": 0,
+    },
+    "Relaxed": {
+        "logic_difficulty": "casual",
+        "trap_percentage": 15,
+        "starter_missions": 4,
+    },
+    "Short campaign": {
+        "missions_for_finale": 6,
+        "starter_missions": 4,
+        "trap_percentage": 25,
+    },
+}

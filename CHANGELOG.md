@@ -3,6 +3,26 @@
 Versions follow semantic versioning. The plugin and the apworld share one number,
 so a release is a matched pair - if you update one, update the other.
 
+## v0.1.1 - Archipelago conventions
+
+No gameplay changes; the mod DLL is functionally identical to v0.1.0. This adds
+the "encouraged features" from Archipelago's own `adding games.md` that the world
+was missing, all of which are things a PLAYER touches:
+
+- **Item and location name groups.** A group name works anywhere an item or
+  location name does, so `!hint Traps` now works, and a yaml can say
+  `non_local_items: [Units]` or `exclude_locations: [Tower of Darkness]` instead
+  of listing two dozen names. Groups: Mission Unlocks, Units, Weapons, Economy,
+  Traps, Build Limits, Upgrades; and per mission, plus Caches, Totems, Nullify
+  Targets, Reclaim, Custom Objectives and Mission Completions.
+- **Option groups.** Eighteen options in one flat list is a wall. The webhost now
+  shows Goal and Logic first, with Traps, Item Pool and Energy Upgrades collapsed.
+- **Option presets**: No traps, Relaxed, Short campaign. Each is a complete
+  answer you can generate from, not a hint.
+- **A bug report link** on the webhost page.
+
+Versions stay matched: use the v0.1.1 apworld with the v0.1.1 mod.
+
 ## v0.1.0 - first public release
 
 The first release of the Creeper World 4 Archipelago randomizer. Everything below
