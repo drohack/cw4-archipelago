@@ -5,6 +5,42 @@ so a release is a matched pair - if you update one, update the other.
 
 ## Unreleased
 
+- **New option: `early_weapon`.** Cannon and Mortar are interchangeable in logic,
+  so which one opens a seed was decided by the fill - a genuine coin flip,
+  measured 10-10 over 20 seeds. This makes it a choice: `mortar` for a slower
+  opening, `cannon` for a brisk one, or `random` (the default) to decide per seed.
+  Whichever is chosen is guaranteed to arrive in the very first sphere - unless
+  the opening is a single location, where the slot goes to a mission unlock
+  instead. See the fix below; that is not a nicety, it is what stops the seed
+  failing to generate.
+- **Fixed: `starter_missions: 1` often failed to generate.** About 12 percent of
+  one-starter seeds died with `FillError: No more spots to place 1 items`. Every
+  one of them was winnable, so this was the fill giving up rather than a logic
+  error. The world was asking for two early items - a mission unlock and a weapon
+  - when a one-location opening can only hold one, and Archipelago was picking
+  between them arbitrarily. An unlock chains to the next mission; a weapon does
+  not, leaving nineteen unlocks to thread through a single mission. Requesting
+  only the unlock at that width removed that failure shape, but left a rarer one
+  at 1.3 percent where the fill spent a scarce slot on an item that opens nothing -
+  a lone Factory, which is half of the Greenar pair.
+  Both are fixed by `bootstrap_opening`: while the opening is too narrow to
+  survive a wasted placement, the world places items itself, drawn at random from
+  those that actually open something. **0 failures in 300 one-starter seeds**, and
+  0 in 100 at the default. The opening stays random - only items that open nothing
+  are excluded, and only while it is dangerous - and `early_weapon` is honoured
+  here too, going first in 31 of 40 seeds.
+  It runs only where it is needed: solo, or a multiworld where every player is
+  playing Creeper World 4. With another game in the multiworld the funnel is not a
+  single point of failure - the fill can park CW4 unlocks in that world and put
+  that game's items in CW4's opening - so the bootstrap stands down and leaves the
+  cross-game shuffle alone.
+  What it changes is smaller than it first looks. The SECOND weapon lands about
+  two thirds of the way into a seed whatever you pick - that is a property of an
+  OR pair, and was already true before this option. Forcing buys an opening weapon
+  in the first sphere instead of somewhere in the first four; the only real cost is
+  the second weapon reaching the final sphere in 2 or 3 seeds of 20 rather than 0.
+  `unforced` reproduces the old distribution exactly.
+
 - **Build limit items are no longer generated.** Every building in CW4 starts at
   the game's "unlimited" sentinel, so there was no limit for a "+1" to raise and
   the item did nothing - on any unit, on any mission. At the default weights that

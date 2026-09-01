@@ -9,6 +9,51 @@ from dataclasses import dataclass
 from Options import Choice, OptionGroup, PerGameCommonOptions, Range
 
 
+class EarlyWeapon(Choice):
+    """Which weapon is guaranteed to arrive first.
+
+    Cannon and Mortar are interchangeable in logic - every rule that wants offense
+    accepts either - so which one a seed hands you first is decided by the fill,
+    not by the logic. Measured over 20 seeds it is a clean coin flip, 10 to 10.
+    (An earlier count said 13-7; it read the spoiler's playthrough, which lists
+    only the items needed to WIN and so cannot see the redundant half of an OR
+    pair. Reversing the pair in the rules produced identical seeds either way, so
+    list order does not choose the winner.)
+
+    A coin flip is fine, but it is not a choice. This makes it one. Mortar is the
+    slower opening - it does the same work as a cannon with more effort - so
+    picking it stretches the early game out; cannon is the brisk one.
+
+    `random` is not defined here and does not need to be: Archipelago accepts it
+    for any Choice and picks among the values below, per seed. Defining it is in
+    fact forbidden - Options.py asserts "Choice option 'random' cannot be manually
+    assigned" - which is why the default is the string rather than a value.
+
+    WHAT IT DOES NOT DO is make the other weapon arrive later. That was measured
+    wrong once and the mistake is worth recording: comparing "Cannon with no
+    forcing" against "Cannon when Mortar is forced" compares an item that opens
+    half the seeds against one that never does, and shows a large regression where
+    almost nothing moved. Comparing BY ROLE over 20 seeds each:
+
+                        opening weapon      second weapon
+        no forcing      median 2 (1 to 4)   median 9, 67% in
+        random          median 1 (always)   median 10, 75% in
+        mortar          median 1 (always)   median 8, 67% in
+
+    The second weapon lands about two thirds of the way in whatever you choose:
+    that is a property of an OR pair, not of this option. What forcing buys is a
+    weapon in the very first sphere instead of somewhere in the first four.
+
+    This never changes LOGIC, only placement. A rule saying "this mission needs a
+    mortar specifically" would be false wherever a cannon also works, so the honest
+    lever is Archipelago's early-items placement, which is what this uses.
+    """
+    display_name = "Early Weapon"
+    option_mortar = 0
+    option_cannon = 1
+    default = "random"
+
+
 class ProgressiveErns(Range):
     """How many Progressive ERN items go in the pool.
 
@@ -236,6 +281,7 @@ class CW4Options(PerGameCommonOptions):
     missions_for_finale: MissionsForFinale
     logic_difficulty: LogicDifficulty
     starter_missions: StarterMissions
+    early_weapon: EarlyWeapon
     progressive_erns: ProgressiveErns
     trap_percentage: TrapPercentage
     trap_weight_spore_strike: TrapWeightSporeStrike
@@ -263,6 +309,7 @@ option_groups = [
         MissionsForFinale,
         LogicDifficulty,
         StarterMissions,
+        EarlyWeapon,
     ]),
     OptionGroup("Traps", [
         TrapPercentage,

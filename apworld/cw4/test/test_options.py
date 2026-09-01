@@ -72,6 +72,160 @@ class TestAllWeightsZero(bases.CW4TestBase):
         self.assertEqual(len(self.multiworld.itempool), len(locations))
 
 
+class TestEarlyWeaponMortar(bases.CW4TestBase):
+    options = {"early_weapon": "mortar"}
+
+    def test_mortar_is_forced_early(self) -> None:
+        early = self.multiworld.early_items[self.player]
+        self.assertEqual(1, early.get("Mortar"))
+        self.assertNotIn("Cannon", early)
+
+    def test_both_weapons_are_still_real_checks(self) -> None:
+        # Forcing one early must not remove the other from the pool - the point
+        # is to choose the OPENING, not to hand the player a weapon.
+        names = [i.name for i in self.multiworld.itempool]
+        self.assertIn("Mortar", names)
+        self.assertIn("Cannon", names)
+
+
+class TestEarlyWeaponCannon(bases.CW4TestBase):
+    options = {"early_weapon": "cannon"}
+
+    def test_cannon_is_forced_early(self) -> None:
+        early = self.multiworld.early_items[self.player]
+        self.assertEqual(1, early.get("Cannon"))
+        self.assertNotIn("Mortar", early)
+
+
+class TestEarlyWeaponRandom(bases.CW4TestBase):
+    options = {"early_weapon": "random"}
+
+    def test_exactly_one_weapon_is_forced_early(self) -> None:
+        # "random" is Archipelago's own, for any Choice - the world defines only
+        # mortar and cannon. Defining an option_random is actually forbidden
+        # (Options.py asserts on it), which is why the default is the string.
+        early = self.multiworld.early_items[self.player]
+        forced = [w for w in ("Cannon", "Mortar") if w in early]
+        self.assertEqual(1, len(forced), f"expected one early weapon, got {forced}")
+        self.assertEqual(forced[0], self.world.early_weapon)
+
+
+class TestEarlyWeaponDefaultIsRandom(bases.CW4TestBase):
+    options = {}
+
+    def test_the_default_still_forces_one_weapon(self) -> None:
+        # default = "random" is a string rather than a value, so it goes through
+        # from_any -> from_text and could silently resolve to nothing if the
+        # spelling were ever wrong. This is the test that would catch that.
+        early = self.multiworld.early_items[self.player]
+        forced = [w for w in ("Cannon", "Mortar") if w in early]
+        self.assertEqual(1, len(forced), f"expected one early weapon, got {forced}")
+        self.assertIn(self.world.early_weapon, ("Cannon", "Mortar"))
+
+
+class TestEarlyWeaponWithOneStarter(bases.CW4TestBase):
+    """One starter is a one-location opening, and the bootstrap owns it.
+
+    Archipelago's default battery is off here because `test_fill` generates, and
+    what this class is for - that the opening gets widened before the general fill
+    sees it - is asserted directly and needs no fill.
+    """
+    options = {"early_weapon": "mortar", "starter_missions": 1}
+    run_default_tests = False
+
+    def test_the_opening_starts_one_location_wide(self) -> None:
+        from ..items import opening_width
+        self.assertEqual(1, opening_width(self.world))
+
+    def test_no_early_items_are_requested_at_this_width(self) -> None:
+        # Two requests into one slot is what broke 12 percent of these seeds.
+        # At this width the bootstrap places instead, so nothing is requested.
+        self.assertEqual({}, dict(self.multiworld.early_items[self.player]))
+
+    def test_the_bootstrap_widens_the_opening(self) -> None:
+        from BaseClasses import CollectionState
+        from ..items import SAFE_OPENING
+        self.assertTrue(self.world.bootstrapped, "nothing was bootstrapped")
+        # prevent_sweep, or the sweep collects the OTHER locked bootstrap items
+        # for us and the measurement stops being about the listed items.
+        state = CollectionState(self.multiworld)
+        for _name, item_name in self.world.bootstrapped:
+            state.collect(self.world.create_item(item_name), prevent_sweep=True)
+        reachable = [l for l in self.multiworld.get_locations(self.player)
+                     if l.address is not None and l.can_reach(state)]
+        self.assertGreaterEqual(len(reachable), SAFE_OPENING)
+
+    def test_every_bootstrapped_item_opened_something(self) -> None:
+        # The whole point: never spend a scarce slot on an item that unlocks
+        # nothing. A lone Factory is half of the Greenar pair and was the item
+        # that stranded seed 20100.
+        from BaseClasses import CollectionState
+        state = CollectionState(self.multiworld)
+        before = len([l for l in self.multiworld.get_locations(self.player)
+                      if l.address is not None and l.can_reach(state)])
+        for _name, item_name in self.world.bootstrapped:
+            state.collect(self.world.create_item(item_name), prevent_sweep=True)
+            after = len([l for l in self.multiworld.get_locations(self.player)
+                         if l.address is not None and l.can_reach(state)])
+            self.assertGreater(after, before,
+                               f"{item_name} was placed but opened nothing")
+            before = after
+
+    def test_the_pool_plus_the_bootstrap_still_fills_exactly(self) -> None:
+        # The bootstrap locks its items into locations and takes them OUT of the
+        # pool, so the pool alone no longer matches the location count.
+        locations = [l for l in self.multiworld.get_locations(self.player)
+                     if l.address is not None]
+        self.assertEqual(len(self.multiworld.itempool) + len(self.world.bootstrapped),
+                         len(locations))
+
+
+class TestBootstrapStandsDownForOtherGames(bases.CW4TestBase):
+    """A mixed multiworld does not need the bootstrap, and pays for it if it runs.
+
+    The funnel is only a single point of failure when this world is the only place
+    its own progression can live. With another game present the fill can park CW4
+    unlocks in that world and fill CW4's opening with that game's items - measured
+    at 0 generation failures in 40 seeds without the bootstrap, against 7 of the
+    opening checks holding a foreign item. Running it anyway drove that to 0.
+
+    This test fakes the condition rather than building a real multiworld, which
+    keeps it fast; the real two-game case is covered by measurement.
+    """
+    options = {"starter_missions": 1}
+    run_default_tests = False
+
+    def test_solo_needs_the_bootstrap(self) -> None:
+        self.assertTrue(self.world.needs_bootstrap())
+
+    def test_another_game_in_the_multiworld_turns_it_off(self) -> None:
+        class NotCW4:
+            game = "ChecksFinder"
+        real = dict(self.multiworld.worlds)
+        try:
+            self.multiworld.worlds[self.player] = self.world
+            fake = max(self.multiworld.player_ids) + 1
+            self.multiworld.worlds[fake] = NotCW4()
+            self.multiworld.player_ids = tuple(list(self.multiworld.player_ids) + [fake])
+            self.assertFalse(self.world.needs_bootstrap())
+        finally:
+            self.multiworld.worlds.clear()
+            self.multiworld.worlds.update(real)
+            self.multiworld.player_ids = tuple(
+                p for p in self.multiworld.player_ids if p in real)
+
+
+class TestOpeningWidthAtTwoStarters(bases.CW4TestBase):
+    options = {"early_weapon": "mortar", "starter_missions": 2}
+
+    def test_two_starters_can_afford_both_early_items(self) -> None:
+        from ..items import opening_width
+        self.assertGreaterEqual(opening_width(self.world), 2)
+        early = self.multiworld.early_items[self.player]
+        self.assertEqual(1, early.get("Mortar"))
+        self.assertTrue([k for k in early if k.startswith("Mission Unlock:")])
+
+
 class TestBuildLimitsNeverGenerate(bases.CW4TestBase):
     """Build limits are out of the pool, and this is the test that keeps them out.
 

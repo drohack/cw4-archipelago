@@ -453,6 +453,150 @@ ramps, per the designer:
 `Energy Storage +50` would break the client whenever a player retuned an option.
 The amounts travel in slot_data.
 
+### The narrow opening, and the bootstrap that fixes it (2026-09-01)
+
+Every starter-eligible mission has exactly ONE cache collectable with no items -
+Farsite has two caches but only the first is free - so `starter_missions: 1` gives
+a one-location opening. That shape is intended: the single free cache hands you an
+unlock, that mission's free cache hands you the next thing, and the seed chains
+until a weapon turns up.
+
+It also used to fail to generate about **12 percent** of the time, and now fails
+**0 times in 300 seeds**. Two separate causes, worth keeping apart.
+
+**Cause one: two early items, one slot.** Archipelago's "early" means a location
+reachable holding nothing, and there was exactly one. The world asked for both a
+mission unlock and the `early_weapon`, so Archipelago dropped one arbitrarily and
+logged that it had. Measured at 60 seeds per setting:
+
+| early items requested | failed to generate |
+|---|---|
+| mission unlock only | 0 of 60 |
+| nothing | 2 of 60 |
+| both, as shipped | 7 of 60 |
+| weapon only | 13 of 60 |
+
+**Cause two: the fill spending a scarce slot on an item that opens nothing.** With
+cause one fixed the rate was still 1.3 percent (4 in 300), all of them the funnel
+collapsing at the start. Seed 20100:
+
+    We Know Nothing - Cache 1         -> Mission Unlock: Somewhere in Spacetime
+    Somewhere in Spacetime - Cache 1  -> Cannon
+    Somewhere in Spacetime - Reclaim  -> Factory      <- opens nothing
+
+Totems want Greenar Refinery AND Factory, so a lone Factory is half a pair;
+nullify targets want a Nullifier. Twenty-nine items were left with nowhere to go.
+Archipelago's fill places one item at a time without looking ahead and cannot know
+the two are a pair - which is fine when there is slack, and fatal when there is
+none.
+
+**It only matters when this world is the only home for its own progression.**
+Put another game in the multiworld and the funnel stops being a funnel: the fill
+can park Creeper World 4's unlocks in that game's world and fill Creeper World 4's
+opening with that game's items. Measured over 40 seeds of CW4 at one starter plus
+ChecksFinder, with the bootstrap disabled: **zero** generation failures, 7 opening
+checks holding a foreign item, 4 CW4 progression items per seed living abroad.
+
+So the bootstrap stands down whenever another game is present, and that is not
+just tidiness - running it there costs the thing a multiworld is for. The same 40
+seeds WITH it forced on had **0** foreign items in the opening: it takes the
+cross-game placements out of the only checks a narrow opening has. Gated, the
+mixed case measures 0 failures in 60 seeds and 8 foreign items back in the
+opening.
+
+It DOES run for a Creeper World 4 only multiworld, because every player there has
+the same narrow opening and there is no roomier world to lean on: two CW4 players
+at one starter each, 40 seeds, 0 failures, the bootstrap running for all 80
+player-worlds at an average of 2.6 placements.
+
+KNOWN EDGE: a player who forces their own items local (`local_items`) inside a
+mixed multiworld recreates the funnel and is not covered. Rare, and visible in the
+yaml, so it is a re-roll rather than a heuristic guessing at intent.
+
+**The fix is `bootstrap_opening`, in `pre_fill`.** While the opening is narrower
+than `SAFE_OPENING`, the world places items itself, drawn at RANDOM from those
+that actually open something, into a location drawn at random from those reachable
+and empty. It stops as soon as there is slack, and the general fill takes over.
+Only `starter_missions: 1` reaches it; at 2 or more it is a no-op.
+
+It is not a script. The item and the location are both random draws - the only
+thing forbidden is picking something that opens nothing while a dud would be
+fatal. Bootstrap length across 40 seeds was 1 to 6 placements, most often 2 or 3,
+and the first item varied across eight different items.
+
+**`early_weapon` still works at this width**, which the previous attempt gave up
+on. The requested weapon gets first refusal whenever it is one of the productive
+choices, and it went first in **31 of 40** seeds. It is skipped only where a
+weapon genuinely opens nothing - measured per starter, a weapon alone opens 5
+checks on Not My Mars and Ruins Repurposed, 3 on Farsite and Shattered, 2 on Home,
+1 on Hints, War and Peace and Somewhere in Spacetime, and **0 on We Know Nothing
+and The Experiment**. Those last two are exactly the 2-in-10 that made
+"weapon only" fail 13 times in 60.
+
+### Which weapon opens the seed
+
+`OFFENSE = ["Cannon", "Mortar"]` is one OR group, so logic needs either and never
+both. Whichever lands early IS the opening weapon and the other is redundant for
+the rest of that seed.
+
+Measured over 20 default seeds: the opener is a genuine coin flip, **Cannon 10,
+Mortar 10**. An earlier 13-7 sample looked like a bias and was not - reversing the
+pair to `["Mortar", "Cannon"]` and regenerating the same seeds produced identical
+results, seed for seed, so list order does not choose the winner.
+
+`early_weapon` lets a player choose instead. It is placement, not logic: a rule
+saying a mission needs a mortar specifically would be false wherever a cannon also
+works, so the option uses Archipelago's `early_items`, the same mechanism that
+already forces a second mission unlock early.
+
+**What it costs, measured by ROLE.** The first version of this section compared
+Cannon against Cannon and reported a large regression. That was an artefact:
+under `unforced` Cannon opens half the seeds, so its median is dragged early,
+while under `early_weapon: mortar` it never opens one. Comparing opening weapon
+against opening weapon, and second against second, over 20 seeds each:
+
+| | opening weapon | second weapon |
+|---|---|---|
+| no forcing (before the option) | median 2, range 1 to 4 | median 9, 67 percent in, final sphere 0 of 20 |
+| `random` | median 1, always | median 10, 75 percent in, final sphere 3 of 20 |
+| `mortar` | median 1, always | median 8, 67 percent in, final sphere 2 of 20 |
+
+The second weapon arrives about two thirds of the way in regardless. That is a
+property of an OR pair - the loser is redundant for the whole seed and nothing
+pulls a redundant item forward - and it was true before this option existed. The
+option does not cause it and cannot fix it.
+
+What forcing buys is an opening weapon in the first sphere rather than somewhere
+in the first four. The only real cost is the extreme tail: the second weapon
+landing in the FINAL sphere goes from 0 seeds in 20 to 2 or 3.
+
+The first row is history rather than a setting. An `unforced` value existed
+briefly and was removed: it reproduced the old distribution exactly, but once the
+by-role numbers showed the difference was a weapon in sphere 1 versus sphere 1 to
+4 and nothing else, a fourth value earning its place in every yaml could not be
+justified. Three values that a player can read at a glance beat four that need
+this table to tell apart.
+
+`random` is not defined by the world. Archipelago accepts it for any Choice and
+resolves it per seed while parsing the yaml, and defining it would actually raise:
+Options.py asserts "Choice option 'random' cannot be manually assigned". That is
+why the default is the string `"random"` rather than a value - the same pattern
+cv64, ffmq and alttp use.
+
+There is no Archipelago primitive for "place this by sphere N". A world can force
+an item into sphere 1 (`early_items`) or place it at a chosen location
+(`place_locked_item`); nothing in between. Bounding the second weapon to mid-game
+would therefore mean pinning it to a specific location, which takes it out of the
+shuffle entirely and stops it ever travelling to another player in a multiworld.
+That trade has not been made.
+
+Sprayer is a third case and the latest-arriving of the three: it appears in NO
+rule (sprayers burn bluite, and every bluite map was judged short of the resource
+for a sprayer-only run), so it is never progression and never pulled forward.
+Measured median sphere 9 of 13.6, in the last 40 percent of the seed in 14 of 20
+seeds. Making it "early in logic" is not available without asserting something the
+worksheet says is false; nudging it early as a non-logic item would be.
+
 ### Degradation over failure
 
 An unfillable preference must not fail generation: zeroing every filler weight

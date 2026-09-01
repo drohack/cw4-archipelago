@@ -200,14 +200,176 @@ def create_item(world, name: str) -> CW4Item:
 
 
 
+# How many empty reachable locations the opening needs before Archipelago's fill
+# is safe to take over. Two is not enough: one wasted placement still strands it.
+SAFE_OPENING = 4
+
+# Below this, the opening cannot absorb a single wasted placement and the world
+# steps in. At or above it, Archipelago's fill is left alone.
+SAFE_OPENING_MIN = 2
+
+
 def force_early_mission(world) -> None:
     # Another free-cache mission, and not one already unlocked, so the opening
     # reliably widens beyond the starters.
+    if opening_width(world) < SAFE_OPENING_MIN:
+        return  # bootstrap_opening owns these slots
     options = [n for n in STARTER_ELIGIBLE if n not in world.starter_missions]
     if not options:
         return
     name = f"Mission Unlock: {MISSION_TITLES[world.random.choice(options)]}"
     world.multiworld.early_items[world.player][name] = 1
+
+
+def opening_width(world) -> int:
+    """How many locations are collectable from a standing start, holding nothing.
+
+    This is what decides whether the seed can afford more than one early item.
+    Imported late for the same reason `classification` does it: locations imports
+    items, so a top-level import of either here would be a cycle.
+    """
+    from .locations import location_names_for_mission
+    from .rules import is_casual, location_requirements
+    casual = is_casual(world)
+    return sum(
+        1
+        for mission in world.starter_missions
+        for name in location_names_for_mission(mission)
+        if not location_requirements(name, mission, casual)
+    )
+
+
+def force_early_weapon(world) -> None:
+    """Guarantee which of the two offense weapons arrives first.
+
+    OFFENSE is an OR group, so a seed only ever needs one of Cannon and Mortar -
+    and the one it does not need becomes logically redundant and can turn up
+    anywhere. Which one wins was previously the fill's business, measured at 13
+    Cannon to 7 Mortar over 20 seeds, with the reversed-order control proving that
+    a coin flip rather than an ordering bias.
+
+    early_items is the right tool and the only honest one. Logic CANNOT express
+    this preference: a rule saying a mission needs a mortar specifically would be
+    false wherever a cannon also works, and logic is not the place to record a
+    taste in pacing. Placement is.
+
+    The same mechanism already forces a second mission unlock early, so a seed can
+    ask for two early items; if the opening is narrow enough that there are not
+    two free locations to hold them, Archipelago places what it can and the rest
+    fall where they fall.
+    """
+    # "random" needs no branch here: Archipelago resolves it while parsing the
+    # yaml, so by now the option holds mortar or cannon either way.
+    opt = world.options.early_weapon
+    name = "Mortar" if opt.value == opt.option_mortar else "Cannon"
+
+    # If the opening is one location wide, that location must hold a MISSION
+    # UNLOCK, and the weapon has to wait. This is not a preference, it is the
+    # difference between a seed that generates and one that does not.
+    #
+    # Measured at starter_missions: 1, 60 seeds per setting:
+    #
+    #     early items requested        seeds that failed to generate
+    #     mission unlock only          0 of 60
+    #     nothing                      2 of 60
+    #     both (unlock and weapon)     7 of 60
+    #     weapon only                  13 of 60
+    #
+    # The reason is what each item opens. An unlock chains: it turns the one free
+    # cache into another mission with a free cache, and so on, which is the
+    # intended shape of a narrow opening. A weapon widens the mission you are
+    # already in but adds no new MISSIONS, so the other nineteen unlocks all have
+    # to thread through one mission's locations, and fill_restrictive runs out of
+    # legal spots - always with exactly one item left over, typically a mission
+    # whose own locations are the only ones still empty.
+    #
+    # Archipelago was already dropping one of the two here and saying so ("Ran out
+    # of early locations for early items"), so the guarantee was never being kept
+    # at this width. This makes which one gets dropped deterministic, and picks
+    # the one that does not break generation.
+    if opening_width(world) < SAFE_OPENING_MIN:
+        # bootstrap_opening handles this width instead, and can still honour the
+        # weapon - see there. Requesting it here would only claim the single
+        # sphere-0 location and leave the chain nowhere to go.
+        world.early_weapon = name
+        return
+
+    world.early_weapon = name
+    world.multiworld.early_items[world.player][name] = 1
+
+
+def bootstrap_opening(world) -> list:
+    """Widen a one-location opening before the general fill runs.
+
+    WHY THIS EXISTS. At `starter_missions: 1` exactly one check is reachable
+    holding nothing, because every starter-eligible mission has exactly one cache
+    collectable with a rift lab and a single tower. Archipelago's fill places
+    progression items one at a time without looking ahead, which is fine when
+    there is slack and fatal when there is none: one item that opens nothing ends
+    the seed. Measured, that killed 12 percent of one-starter seeds before any of
+    this, and 1.3 percent after the early-items half of the fix.
+
+    A worked example, seed 20100, which is what this is written against:
+
+        We Know Nothing - Cache 1         -> Mission Unlock: Somewhere in Spacetime
+        Somewhere in Spacetime - Cache 1  -> Cannon
+        Somewhere in Spacetime - Reclaim  -> Factory      <- opens nothing
+
+    Totems want Greenar Refinery AND Factory, so a lone Factory is half a pair and
+    unlocks nothing; 29 items were left with nowhere to go. Archipelago cannot see
+    that the two are a pair, and it has no reason to.
+
+    WHAT THIS DOES NOT DO is script the opening. The item is drawn at random from
+    everything that would actually open something, and the location from every
+    reachable empty one, so two seeds with the same starter still differ. It only
+    refuses to pick an item that opens nothing while the opening is too narrow to
+    survive a dud, and it stops as soon as there is slack - after that the fill
+    is on its own, exactly as everywhere else.
+
+    The chosen early weapon gets first refusal, so `early_weapon` still means
+    something at this width whenever the weapon is one of the productive choices.
+    On eight of the ten possible starters a weapon opens between one and five
+    checks; on We Know Nothing and The Experiment it opens none, and there it will
+    not be picked, because picking it would end the seed.
+    """
+    from BaseClasses import CollectionState
+
+    mw = world.multiworld
+    player = world.player
+
+    def open_empty(state):
+        return [loc for loc in mw.get_locations(player)
+                if loc.item is None and loc.address is not None and loc.can_reach(state)]
+
+    state = CollectionState(mw)
+    placed = []
+    for _ in range(SAFE_OPENING + 2):
+        empty = open_empty(state)
+        if len(empty) >= SAFE_OPENING:
+            break
+        # One candidate per NAME - the pool holds duplicates and they are
+        # interchangeable here.
+        seen = {}
+        for item in mw.itempool:
+            if item.player == player and item.advancement:
+                seen.setdefault(item.name, item)
+        productive = []
+        for item in seen.values():
+            trial = state.copy()
+            trial.collect(item, prevent_sweep=False)
+            if len(open_empty(trial)) > len(empty):
+                productive.append(item)
+        if not productive or not empty:
+            break
+        # The weapon the player asked for goes first when it is a real choice.
+        wanted = [i for i in productive if i.name == getattr(world, "early_weapon", "")]
+        item = wanted[0] if wanted else world.random.choice(productive)
+        location = world.random.choice(empty)
+        location.place_locked_item(item)
+        mw.itempool.remove(item)
+        state.collect(item, prevent_sweep=False)
+        placed.append((location.name, item.name))
+    return placed
 
 
 def create_all_items(world) -> None:
