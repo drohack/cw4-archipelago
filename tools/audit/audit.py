@@ -126,6 +126,8 @@ CATS = {
     "Build limits (ids only)": I.BUILD_LIMIT_ITEMS,
     "Energy upgrades": [I.ENERGY_STORAGE_ITEM, I.BASE_GENERATION_ITEM],
     "Traps (ids)": I.TRAP_ITEMS,
+    "ERN upgrade rate": I.ERN_RATE_ITEMS,
+    "ERN upgrade cap": I.ERN_CAP_ITEMS,
 }
 tot = 0
 for k, v in CATS.items():
@@ -252,6 +254,11 @@ MATRIX = [
     ("all traps", {"trap_percentage": 100}),
     ("no erns", {"progressive_erns": 0}),
     ("max erns", {"progressive_erns": 40}),
+    # Both ends of the ERN upgrade block. derive.py checks the same two labels,
+    # and a config it derives but this matrix never generates shows up there as
+    # a MISMATCH against an empty measurement rather than as a real result.
+    ("no ern upgrades", {"ern_upgrade_copies": 0}),
+    ("one ern upgrade copy", {"ern_upgrade_copies": 1}),
     ("one starter", {"starter_missions": 1}),
     ("five starters", {"starter_missions": 5}),
     ("finale open", {"missions_for_finale": 0}),
@@ -374,6 +381,8 @@ if base:
         "Energy storage": c.get(I.ENERGY_STORAGE_ITEM, 0),
         "Base generation": c.get(I.BASE_GENERATION_ITEM, 0),
         "Build limits": sum(v for k, v in c.items() if "Build Limit" in k),
+        "ERN upgrade rate": sum(v for k, v in c.items() if k in set(I.ERN_RATE_ITEMS)),
+        "ERN upgrade cap": sum(v for k, v in c.items() if k in set(I.ERN_CAP_ITEMS)),
     }
     for k, v in groups.items():
         print(f"      {k:<20} {v}", flush=True)

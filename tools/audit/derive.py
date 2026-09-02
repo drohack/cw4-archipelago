@@ -28,7 +28,8 @@ LOCATIONS = (sum(c for c, _, _ in L.INSTANCE_COUNTS.values())
              + (20 - 1))          # mission complete on all but the finale
 
 DEFAULTS = {"starter_missions": 2, "progressive_erns": 4, "trap_percentage": 50,
-            "traps_off": False, "filler_off": False}
+            "traps_off": False, "filler_off": False,
+            "ern_upgrade_copies": 4}
 
 
 def derive(**o):
@@ -37,15 +38,20 @@ def derive(**o):
     starters = min(opt["starter_missions"], len(I.STARTER_ELIGIBLE))
     unlocks = len(I.MISSION_UNLOCK_ITEMS) - starters
     real = unlocks + len(I.UNIT_ITEMS) + len(I.BONUS_UNIT_ITEMS) + opt["progressive_erns"]
-    remaining = max(0, LOCATIONS - real)
+    # The ERN port upgrades are a FIXED block generated before the trap split,
+    # so they come off the top like the real items rather than out of the filler
+    # remainder. Twelve names, capped copies each.
+    erns = len(I.ERN_UPGRADE_ITEMS) * min(opt["ern_upgrade_copies"],
+                                          I.ERN_UPGRADE_MAX_COPIES)
+    remaining = max(0, LOCATIONS - real - erns)
     traps = remaining * opt["trap_percentage"] // 100
     if opt["traps_off"]:            # every trap weight zero -> slots become filler
         traps = 0
     filler = remaining - traps
     return {"unlocks": unlocks, "units": len(I.UNIT_ITEMS),
             "bonus": len(I.BONUS_UNIT_ITEMS), "erns": opt["progressive_erns"],
-            "traps": traps, "filler": filler,
-            "total": real + traps + filler}
+            "traps": traps, "filler": filler, "erns": erns,
+            "total": real + erns + traps + filler}
 
 
 CASES = [
@@ -54,6 +60,8 @@ CASES = [
     ("no traps", {"trap_percentage": 0}),
     ("all traps", {"trap_percentage": 100}),
     ("no erns", {"progressive_erns": 0}),
+    ("no ern upgrades", {"ern_upgrade_copies": 0}),
+    ("one ern upgrade copy", {"ern_upgrade_copies": 1}),
     ("max erns", {"progressive_erns": 40}),
     ("one starter", {"starter_missions": 1}),
     ("five starters", {"starter_missions": 5}),
@@ -66,7 +74,8 @@ CASES = [
 print(f"Locations, derived from the tables: {LOCATIONS}", flush=True)
 print(f"Item names with ids, derived:       {len(I.ITEM_NAME_TO_ID)}", flush=True)
 print("", flush=True)
-print(f"{'config':<26}{'traps':>7}{'filler':>8}{'total':>7}   {'measured':>18}   verdict",
+print(f"{'config':<26}{'traps':>7}{'filler':>8}{'erns':>6}{'total':>7}   "
+      f"{'measured':>24}   verdict",
       flush=True)
 
 quantities = os.path.join(OUT, "audit-quantities.json")
@@ -85,11 +94,26 @@ for label, opts in CASES:
     m_traps = sum(v for k, v in m.items() if k in I.TRAP_ITEMS)
     m_filler = sum(v for k, v in m.items()
                    if k in (I.ENERGY_STORAGE_ITEM, I.BASE_GENERATION_ITEM))
+    m_erns = sum(v for k, v in m.items() if k in set(I.ERN_UPGRADE_ITEMS))
     m_total = sum(m.values())
-    ok = (d["traps"] == m_traps and d["filler"] == m_filler and d["total"] == m_total)
+
+    # STALE-CACHE GUARD. The measured side is read from a JSON file a previous
+    # audit.py run wrote, and comparing today's formula against last week's
+    # generation is a false pass waiting to happen - it already happened once,
+    # reporting 12/12 match on the very run where 48 new items had appeared and
+    # the arithmetic had not been updated for them.
+    if d["erns"] > 0 and m_erns == 0:
+        print(f"{label:<26}{'':>7}{'':>8}{'':>7}   {'STALE CACHE':>18}   "
+              "rerun audit.py", flush=True)
+        bad += 1
+        continue
+
+    ok = (d["traps"] == m_traps and d["filler"] == m_filler
+          and d["erns"] == m_erns and d["total"] == m_total)
     bad += 0 if ok else 1
-    print(f"{label:<26}{d['traps']:>7}{d['filler']:>8}{d['total']:>7}   "
-          f"{m_traps:>6}{m_filler:>6}{m_total:>6}   {'match' if ok else 'MISMATCH'}",
+    print(f"{label:<26}{d['traps']:>7}{d['filler']:>8}{d['erns']:>6}{d['total']:>7}   "
+          f"{m_traps:>6}{m_filler:>6}{m_erns:>6}{m_total:>6}   "
+          f"{'match' if ok else 'MISMATCH'}",
           flush=True)
 
 print("", flush=True)

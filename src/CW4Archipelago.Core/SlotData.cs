@@ -43,6 +43,33 @@ public sealed class SlotData
     [JsonPropertyName("base_generation_ramp")]
     public int BaseGenerationRamp { get; set; } = 2;
 
+    // Magnitudes for the ERN port upgrade items, as whole PERCENTS, travelling
+    // here for the same reason the energy amounts do: item ids must be
+    // identical across every yaml, so a name can never carry an amount.
+    //
+    // The defaults are the measured values, not guesses - see
+    // docs/ern-upgrade-measurements.md.
+
+    /// <summary>What four copies of an ERN Efficiency Rate item are worth, as a
+    /// percent of the game's own fill speed. 400 means a slot that normally
+    /// takes 3600 ticks fills in 900.</summary>
+    [JsonPropertyName("ern_rate_max_percent")]
+    public int ErnRateMaxPercent { get; set; } = 400;
+
+    /// <summary>How high four copies of an ERN Efficiency Cap item let an
+    /// upgrade's efficiency reach, as a percent. 200 is double.</summary>
+    [JsonPropertyName("ern_cap_max_percent")]
+    public int ErnCapMaxPercent { get; set; } = 200;
+
+    /// <summary>The same, for Build Speed only, which needs its own value.
+    ///
+    /// The game shortens build time steeply and non-linearly: measured 363 /
+    /// 186 / 33 ticks at 0 / 100 / 200 percent, so a 200 percent ceiling makes
+    /// construction about 11x base and dwarfs every other upgrade. 150 lands on
+    /// 99 ticks, which is 1.88x the 100 percent rate.</summary>
+    [JsonPropertyName("ern_cap_max_build_speed_percent")]
+    public int ErnCapMaxBuildSpeedPercent { get; set; } = 150;
+
     public static readonly SlotData Empty = new();
 
     public static SlotData FromJson(string json)

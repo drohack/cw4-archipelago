@@ -96,26 +96,31 @@ public static class ErnUpgradeRules
     /// errs on the conservative side. 1.5 also gives a clean +12.5 percent per
     /// copy, and sits on the 1.4-1.5 plateau so it is not sensitive to small
     /// changes.</summary>
-    private static readonly float[] CeilingByUpgrade =
-    {
-        MaxMultiplier,   // 0 Energy Production
-        MaxMultiplier,   // 1 Mine Production
-        1.50f,           // 2 Build Speed  - measured 99 ticks, 1.88x
-        MaxMultiplier,   // 3 Move Speed
-        MaxMultiplier,   // 4 Fire Range
-        MaxMultiplier,   // 5 Fire Rate
-    };
+    /// <summary>Index of Build Speed, the one upgrade that needs its own
+    /// ceiling. Asserted against the game's constants at runtime by
+    /// ErnUpgrades.CheckIndexOrder.</summary>
+    public const int BuildSpeedIndex = 2;
 
     /// <summary>Test-only override, so one game session can sweep candidate
     /// ceilings instead of costing a rebuild and relaunch per value. Null means
-    /// use the table. Never set in normal play.</summary>
+    /// use the configured values. Never set in normal play.</summary>
     public static float? CeilingOverride;
 
-    public static float CeilingFor(int index)
+    /// <summary>The ceiling one upgrade may reach, from the player's configured
+    /// percents.
+    ///
+    /// Almost every upgrade responds linearly to efficiency, so the same value
+    /// serves them all. BUILD SPEED DOES NOT - see
+    /// SlotData.ErnCapMaxBuildSpeedPercent - so it takes its own.</summary>
+    public static float CeilingFor(int index, int capMaxPercent, int buildSpeedMaxPercent)
     {
         if (CeilingOverride.HasValue) return CeilingOverride.Value;
-        if (!IsValidIndex(index) || index >= CeilingByUpgrade.Length) return MaxMultiplier;
-        return CeilingByUpgrade[index];
+        if (!IsValidIndex(index)) return 1f;
+        int pct = index == BuildSpeedIndex ? buildSpeedMaxPercent : capMaxPercent;
+        // Never below 1.0: a ceiling under the game's own would make the item a
+        // PENALTY, which is not a thing a filler item may be.
+        if (pct < 100) pct = 100;
+        return pct / 100f;
     }
 
     public static string RateItem(string upgrade) => RatePrefix + upgrade;
@@ -135,13 +140,17 @@ public static class ErnUpgradeRules
     ///
     /// Step derived from the maximum, like the cap, so the fourth copy lands
     /// exactly on 4.0 and no copy is ever a no-op: 1.75, 2.5, 3.25, 4.0.</summary>
-    public static float RateMultiplier(SlotState state, int index)
+    public static float RateMultiplier(SlotState state, int index, int rateMaxPercent)
     {
         if (state == null || !IsValidIndex(index)) return 1f;
         int copies = state.Count(RatePrefix + UpgradeNames[index]);
         if (copies <= 0) return 1f;
         if (copies > MaxCopies) copies = MaxCopies;
-        return 1f + copies * (MaxRateMultiplier - 1f) / MaxCopies;
+        // Never below 1.0 - a rate under the game's own would SLOW the ramp and
+        // turn the item into a penalty.
+        if (rateMaxPercent < 100) rateMaxPercent = 100;
+        float max = rateMaxPercent / 100f;
+        return 1f + copies * (max - 1f) / MaxCopies;
     }
 
     /// <summary>What this upgrade's efficiency may reach. 1.0 means the game's
@@ -151,15 +160,28 @@ public static class ErnUpgradeRules
     /// fixed at 0.25, so the LAST copy always lands exactly on the ceiling and
     /// no copy is ever a no-op. Build Speed's 1.5 ceiling therefore means four
     /// copies of +12.5 percent instead of four of +25.</summary>
-    public static float EfficiencyCap(SlotState state, int index)
+    public static float EfficiencyCap(SlotState state, int index,
+                                      int capMaxPercent, int buildSpeedMaxPercent)
     {
         if (state == null || !IsValidIndex(index)) return 1f;
         int copies = state.Count(CapPrefix + UpgradeNames[index]);
         if (copies <= 0) return 1f;
         if (copies > MaxCopies) copies = MaxCopies;
-        float ceiling = CeilingFor(index);
+        float ceiling = CeilingFor(index, capMaxPercent, buildSpeedMaxPercent);
         return 1f + copies * (ceiling - 1f) / MaxCopies;
     }
+
+    /// <summary>Convenience overloads reading the player's configured values
+    /// straight off the slot data, which is what every caller in the mod wants.
+    /// Kept separate from the explicit-percent versions so the pure rules stay
+    /// testable without constructing slot data.</summary>
+    public static float RateMultiplier(SlotState state, int index)
+        => RateMultiplier(state, index, state?.Hints?.ErnRateMaxPercent ?? 400);
+
+    public static float EfficiencyCap(SlotState state, int index)
+        => EfficiencyCap(state, index,
+                         state?.Hints?.ErnCapMaxPercent ?? 200,
+                         state?.Hints?.ErnCapMaxBuildSpeedPercent ?? 150);
 
     private static float Multiplier(SlotState state, int index, string prefix)
     {

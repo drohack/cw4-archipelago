@@ -267,8 +267,14 @@ class TestTraps(bases.CW4TestBase):
         pool = [i.name for i in self.multiworld.itempool]
         traps = [n for n in pool if n in TRAP_ITEMS]
         self.assertTrue(traps, "traps should appear at the default 50 percent")
-        # Real items are ~46; the rest splits half traps, half useful.
-        leftovers = len(pool) - 46
+        # Real items are ~46, and the ERN port upgrades take a further fixed
+        # block (12 names x 4 copies at the default). Only what is left after
+        # BOTH splits half traps, half useful - the ERN block is generated
+        # before the trap split, so counting it as a leftover understated the
+        # denominator and made this expect 95 traps where 71 is correct.
+        from ..items import ERN_UPGRADE_ITEMS
+        erns = len([n for n in pool if n in ERN_UPGRADE_ITEMS])
+        leftovers = len(pool) - 46 - erns
         self.assertAlmostEqual(len(traps), leftovers // 2, delta=2)
 
     def test_traps_are_classified_as_traps(self) -> None:
@@ -574,3 +580,123 @@ class TestArchipelagoConventions(bases.CW4TestBase):
         # ungrouped option gets filed under a generic "Game Options" heading,
         # which is how an option quietly becomes hard to find on the webhost.
         self.assertEqual(set(), ours - grouped)
+
+class TestErnUpgradeItems(bases.CW4TestBase):
+    def test_names_match_the_client(self) -> None:
+        # The mod counts received items by these exact strings
+        # (CW4Archipelago.Core.ErnUpgradeRules). A rename on either side would
+        # silently stop the upgrades applying rather than fail loudly - the same
+        # reason the trap names are pinned above.
+        from ..items import ERN_UPGRADE_ITEMS, ERN_UPGRADE_NAMES_ORDER
+        self.assertEqual(ERN_UPGRADE_NAMES_ORDER, [
+            "Energy Production", "Mine Production", "Build Speed",
+            "Move Speed", "Fire Range", "Fire Rate",
+        ])
+        self.assertEqual(ERN_UPGRADE_ITEMS, [
+            "ERN Efficiency Rate: Energy Production",
+            "ERN Efficiency Rate: Mine Production",
+            "ERN Efficiency Rate: Build Speed",
+            "ERN Efficiency Rate: Move Speed",
+            "ERN Efficiency Rate: Fire Range",
+            "ERN Efficiency Rate: Fire Rate",
+            "ERN Efficiency Cap: Energy Production",
+            "ERN Efficiency Cap: Mine Production",
+            "ERN Efficiency Cap: Build Speed",
+            "ERN Efficiency Cap: Move Speed",
+            "ERN Efficiency Cap: Fire Range",
+            "ERN Efficiency Cap: Fire Rate",
+        ])
+
+    def test_exactly_four_of_each_by_default(self) -> None:
+        # FIXED counts, not a weighted draw. filler_sequence draws with
+        # replacement, which could produce nine copies of one name - five of
+        # them inert, because a fifth copy does nothing - and none of another.
+        from ..items import ERN_UPGRADE_ITEMS, ERN_UPGRADE_MAX_COPIES
+        pool = [i.name for i in self.multiworld.itempool]
+        for name in ERN_UPGRADE_ITEMS:
+            self.assertEqual(pool.count(name), ERN_UPGRADE_MAX_COPIES,
+                             f"{name} should appear exactly "
+                             f"{ERN_UPGRADE_MAX_COPIES} times")
+
+    def test_never_more_than_the_useful_maximum(self) -> None:
+        from ..items import ERN_UPGRADE_ITEMS, ERN_UPGRADE_MAX_COPIES
+        pool = [i.name for i in self.multiworld.itempool]
+        for name in ERN_UPGRADE_ITEMS:
+            self.assertLessEqual(pool.count(name), ERN_UPGRADE_MAX_COPIES)
+
+    def test_ids_are_appended_so_nothing_renumbers(self) -> None:
+        # Ids are positional. The twelve new names must sit at the END of the
+        # table, or every id after the insertion point moves and the client's
+        # mapping stops matching the server's.
+        from ..items import ITEM_NAME_TO_ID, ERN_UPGRADE_ITEMS, BASE_ID
+        ern_ids = [ITEM_NAME_TO_ID[n] for n in ERN_UPGRADE_ITEMS]
+        others = [v for k, v in ITEM_NAME_TO_ID.items()
+                  if k not in set(ERN_UPGRADE_ITEMS)]
+        self.assertGreater(min(ern_ids), max(others))
+        # and the historical anchors have not budged
+        self.assertEqual(ITEM_NAME_TO_ID["Mission Unlock: Farsite"], BASE_ID)
+        self.assertEqual(len(set(ITEM_NAME_TO_ID.values())), len(ITEM_NAME_TO_ID))
+
+    def test_classified_as_filler(self) -> None:
+        from ..items import ERN_UPGRADE_ITEMS
+        for item in self.multiworld.itempool:
+            if item.name in ERN_UPGRADE_ITEMS:
+                self.assertTrue(item.filler, f"{item.name} should be filler")
+
+
+class TestNoErnUpgrades(bases.CW4TestBase):
+    options = {"ern_upgrade_copies": 0}
+
+    def test_they_can_be_switched_off(self) -> None:
+        from ..items import ERN_UPGRADE_ITEMS
+        pool = [i.name for i in self.multiworld.itempool]
+        self.assertFalse([n for n in pool if n in ERN_UPGRADE_ITEMS])
+
+    def test_the_pool_still_fills_every_location(self) -> None:
+        pool = [i.name for i in self.multiworld.itempool]
+        locations = [l for l in self.multiworld.get_locations(self.player)
+                     if l.address is not None]
+        self.assertEqual(len(pool), len(locations))
+
+
+class TestOneErnUpgradeCopy(bases.CW4TestBase):
+    options = {"ern_upgrade_copies": 1}
+
+    def test_one_of_each(self) -> None:
+        from ..items import ERN_UPGRADE_ITEMS
+        pool = [i.name for i in self.multiworld.itempool]
+        for name in ERN_UPGRADE_ITEMS:
+            self.assertEqual(pool.count(name), 1)
+
+class TestErnMagnitudesAreConfigurable(bases.CW4TestBase):
+    options = {
+        "ern_rate_max": 600,
+        "ern_cap_max": 300,
+        "ern_cap_max_build_speed": 175,
+    }
+
+    def test_they_reach_the_client_in_slot_data(self) -> None:
+        # The magnitudes must travel in slot_data, never in an item name: a name
+        # carrying an amount would move item ids whenever a player retuned an
+        # option, and the client's mapping would stop matching the server's.
+        data = self.multiworld.worlds[self.player].fill_slot_data()
+        self.assertEqual(data["ern_rate_max_percent"], 600)
+        self.assertEqual(data["ern_cap_max_percent"], 300)
+        self.assertEqual(data["ern_cap_max_build_speed_percent"], 175)
+
+    def test_item_ids_do_not_move_with_the_options(self) -> None:
+        from ..items import ITEM_NAME_TO_ID, BASE_ID, ERN_UPGRADE_ITEMS
+        self.assertEqual(ITEM_NAME_TO_ID["Mission Unlock: Farsite"], BASE_ID)
+        self.assertEqual(len(ITEM_NAME_TO_ID), 69)
+        for name in ERN_UPGRADE_ITEMS:
+            self.assertIn(name, ITEM_NAME_TO_ID)
+
+
+class TestErnMagnitudeDefaults(bases.CW4TestBase):
+    def test_defaults_are_the_measured_values(self) -> None:
+        # Pinned so a future tuning pass has to be deliberate. See
+        # docs/ern-upgrade-measurements.md for where each number comes from.
+        data = self.multiworld.worlds[self.player].fill_slot_data()
+        self.assertEqual(data["ern_rate_max_percent"], 400)
+        self.assertEqual(data["ern_cap_max_percent"], 200)
+        self.assertEqual(data["ern_cap_max_build_speed_percent"], 150)

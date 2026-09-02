@@ -130,4 +130,11 @@ class CW4World(World):
         data["energy_storage_decay"] = self.options.energy_storage_decay.value
         data["base_generation_start"] = self.options.base_generation_start.value
         data["base_generation_ramp"] = self.options.base_generation_ramp.value
+        # Magnitudes for the ERN port upgrades, here for the same reason: an
+        # amount in an item name would move item ids whenever a player retuned
+        # an option.
+        data["ern_rate_max_percent"] = self.options.ern_rate_max.value
+        data["ern_cap_max_percent"] = self.options.ern_cap_max.value
+        data["ern_cap_max_build_speed_percent"] = (
+            self.options.ern_cap_max_build_speed.value)
         return data

@@ -90,6 +90,46 @@ BUILD_LIMIT_ITEMS = [
 ENERGY_STORAGE_ITEM = "Energy Storage Upgrade"
 BASE_GENERATION_ITEM = "Base Generation Upgrade"
 
+# ERN port upgrade items. Two per upgrade, six upgrades, twelve names.
+#
+# Names must match CW4Archipelago.Core.ErnUpgradeRules exactly - the mod counts
+# received items by these strings - and a test pins both halves.
+#
+# The two axes are deliberately separate, and measurement is why. An earlier
+# version had the cap also double the fill rate, which left the rate item with
+# nothing to sell; see docs/ern-upgrade-measurements.md.
+#
+#     ERN Efficiency Rate: <upgrade>   fills faster, 4x at four copies
+#     ERN Efficiency Cap:  <upgrade>   reaches higher, 200% (150% Build Speed)
+#
+# Measured effect at the cap, all six confirmed in game:
+#
+#     Mine Production    3.00x production
+#     Move Speed         about 2.8x
+#     Fire Rate          2.00x rate (reload 8 -> 4)
+#     Build Speed        1.88x (its own lower ceiling)
+#     Energy Production  1.63x
+#     Fire Range         1.50x range (cannon 9 -> 13 cells)
+ERN_UPGRADE_NAMES_ORDER = [
+    "Energy Production", "Mine Production", "Build Speed",
+    "Move Speed", "Fire Range", "Fire Rate",
+]
+ERN_RATE_PREFIX = "ERN Efficiency Rate: "
+ERN_CAP_PREFIX = "ERN Efficiency Cap: "
+
+ERN_RATE_ITEMS = [ERN_RATE_PREFIX + u for u in ERN_UPGRADE_NAMES_ORDER]
+ERN_CAP_ITEMS = [ERN_CAP_PREFIX + u for u in ERN_UPGRADE_NAMES_ORDER]
+ERN_UPGRADE_ITEMS = ERN_RATE_ITEMS + ERN_CAP_ITEMS
+
+# A FIFTH COPY DOES NOTHING, so four is the whole supply of each name.
+#
+# This is why they cannot go through filler_sequence: that draws with
+# replacement by weight, so it could hand a player nine copies of one name -
+# five of them inert - and none of another. An item that does nothing is the
+# exact defect that got build limits pulled from the pool, so these are
+# generated as FIXED counts instead.
+ERN_UPGRADE_MAX_COPIES = 4
+
 FILLER_ITEMS = BUILD_LIMIT_ITEMS + [ENERGY_STORAGE_ITEM, BASE_GENERATION_ITEM]
 
 # Build limits are NOT generated (designer, 2026-09-01).
@@ -155,9 +195,13 @@ TRAP_ITEMS = [
 # list is the whole change.
 POOL_TRAP_ITEMS = [t for t in TRAP_ITEMS if t != "Emitter Overdrive"]
 
+# APPENDED, never inserted. Item ids are positional, and the client's
+# ITEM_NAME_TO_ID has to match across every yaml - inserting a name anywhere but
+# the end renumbers everything after it.
 _all_names = (
     MISSION_UNLOCK_ITEMS + UNIT_ITEMS + BONUS_UNIT_ITEMS
     + [PROGRESSIVE_ERN] + FILLER_ITEMS + TRAP_ITEMS
+    + ERN_UPGRADE_ITEMS
 )
 ITEM_NAME_TO_ID = {name: BASE_ID + i for i, name in enumerate(_all_names)}
 
@@ -191,6 +235,19 @@ def classification(name: str) -> ItemClassification:
         return ItemClassification.useful
     if name in TRAP_ITEMS:
         return ItemClassification.trap
+    # ERN upgrades are FILLER rather than useful, unlike the energy upgrades.
+    #
+    # The difference is that they do nothing at all until the player has been
+    # given the ERN Portal unlock, built one, and docked an ERN in the matching
+    # slot. That is real optional infrastructure, so an ERN upgrade arriving
+    # early can sit dead for a long time, where an energy upgrade always pays
+    # out immediately.
+    #
+    # HELD LOOSELY: the effects are large once live (Mine Production triples
+    # production), so if these end up feeling like real rewards rather than
+    # padding, promoting them to useful is a one-line change.
+    if name in ERN_UPGRADE_ITEMS:
+        return ItemClassification.filler
     return ItemClassification.filler
 
 
@@ -387,10 +444,28 @@ def create_all_items(world) -> None:
     for _ in range(world.options.progressive_erns.value):
         pool.append(create_item(world, PROGRESSIVE_ERN))
 
+    # ERN port upgrades, as FIXED counts before any weighted padding.
+    #
+    # Not part of filler_sequence on purpose: that draws with replacement, so it
+    # could hand out nine copies of one name (five of them inert, since a fifth
+    # copy does nothing) and none of another. Fixed counts guarantee every copy
+    # generated is a copy that works.
+    #
+    # Clamped to what is actually left. At the default 4 copies this is 48
+    # items, which fits comfortably, but a seed with few locations - a small
+    # missions_for_finale, or heavy starter_missions - must not overflow its
+    # own location count.
+    unfilled = len(world.multiworld.get_unfilled_locations(world.player))
+    ern_copies = world.options.ern_upgrade_copies.value
+    for name in ERN_UPGRADE_ITEMS:
+        for _ in range(min(ern_copies, ERN_UPGRADE_MAX_COPIES)):
+            if len(pool) >= unfilled:
+                break
+            pool.append(create_item(world, name))
+
     # Pad to the number of unfilled locations, drawing filler by the player's
     # weights. Round-robin used to do this, which ignored the weights entirely
     # and made the mix depend on how many real items happened to precede it.
-    unfilled = len(world.multiworld.get_unfilled_locations(world.player))
     remaining = max(0, unfilled - len(pool))
 
     # Split what is left between traps and useful upgrades.

@@ -54,6 +54,82 @@ class EarlyWeapon(Choice):
     default = "random"
 
 
+class ErnUpgradeCopies(Range):
+    """How many copies of each ERN port upgrade item go in the pool.
+
+    There are twelve names - a Rate and a Cap for each of the game's six ERN
+    port upgrades - so the default of 4 puts 48 items in the pool.
+
+    FOUR IS THE CEILING, not a preference: the fourth copy lands exactly on the
+    upgrade's maximum and a fifth would do nothing at all. Lower it to spend
+    fewer slots on ERN upgrades and more on energy upgrades and traps; set it to
+    0 to leave them out entirely.
+
+    These items do nothing until you have the ERN Portal unlock, a portal built,
+    and an ERN docked in the matching slot - so a seed that keeps ERN Portal
+    late will see them sit dead for a while.
+    """
+    display_name = "ERN Upgrade Copies"
+    range_start = 0
+    range_end = 4
+    default = 4
+
+
+class ErnRateMax(Range):
+    """What four ERN Efficiency Rate copies are worth, as a percent of the
+    game's own fill speed.
+
+    400 means a slot that normally takes 3600 ticks to reach full efficiency
+    fills in 900. Copies step evenly to this, so the fourth always lands exactly
+    on it: at 400 they are 175, 250, 325, 400 percent.
+
+    This axis only shortens how long you WAIT for an upgrade, never how strong
+    it gets, so it is safe to be generous. 100 makes the items inert.
+    """
+    display_name = "ERN Efficiency Rate Maximum"
+    range_start = 100
+    range_end = 800
+    default = 400
+
+
+class ErnCapMax(Range):
+    """How high four ERN Efficiency Cap copies let an upgrade reach, as a
+    percent. 200 is double the game's own ceiling.
+
+    Measured effect at 200 percent: Mine Production triples production, Move
+    Speed is about 2.8x, Fire Rate doubles, Fire Range takes a cannon from 9 to
+    13 cells, Energy Production is +62.5 percent.
+
+    Build Speed has its own option below, because the game's build-time curve is
+    far steeper than the others.
+    """
+    display_name = "ERN Efficiency Cap Maximum"
+    range_start = 100
+    range_end = 400
+    default = 200
+
+
+class ErnCapMaxBuildSpeed(Range):
+    """The ERN Efficiency Cap maximum for BUILD SPEED only.
+
+    It needs its own value because the game shortens build time steeply and
+    non-linearly. Measured, with a 363-tick baseline:
+
+        100 percent -> 186 ticks     the game's own ceiling
+        150 percent ->  99 ticks     1.88x the 100 percent rate
+        160 percent ->  78 ticks
+        170 percent ->  54 ticks
+        200 percent ->  33 ticks     about 11x base, and the curve floors out
+
+    At the shared 200 percent this one item would dwarf every other upgrade, so
+    the default is 150. Raising it is a deliberate choice, not a tuning nudge.
+    """
+    display_name = "ERN Efficiency Cap Maximum (Build Speed)"
+    range_start = 100
+    range_end = 400
+    default = 150
+
+
 class ProgressiveErns(Range):
     """How many Progressive ERN items go in the pool.
 
@@ -283,6 +359,10 @@ class CW4Options(PerGameCommonOptions):
     starter_missions: StarterMissions
     early_weapon: EarlyWeapon
     progressive_erns: ProgressiveErns
+    ern_upgrade_copies: ErnUpgradeCopies
+    ern_rate_max: ErnRateMax
+    ern_cap_max: ErnCapMax
+    ern_cap_max_build_speed: ErnCapMaxBuildSpeed
     trap_percentage: TrapPercentage
     trap_weight_spore_strike: TrapWeightSporeStrike
     trap_weight_spore_scatter: TrapWeightSporeScatter
@@ -323,9 +403,15 @@ option_groups = [
     ], start_collapsed=True),
     OptionGroup("Item Pool", [
         ProgressiveErns,
+        ErnUpgradeCopies,
         FillerEnergyStorageWeight,
         FillerBaseGenerationWeight,
         FillerBuildLimitWeight,
+    ], start_collapsed=True),
+    OptionGroup("ERN Upgrades", [
+        ErnRateMax,
+        ErnCapMax,
+        ErnCapMaxBuildSpeed,
     ], start_collapsed=True),
     OptionGroup("Energy Upgrades", [
         EnergyStorageStep,

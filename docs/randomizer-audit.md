@@ -43,9 +43,16 @@ Most of the pool is NOT an empirical question, and treating it as one wastes
 effort and hides errors. `create_all_items` is straight-line arithmetic:
 
     real      = (20 - starters) + 21 units + 3 bonus + erns
-    remaining = 236 - real
+    ernUpg    = 12 names * min(ern_upgrade_copies, 4)
+    remaining = 236 - real - ernUpg
     traps     = remaining * trap_percentage // 100
     filler    = remaining - traps
+
+The ERN upgrade block comes off the top like the real items, not out of the
+filler remainder, because it is generated as FIXED counts before the trap split.
+It has to be fixed: a fifth copy of a capped item does nothing, and the weighted
+filler draw picks with replacement, so it could hand out nine copies of one name
+and none of another.
 
 `derive.py` runs that against all 12 single-player configurations and compares it
 with real generated seeds. Currently 12 of 12 match exactly. Generation is the
@@ -65,6 +72,20 @@ property, not a sample, and it should not be reported as "N seeds looked fine".
 ## Measurement traps
 
 Every one of these produced a confidently wrong number first.
+
+0. **A cached measurement is not a measurement.** `derive.py` reads the
+   generated side from `audit-quantities.json`, which a PREVIOUS `audit.py` run
+   wrote. It therefore reported **12 of 12 match on the very run where 48 new
+   items had appeared** and its own arithmetic had not been updated for them -
+   comparing today's formula against last week's generation.
+
+   It now models the ERN block and refuses to pass when the cache predates it
+   ("STALE CACHE - rerun audit.py"). The same shape of bug bit the mod side the
+   same week: a ceiling patch was verified four times by a probe that read the
+   one accessor it had patched, while the game read a different one.
+
+   Generally: if the thing you compare against can be older than the thing you
+   changed, the comparison can pass for the wrong reason.
 
 1. **The spoiler's Playthrough lists only items needed to WIN.** Counting weapon
    arrivals from it cannot see the redundant half of an OR pair at all, and
@@ -137,11 +158,21 @@ Every one of these produced a confidently wrong number first.
 | 2026-09-01 | `4d9ce94` | Item arrival, 20 seeds, mean depth 13.6 | Cannon med 4 (29%), Mortar med 6 (35%), Sniper med 10 (67%), Terp med 9 (62%), Sprayer med 9 (75%), **Missile Launcher med 9 (75%)** |
 | 2026-09-01 | `4d9ce94` | Energy Storage, 41 copies | 99 percent of its 250 ceiling by copy 21 - about 20 copies are dead |
 | 2026-09-01 | `4d9ce94` | Base Generation, 54 copies | **313 energy/sec** against a natural 3-4/s. The ramp is the wrong shape at this count |
+| 2026-09-02 | `7ef049c`+ | ERN upgrade items added: 12 names, 4 copies each | 48 of 236, fixed counts, every copy useful |
+| 2026-09-02 | `7ef049c`+ | Pool arithmetic vs generated, 14 configurations | 14/14 exact, including both ends of `ern_upgrade_copies` |
+| 2026-09-02 | `7ef049c`+ | Default pool | 20 unlocks, 21 units, 3 bonus, 1 ERN, 48 ERN upgrades, 71 traps, 71 energy |
+| 2026-09-02 | `7ef049c`+ | `derive.py` stale-cache guard | caught its own false 12/12 pass |
 
 ## Open, from the numbers above
 
-- The two energy upgrades are 40 percent of the pool and both curves are wrong -
-  storage saturates, generation ramps. Rework under discussion.
+- The two energy upgrades are now 30 percent of the pool rather than 40, since
+  the ERN block took 48 slots. Both curves are still wrong - storage saturates
+  at copy 21 of 41, generation ramps to the wrong shape - so the rework still
+  stands.
+- ERN upgrade items are classified FILLER, not useful, because they do nothing
+  until the ERN Portal unlock arrives and a portal is built with an ERN docked.
+  Held loosely: Mine Production triples production once live, which is a large
+  effect for something the fill treats as padding.
 - Missile Launcher is the latest-arriving item in the game, because it appears in
   one rule that only applies under casual logic and is an OR with Sniper. Sprayer
   is second-latest for the same reason: it appears in no rule at all.

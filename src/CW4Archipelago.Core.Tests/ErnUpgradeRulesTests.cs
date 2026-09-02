@@ -115,13 +115,13 @@ public class ErnUpgradeRulesTests
         // 0 / 100 / 200 percent), so a 2.0 ceiling makes construction about 11x
         // base and dwarfs every other upgrade. The designer's target is double
         // the 100 percent rate.
-        var build = ErnUpgradeRules.CeilingFor(BuildSpeed);
+        var build = ErnUpgradeRules.CeilingFor(BuildSpeed, 200, 150);
         Assert.True(build < ErnUpgradeRules.MaxMultiplier,
             $"Build Speed ceiling {build} should be below the usual {ErnUpgradeRules.MaxMultiplier}");
         for (int i = 0; i < ErnUpgradeRules.UpgradeNames.Length; i++)
         {
             if (i == BuildSpeed) continue;
-            Assert.Equal(ErnUpgradeRules.MaxMultiplier, ErnUpgradeRules.CeilingFor(i), 3);
+            Assert.Equal(ErnUpgradeRules.MaxMultiplier, ErnUpgradeRules.CeilingFor(i, 200, 150), 3);
         }
     }
 
@@ -136,7 +136,7 @@ public class ErnUpgradeRulesTests
         {
             var item = ErnUpgradeRules.CapItem(ErnUpgradeRules.UpgradeNames[i]);
             var full = WithItems(Copies(item, ErnUpgradeRules.MaxCopies));
-            Assert.Equal(ErnUpgradeRules.CeilingFor(i), ErnUpgradeRules.EfficiencyCap(full, i), 3);
+            Assert.Equal(ErnUpgradeRules.CeilingFor(i, 200, 150), ErnUpgradeRules.EfficiencyCap(full, i), 3);
 
             // and every copy up to it must move the number
             float prev = 1f;
@@ -155,7 +155,7 @@ public class ErnUpgradeRulesTests
         // Pinned to the swept number so a future "tidy the constants" pass
         // cannot quietly restore the 11x behaviour. 1.5 measured 99 ticks
         // against a 186-tick reference; 1.8 and 2.0 both measured 33.
-        Assert.Equal(1.50f, ErnUpgradeRules.CeilingFor(BuildSpeed), 3);
+        Assert.Equal(1.50f, ErnUpgradeRules.CeilingFor(BuildSpeed, 200, 150), 3);
 
         // +12.5 percent per copy, four copies, landing exactly on the ceiling.
         var item = ErnUpgradeRules.CapItem("Build Speed");
@@ -193,5 +193,54 @@ public class ErnUpgradeRulesTests
             Assert.Equal(ErnUpgradeRules.MaxRateMultiplier,
                 ErnUpgradeRules.RateMultiplier(WithItems(Copies(item, 4)), i), 3);
         }
+    }
+
+    [Fact]
+    public void MagnitudesComeFromTheSlotData()
+    {
+        // The player configures these in yaml and they arrive in slot_data, so
+        // the rules must read them rather than bake them in. Defaults are the
+        // measured values.
+        var s = WithItems(Copies(ErnUpgradeRules.CapItem("Fire Range"), 4));
+        s.Hints.ErnCapMaxPercent = 300;
+        Assert.Equal(3f, ErnUpgradeRules.EfficiencyCap(s, FireRange), 3);
+
+        var r = WithItems(Copies(ErnUpgradeRules.RateItem("Fire Range"), 4));
+        r.Hints.ErnRateMaxPercent = 800;
+        Assert.Equal(8f, ErnUpgradeRules.RateMultiplier(r, FireRange), 3);
+    }
+
+    [Fact]
+    public void BuildSpeedTakesItsOwnConfiguredCeiling()
+    {
+        var s = WithItems(Copies(ErnUpgradeRules.CapItem("Build Speed"), 4));
+        s.Hints.ErnCapMaxPercent = 200;
+        s.Hints.ErnCapMaxBuildSpeedPercent = 150;
+        Assert.Equal(1.5f, ErnUpgradeRules.EfficiencyCap(s, BuildSpeed), 3);
+
+        // and the shared value does not leak into it
+        s.Hints.ErnCapMaxBuildSpeedPercent = 175;
+        Assert.Equal(1.75f, ErnUpgradeRules.EfficiencyCap(s, BuildSpeed), 3);
+    }
+
+    [Fact]
+    public void AMagnitudeBelowTheGamesOwnIsClampedAway()
+    {
+        // A ceiling under 100 percent would make the item a PENALTY, and a rate
+        // under 100 percent would SLOW the ramp. A filler item may do nothing;
+        // it may not do harm.
+        var s = WithItems(Copies(ErnUpgradeRules.CapItem("Fire Range"), 4));
+        s.Hints.ErnCapMaxPercent = 25;
+        Assert.Equal(1f, ErnUpgradeRules.EfficiencyCap(s, FireRange), 3);
+
+        var r = WithItems(Copies(ErnUpgradeRules.RateItem("Fire Range"), 4));
+        r.Hints.ErnRateMaxPercent = 10;
+        Assert.Equal(1f, ErnUpgradeRules.RateMultiplier(r, FireRange), 3);
+    }
+
+    [Fact]
+    public void BuildSpeedIndexMatchesTheNameTable()
+    {
+        Assert.Equal("Build Speed", ErnUpgradeRules.UpgradeNames[ErnUpgradeRules.BuildSpeedIndex]);
     }
 }
