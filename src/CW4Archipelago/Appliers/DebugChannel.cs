@@ -19,8 +19,33 @@ public sealed class DebugChannel
     private DateTime _lastWrite = DateTime.MinValue;
     private int _pollCountdown;
 
+    /// <summary>While true, the sim is force-unpaused every frame.
+    ///
+    /// Test scaffolding, and it exists because unpausing ONCE is not enough: a
+    /// mission keeps firing story messages, each of which opens the A.D.A. log
+    /// and pauses the game again. A timed measurement that unpauses at the start
+    /// silently spends half its samples frozen, and the symptom is subtle -
+    /// tickCount keeps advancing while GameSpace.paused reads true.</summary>
+    public static bool HoldRunning;
+
+    private void HoldSim()
+    {
+        if (!HoldRunning) return;
+        var gs = GameSpace.instance;
+        if (gs == null || GameSpace.editMode) return;
+        try
+        {
+            if (!gs.paused) return;
+            var owners = new System.Collections.Generic.List<string>();
+            foreach (var o in gs.pauseOwner) owners.Add(o);
+            foreach (var o in owners) gs.Pause(o, false);
+        }
+        catch { }
+    }
+
     public void Tick()
     {
+        HoldSim();
         if (--_pollCountdown > 0)
             return;
         _pollCountdown = 30;
@@ -32,12 +57,39 @@ public sealed class DebugChannel
         var path = FilePath;
         if (!System.IO.File.Exists(path))
             return;
-        var stamp = System.IO.File.GetLastWriteTimeUtc(path);
+        System.DateTime stamp;
+        try { stamp = System.IO.File.GetLastWriteTimeUtc(path); }
+        catch { return; }                       // being written right now
         if (stamp == _lastWrite)
             return;
+
+        // READ FIRST, MARK SECOND, and share the handle.
+        //
+        // The old order set _lastWrite before reading, so a read that lost the
+        // race with a harness write left the file marked as already-seen and
+        // the channel silently stopped processing commands - one logged
+        // "tick failed: ... being used by another process" and then nothing
+        // ever ran again. A harness sending 24 items back to back hit it
+        // reliably, and the symptom was a later command "never acknowledged",
+        // which reads like the mod hanging rather than one lost read.
+        string[] lines;
+        try
+        {
+            using var fs = new System.IO.FileStream(
+                path, System.IO.FileMode.Open, System.IO.FileAccess.Read,
+                System.IO.FileShare.ReadWrite | System.IO.FileShare.Delete);
+            using var sr = new System.IO.StreamReader(fs);
+            var all = sr.ReadToEnd();
+            lines = all.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
+        }
+        catch (System.IO.IOException)
+        {
+            // Leave _lastWrite alone so the very next tick tries again.
+            return;
+        }
         _lastWrite = stamp;
 
-        foreach (var raw in System.IO.File.ReadAllLines(path))
+        foreach (var raw in lines)
         {
             var line = raw.Trim();
             if (line.Length == 0 || line.StartsWith("#"))
@@ -122,7 +174,67 @@ public sealed class DebugChannel
 
         if (lower.StartsWith("trap:")) { Trap(line.Substring(5).Trim()); return; }
         if (lower.StartsWith("sim:")) { Sim(line.Substring(4).Trim()); return; }
+        if (lower.StartsWith("spawnat:")) { SpawnAt(line.Substring(8).Trim()); return; }
+        if (lower.StartsWith("measure:ware")) { MeasureProbe.TimeWares(
+            int.TryParse(line.Substring(12).Trim(), out var mw) ? mw : 1800); return; }
         if (lower.StartsWith("spawn:")) { Spawn(line.Substring(6).Trim()); return; }
+        // --- ERN port upgrades and the temporary-filler effects ---------
+        if (lower == "ern:dump") { UpgradeProbe.Dump(); return; }
+        if (lower == "ern:erns") { UpgradeProbe.Erns(); return; }
+        if (lower == "ern:stats") { UpgradeProbe.Stats(); return; }
+        if (lower == "ern:ui") { UpgradeProbe.Ui(); return; }
+        if (lower.StartsWith("ern:cap"))
+        {
+            var a = line.Substring(7).Trim();
+            if (a.Length == 0 || a == "off")
+            {
+                CW4Archipelago.Core.ErnUpgradeRules.CeilingOverride = null;
+                ModCore.Log.LogInfo("ERN cap: override cleared, using the per-upgrade table");
+            }
+            else if (float.TryParse(a, System.Globalization.NumberStyles.Float,
+                                    System.Globalization.CultureInfo.InvariantCulture, out var cv))
+            {
+                CW4Archipelago.Core.ErnUpgradeRules.CeilingOverride = cv;
+                ModCore.Log.LogInfo($"ERN cap: override set to {cv:0.###}");
+            }
+            else ModCore.Log.LogWarning($"ERN cap: cannot parse '{a}'");
+            return;
+        }
+
+        if (lower == "ern:resources") { UpgradeProbe.Resources(); return; }
+
+        if (lower.StartsWith("measure:move")) { MeasureProbe.TimeMove(
+            float.TryParse(line.Substring(12).Trim(), System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out var mv) ? mv : 10f); return; }
+        if (lower.StartsWith("measure:build")) { MeasureProbe.TimeBuild(line.Substring(13).Trim()); return; }
+        if (lower.StartsWith("measure:energy")) { MeasureProbe.TimeEnergy(
+            int.TryParse(line.Substring(14).Trim(), out var mt) ? mt : 900); return; }
+        if (lower.StartsWith("ern:dumpall")) { UpgradeProbe.DumpAll(line.Substring(11).Trim()); return; }
+        if (lower == "ern:free") { UpgradeProbe.FreeErns(); return; }
+        if (lower == "ada:clear") { UpgradeProbe.ClearAda(); return; }
+        if (lower.StartsWith("ui:text")) { UpgradeProbe.UiText(line.Substring(7).Trim()); return; }
+        if (lower.StartsWith("ui:hide ")) { UpgradeProbe.UiHide(line.Substring(8).Trim()); return; }
+        if (lower.StartsWith("upgrade:units")) { UpgradeProbe.Units(line.Substring(13).Trim()); return; }
+        if (lower.StartsWith("ern:assign "))
+        {
+            if (int.TryParse(line.Substring(11).Trim(), out var ai)) UpgradeProbe.Assign(ai);
+            else ModCore.Log.LogWarning("DEBUG usage: ern:assign <upgrade index 0-5>");
+            return;
+        }
+        if (lower.StartsWith("ern:release "))
+        {
+            if (int.TryParse(line.Substring(12).Trim(), out var ri)) UpgradeProbe.Release(ri);
+            else ModCore.Log.LogWarning("DEBUG usage: ern:release <upgrade index 0-5>");
+            return;
+        }
+        if (lower == "boon:ammo") { BoonEffects.Resupply(); return; }
+        if (lower.StartsWith("boon:energy"))
+        {
+            float.TryParse(line.Substring(11).Trim(), out var frac);
+            BoonEffects.EnergyCache(frac);
+            return;
+        }
+
         if (lower == "resources:dump") { ResourceDump(); return; }
         if (lower == "resources:zonetest") { ZoneTest(); return; }
         if (lower == "pane:dump") { PaneDump(); return; }
@@ -770,7 +882,13 @@ public sealed class DebugChannel
         var owners = new System.Collections.Generic.List<string>();
         try { foreach (var o in gs.pauseOwner) owners.Add(o); } catch { }
 
-        if (what == "pause") { gs.Pause("cw4ap", true); ModCore.Log.LogInfo("SIM paused"); return; }
+        if (what == "pause") { HoldRunning = false; gs.Pause("cw4ap", true); ModCore.Log.LogInfo("SIM paused"); return; }
+        if (what == "hold")
+        {
+            HoldRunning = tok.Length < 2 || tok[1].ToLowerInvariant() != "off";
+            ModCore.Log.LogInfo($"SIM hold={(HoldRunning ? "on" : "off")}");
+            if (!HoldRunning) return;
+        }
 
         foreach (var o in owners)
         {
@@ -805,11 +923,48 @@ public sealed class DebugChannel
         int made = 0;
         for (int i = 0; i < count; i++)
         {
-            var pos = anchor + new Vector3(-8f - 4f * i, 0f, -6f);
+            // Take the TERRAIN height at the target, not the anchor's. Reusing
+            // the rift lab's Y buried a spawned ERN inside a rise next to the
+            // base - the unit existed, was selectable in dumps, and could not be
+            // seen or used. GetMinHeight is what CellToWorld already uses.
+            var flat = anchor + new Vector3(-8f - 4f * i, 0f, -6f);
+            float ground = flat.y;
+            try { ground = UnitManager.GetMinHeight(new Vector3(flat.x, 0f, flat.z), 0f, 0, false, false, false); }
+            catch { }
+            var pos = new Vector3(flat.x, ground, flat.z);
             try { if (UnitManager.CreateUnitAtPosition(key, pos) != null) made++; }
             catch (Exception e) { ModCore.Log.LogWarning($"spawn '{key}': {e.Message}"); break; }
         }
         ModCore.Log.LogInfo($"SPAWN {key}: {made}/{count} placed");
+    }
+
+    /// <summary>Place a unit at an ABSOLUTE map cell: "spawnat:collector 73 47".
+    ///
+    /// spawn: places relative to the command base, which is fine for a weapon
+    /// under test and useless for mining: resource nodes sit at fixed map
+    /// coordinates (story12 has six, at 73,47 and 95,32 and four more) and a
+    /// miner only works ON one.</summary>
+    private void SpawnAt(string arg)
+    {
+        var tok = arg.Split(new[] { ' ', ',' }, StringSplitOptions.RemoveEmptyEntries);
+        if (tok.Length < 3
+            || !int.TryParse(tok[1], out var cx)
+            || !int.TryParse(tok[2], out var cy))
+        {
+            ModCore.Log.LogWarning("spawnat: need 'key x y'");
+            return;
+        }
+        var key = tok[0].ToLowerInvariant();
+        float ground = 0f;
+        try { ground = UnitManager.GetMinHeight(new Vector3(cx, 0f, cy), 0f, 0, false, false, false); }
+        catch { }
+        try
+        {
+            var made = UnitManager.CreateUnitAtPosition(key, new Vector3(cx, ground, cy));
+            ModCore.Log.LogInfo(
+                $"SPAWNAT {key}: {(made != null ? "placed" : "FAILED")} at ({cx},{cy}) y={ground:0.##}");
+        }
+        catch (Exception e) { ModCore.Log.LogWarning($"SPAWNAT {key}: threw {e.Message}"); }
     }
 
     private void Trap(string arg)

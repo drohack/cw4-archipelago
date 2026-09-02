@@ -59,7 +59,10 @@ Four tiers, in ascending cost:
    generate". `docs/randomizer-audit.md` covers what each script measures, which
    numbers are DERIVED rather than sampled, and the measurement traps that have
    produced confidently wrong answers before.
-4. **Game integration batteries**:
+4. **Game integration batteries**. Read `docs/in-game-testing.md` FIRST if you
+   are writing a new one - it is the setup recipe plus every way a live-game test
+   has silently lied here (ghost units, a paused sim, spawning by the wrong name
+   space, and measuring behind a modal nobody looked at). The existing ones:
    - `tools/apbattery.sh` - connect / live items / unit gate / location checks
      / tracker colors / mission gating / offline queue-and-flush.
    - `tools/apbattery2.sh` - goal on the finale, save-load gate decision, live

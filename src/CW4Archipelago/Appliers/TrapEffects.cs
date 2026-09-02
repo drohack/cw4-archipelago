@@ -106,6 +106,8 @@ public static class TrapEffects
     // See GameUtil.IsPlayerUnit for why UnitManager.enemy cannot be used here.
     private static bool IsPlayerUnit(UnitManager u) => GameUtil.IsPlayerUnit(u);
 
+    /// <summary>The rift lab's cell, or false if there is not one placed yet.
+    /// Note it is x and Z, not x and y.</summary>
     private static bool BaseCell(GameSpace gs, out int cx, out int cy)
     {
         cx = cy = 0;

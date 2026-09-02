@@ -90,7 +90,32 @@ Every one of these produced a confidently wrong number first.
    double-counts. Pass `prevent_sweep=True` when the question is what a single
    item opens.
 
-6. **Git Bash `/tmp` is not Windows Python's `/tmp`.** A backup written by `cp` was
+6. **Look at the screen.** An hour went into an ERN measurement that was running
+   behind a full-screen A.D.A. Log modal - no map, no units, nothing visible -
+   while the logs read like a slow ramp. One `shot:` screenshot showed it
+   instantly. The mod has had a screenshot command the whole time. Reading a log
+   is not observing the game.
+
+7. **Start from a harness that already works.** `tools/cmod-traptest.sh` sets up
+   the dev-tools cheats, waits for log acks, and boots cleanly. A new probe
+   written from memory instead rediscovered every one of those as a bug: ghost
+   units with no instant build, a paused sim, `spawn:riftlab` placing nothing
+   because `riftlab` is the build-pane key and the data name is `commandbase`.
+
+8. **Never edit a script bash is executing.** Bash reads a script by byte offset,
+   so an edit mid-run makes it resume at garbage - "unexpected EOF" from a file
+   that passes `bash -n`. Killing the GAME does not stop the SCRIPT either: a
+   stopped-looking run kept writing into the shared command file and fired traps
+   into the next session. `TaskStop` first, then edit.
+
+9. **A quoted heredoc still mangles backslash escapes.** A backslash-n written
+   through `python - <<'EOF'` has come out as a literal newline inside a string
+   three times, each one a syntax error in a file that had just been reported as
+   successfully patched. Use the Edit tool for anything containing escapes.
+   This very entry was mangled the same way while being written, which is either
+   the best possible evidence for it or the worst.
+
+10. **Git Bash `/tmp` is not Windows Python's `/tmp`.** A backup written by `cp` was
    invisible to the script that read it, and four "different" experiment arms all
    silently ran the unmodified code and returned identical results.
 

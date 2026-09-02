@@ -26,6 +26,7 @@ public static class ModCore
     private static TrackerView _tracker = null!;
     private static FinalePlacement _finale = null!;
     private static EnergyGranter _energy = null!;
+    private static ErnUpgrades _ernUpgrades = null!;
     private static TrapApplier _traps = null!;
     private static FinaleLock _finaleLock = null!;
     private static ApMessageBox _messageBox = null!;
@@ -72,6 +73,7 @@ public static class ModCore
         _tracker = new TrackerView();
         _finale = new FinalePlacement();
         _energy = new EnergyGranter();
+        _ernUpgrades = new ErnUpgrades();
         _traps = new TrapApplier();
         _finaleLock = new FinaleLock();
         _messageBox = new ApMessageBox();
@@ -158,10 +160,12 @@ public static class ModCore
         _units.Tick();
         _erns.Tick();
         _energy.Tick();
+        _ernUpgrades.Tick();
         _traps.Tick();
         _finaleLock.Tick();
         _locations.Tick();
         TrapEffects.Tick();   // restores a timed trap:emit burst
+        Appliers.MeasureProbe.Tick();   // in-loop stopwatches, debug only
 
         // Periodic pending-check flush safety (~ every 5s at 60fps).
         if (++_retryCountdown >= 300)

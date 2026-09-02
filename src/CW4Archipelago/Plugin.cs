@@ -28,6 +28,11 @@ public class Plugin : BasePlugin
         TryPatch("InputBlock", typeof(Appliers.InputBlock));
         TryPatch("nullifier targets", typeof(Appliers.NullifierTargetPatch));
         TryPatch("objective row", typeof(Appliers.ObjectiveRowPatch));
+        TryPatch("ERN efficiency", typeof(Appliers.ErnEffPatch));
+        // The static one is what the SIM reads; the instance one above only
+        // feeds the port's UI. Registering just one of the pair is why the
+        // ceiling raised the displayed number and moved nothing in the game.
+        TryPatch("ERN efficiency (static)", typeof(Appliers.ErnEfficiencyPatch));
         // Replace polling with the game's own lifecycle events. A failure
         // here is logged and the mod continues - but the map would then
         // never colour, so the log is worth reading after a game update.
