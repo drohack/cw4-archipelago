@@ -178,9 +178,9 @@ sample_ramp "no boosts"
 uirows
 rangerow
 
-say "C. four ERN Efficiency Cap: Fire Range added WHILE ALREADY FULL"
+say "C. four Progressive ERN Efficiency Cap: Fire Range added WHILE ALREADY FULL"
 echo "  (this is the case that would look like a flat jump to 200)"
-for i in 1 2 3 4; do send "item:ERN Efficiency Cap: Fire Range" "DEBUG fake item"; done
+for i in 1 2 3 4; do send "item:Progressive ERN Efficiency Cap: Fire Range" "DEBUG fake item"; done
 sleep 6
 echo "  eff=$(effof)"
 uirows

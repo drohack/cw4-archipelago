@@ -14,8 +14,8 @@ namespace CW4Archipelago.Appliers;
 /// ramping from nothing to full over EFFICIENCY_TIME, tracked in dockedTimes[].
 /// GetEff(i) reports where it is.
 ///
-///     ERN Efficiency Rate: <upgrade>   fills faster   -> retreat dockedTimes[i]
-///     ERN Efficiency Cap:  <upgrade>   higher ceiling -> cap UNCLAMPED elapsed time
+///     Progressive ERN Efficiency Rate: <upgrade>   fills faster   -> retreat dockedTimes[i]
+///     Progressive ERN Efficiency Cap:  <upgrade>   higher ceiling -> cap UNCLAMPED elapsed time
 ///
 /// HOW THE FILL RATE WORKS, and the correction that measurement forced. The
 /// first version treated dockedTimes[i] as an accumulating counter and added to

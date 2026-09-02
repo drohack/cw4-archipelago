@@ -19,8 +19,8 @@ namespace CW4Archipelago.Core;
 /// </summary>
 public static class EnergyRules
 {
-    public const string StorageItem = "Energy Storage Upgrade";
-    public const string GenerationItem = "Base Generation Upgrade";
+    public const string StorageItem = "Progressive Energy Storage";
+    public const string GenerationItem = "Progressive Base Generation";
 
     public static int Count(SlotState state, string item)
     {

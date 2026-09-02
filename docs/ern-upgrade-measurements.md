@@ -13,8 +13,8 @@ An ERN port (`ERNInterface`) has six upgrades. Docking an ERN ramps one from 0
 to 1 over `EFFICIENCY_TIME` (3600 ticks), tracked as a TIMESTAMP in
 `dockedTimes[]` - efficiency is `(tickCount - dockedTimes[i]) / EFFICIENCY_TIME`.
 
-    ERN Efficiency Rate: <upgrade>   fills faster   -> retreat dockedTimes[i]
-    ERN Efficiency Cap:  <upgrade>   higher ceiling -> scale the efficiency accessor
+    Progressive ERN Efficiency Rate: <upgrade>   fills faster   -> retreat dockedTimes[i]
+    Progressive ERN Efficiency Cap:  <upgrade>   higher ceiling -> scale the efficiency accessor
 
 **The bug that cost the most time.** `ERNInterface` exposes efficiency twice:
 

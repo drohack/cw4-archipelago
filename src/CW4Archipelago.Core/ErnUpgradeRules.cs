@@ -10,8 +10,8 @@ namespace CW4Archipelago.Core;
 /// and that upgrade's efficiency ramps from nothing to full over EFFICIENCY_TIME.
 /// Two Archipelago items act on that, one pair per upgrade:
 ///
-///     ERN Efficiency Rate: Fire Rate    the efficiency FILLS faster
-///     ERN Efficiency Cap:  Fire Rate    the efficiency CEILING is higher
+///     Progressive ERN Efficiency Rate: Fire Rate    the efficiency FILLS faster
+///     Progressive ERN Efficiency Cap:  Fire Rate    the efficiency CEILING is higher
 ///
 /// Neither is progressive and neither depends on the other. Both do nothing at
 /// all until the player owns a portal and docks an ERN, which is deliberate: the
@@ -44,8 +44,8 @@ public static class ErnUpgradeRules
         "Fire Rate",
     };
 
-    public const string RatePrefix = "ERN Efficiency Rate: ";
-    public const string CapPrefix = "ERN Efficiency Cap: ";
+    public const string RatePrefix = "Progressive ERN Efficiency Rate: ";
+    public const string CapPrefix = "Progressive ERN Efficiency Cap: ";
 
     /// <summary>Copies beyond this change nothing, so the pool should not hold
     /// more. Four copies at a quarter each is exactly 200 percent.</summary>

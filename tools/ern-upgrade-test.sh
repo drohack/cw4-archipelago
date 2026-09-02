@@ -149,12 +149,12 @@ say "A. baseline ramp, no items"
 ramp baseline
 
 say "B. fill rate: 4x ERN Efficiency Rate (expect roughly half the time)"
-for i in 1 2 3 4; do send "item:ERN Efficiency Rate: Fire Range" "DEBUG fake item"; done
+for i in 1 2 3 4; do send "item:Progressive ERN Efficiency Rate: Fire Range" "DEBUG fake item"; done
 ramp charged
 
 say "C. ceiling: ERN Efficiency Cap added one at a time, from the plateau above"
 for i in 1 2 3 4; do
-  send "item:ERN Efficiency Cap: Fire Range" "DEBUG fake item"
+  send "item:Progressive ERN Efficiency Cap: Fire Range" "DEBUG fake item"
   sleep 5
   echo "  boost x$i -> eff=$(effof)"
 done

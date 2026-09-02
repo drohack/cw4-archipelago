@@ -271,7 +271,7 @@ class TrapWeightAmmoDrain(Range):
 
 
 class EnergyStorageStep(Range):
-    """Energy capacity granted by the FIRST Energy Storage Upgrade.
+    """Energy capacity granted by the FIRST Progressive Energy Storage.
 
     Raises the rift lab's storage ceiling, which is the buffer construction draws
     from - a bigger buffer means more sustained building before you stall. The
@@ -297,7 +297,7 @@ class EnergyStorageDecay(Range):
 
 
 class BaseGenerationStart(Range):
-    """Energy per second granted by the FIRST Base Generation Upgrade, in TENTHS.
+    """Energy per second granted by the FIRST Progressive Base Generation, in TENTHS.
 
     The default of 5 is +0.5/sec. A fresh mission generates about 1/sec, so the
     first copy is already a noticeable lift.
@@ -322,7 +322,7 @@ class BaseGenerationRamp(Range):
 
 
 class FillerEnergyStorageWeight(Range):
-    """Relative weight of Energy Storage Upgrades among the filler items."""
+    """Relative weight of Progressive Energy Storages among the filler items."""
     display_name = "Filler Weight: Energy Storage"
     range_start = 0
     range_end = 100
@@ -330,7 +330,7 @@ class FillerEnergyStorageWeight(Range):
 
 
 class FillerBaseGenerationWeight(Range):
-    """Relative weight of Base Generation Upgrades among the filler items."""
+    """Relative weight of Progressive Base Generations among the filler items."""
     display_name = "Filler Weight: Base Generation"
     range_start = 0
     range_end = 100

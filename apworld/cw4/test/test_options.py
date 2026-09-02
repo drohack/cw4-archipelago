@@ -12,7 +12,7 @@ class TestDefaults(bases.CW4TestBase):
     def test_energy_upgrades_are_in_the_pool(self) -> None:
         names = [i.name for i in self.multiworld.itempool]
         self.assertTrue(
-            any(n in ("Energy Storage Upgrade", "Base Generation Upgrade") for n in names),
+            any(n in ("Progressive Energy Storage", "Progressive Base Generation") for n in names),
             "energy upgrades should appear as filler at the default weights",
         )
 
@@ -20,7 +20,7 @@ class TestDefaults(bases.CW4TestBase):
         # They have a real, measured effect in game, so they should not be
         # classified as junk.
         for item in self.multiworld.itempool:
-            if item.name in ("Energy Storage Upgrade", "Base Generation Upgrade"):
+            if item.name in ("Progressive Energy Storage", "Progressive Base Generation"):
                 self.assertTrue(item.useful or item.advancement)
                 return
 
@@ -54,8 +54,8 @@ class TestOnlyStorageFiller(bases.CW4TestBase):
 
     def test_weights_are_respected(self) -> None:
         names = [i.name for i in self.multiworld.itempool]
-        self.assertIn("Energy Storage Upgrade", names)
-        self.assertNotIn("Base Generation Upgrade", names)
+        self.assertIn("Progressive Energy Storage", names)
+        self.assertNotIn("Progressive Base Generation", names)
         self.assertNotIn("Build Limit +1 (Tower)", names)
 
 
@@ -593,18 +593,18 @@ class TestErnUpgradeItems(bases.CW4TestBase):
             "Move Speed", "Fire Range", "Fire Rate",
         ])
         self.assertEqual(ERN_UPGRADE_ITEMS, [
-            "ERN Efficiency Rate: Energy Production",
-            "ERN Efficiency Rate: Mine Production",
-            "ERN Efficiency Rate: Build Speed",
-            "ERN Efficiency Rate: Move Speed",
-            "ERN Efficiency Rate: Fire Range",
-            "ERN Efficiency Rate: Fire Rate",
-            "ERN Efficiency Cap: Energy Production",
-            "ERN Efficiency Cap: Mine Production",
-            "ERN Efficiency Cap: Build Speed",
-            "ERN Efficiency Cap: Move Speed",
-            "ERN Efficiency Cap: Fire Range",
-            "ERN Efficiency Cap: Fire Rate",
+            "Progressive ERN Efficiency Rate: Energy Production",
+            "Progressive ERN Efficiency Rate: Mine Production",
+            "Progressive ERN Efficiency Rate: Build Speed",
+            "Progressive ERN Efficiency Rate: Move Speed",
+            "Progressive ERN Efficiency Rate: Fire Range",
+            "Progressive ERN Efficiency Rate: Fire Rate",
+            "Progressive ERN Efficiency Cap: Energy Production",
+            "Progressive ERN Efficiency Cap: Mine Production",
+            "Progressive ERN Efficiency Cap: Build Speed",
+            "Progressive ERN Efficiency Cap: Move Speed",
+            "Progressive ERN Efficiency Cap: Fire Range",
+            "Progressive ERN Efficiency Cap: Fire Rate",
         ])
 
     def test_exactly_four_of_each_by_default(self) -> None:

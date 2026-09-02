@@ -437,7 +437,7 @@ strings, so a rename would otherwise stop traps firing silently rather than fail
 
 ### Energy items
 
-`Energy Storage Upgrade` and `Base Generation Upgrade`, both applied to the rift
+`Progressive Energy Storage` and `Progressive Base Generation`, both applied to the rift
 lab - the only real levers CW4 exposes (see research-findings.md, "Energy: the
 store is the rift lab's ammo"). Storage has diminishing returns, generation
 ramps, per the designer:

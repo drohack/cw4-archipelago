@@ -87,8 +87,8 @@ BUILD_LIMIT_ITEMS = [
 # slot_data, because ITEM_NAME_TO_ID has to be identical across every yaml - a
 # name like "Energy Storage +50" would change ids whenever a player retuned an
 # option and break the client.
-ENERGY_STORAGE_ITEM = "Energy Storage Upgrade"
-BASE_GENERATION_ITEM = "Base Generation Upgrade"
+ENERGY_STORAGE_ITEM = "Progressive Energy Storage"
+BASE_GENERATION_ITEM = "Progressive Base Generation"
 
 # ERN port upgrade items. Two per upgrade, six upgrades, twelve names.
 #
@@ -99,8 +99,8 @@ BASE_GENERATION_ITEM = "Base Generation Upgrade"
 # version had the cap also double the fill rate, which left the rate item with
 # nothing to sell; see docs/ern-upgrade-measurements.md.
 #
-#     ERN Efficiency Rate: <upgrade>   fills faster, 4x at four copies
-#     ERN Efficiency Cap:  <upgrade>   reaches higher, 200% (150% Build Speed)
+#     Progressive ERN Efficiency Rate: <upgrade>   fills faster, 4x at four copies
+#     Progressive ERN Efficiency Cap:  <upgrade>   reaches higher, 200% (150% Build Speed)
 #
 # Measured effect at the cap, all six confirmed in game:
 #
@@ -114,8 +114,8 @@ ERN_UPGRADE_NAMES_ORDER = [
     "Energy Production", "Mine Production", "Build Speed",
     "Move Speed", "Fire Range", "Fire Rate",
 ]
-ERN_RATE_PREFIX = "ERN Efficiency Rate: "
-ERN_CAP_PREFIX = "ERN Efficiency Cap: "
+ERN_RATE_PREFIX = "Progressive ERN Efficiency Rate: "
+ERN_CAP_PREFIX = "Progressive ERN Efficiency Cap: "
 
 ERN_RATE_ITEMS = [ERN_RATE_PREFIX + u for u in ERN_UPGRADE_NAMES_ORDER]
 ERN_CAP_ITEMS = [ERN_CAP_PREFIX + u for u in ERN_UPGRADE_NAMES_ORDER]

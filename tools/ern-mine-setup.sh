@@ -169,6 +169,6 @@ cat <<'NOTES'
     1. read the node state to confirm it is producing
     2. time the ware total with Mine Production at 0 percent
     3. dock an ERN, wait for 100 percent, time it again
-    4. add four ERN Efficiency Cap: Mine Production, time it again
+    4. add four Progressive ERN Efficiency Cap: Mine Production, time it again
 NOTES
 echo "[setup] done. Screenshot: $CW4/ap_shot.png"

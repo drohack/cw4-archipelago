@@ -215,6 +215,41 @@ missing = set(I.TRAP_ITEMS) - cs_traps
 check(not missing, "every apworld trap name exists in the mod's TrapRules", str(sorted(missing)))
 print(f"      apworld traps: {len(I.TRAP_ITEMS)} names, {len(I.POOL_TRAP_ITEMS)} generated", flush=True)
 
+print(f"[2/6] step 5/5: ERN upgrade and energy item names agree", flush=True)
+# The mod counts received items by these exact strings, so a rename on one side
+# only would stop the upgrades applying without failing anywhere. Pinned here
+# rather than trusting the two literals to stay in step: the apworld's own test
+# compares its list against a hardcoded copy, which cannot see the C# side at
+# all, so a rename that touched only Python would still pass it.
+eur = open(os.path.join(REPO, "src/CW4Archipelago.Core/ErnUpgradeRules.cs"), encoding="utf-8").read()
+cs_rate = re.search(r'RatePrefix\s*=\s*"([^"]*)"', eur)
+cs_cap = re.search(r'CapPrefix\s*=\s*"([^"]*)"', eur)
+check(cs_rate is not None and cs_rate.group(1) == I.ERN_RATE_PREFIX,
+      "the mod's ERN rate prefix equals the apworld's",
+      f"{cs_rate.group(1) if cs_rate else None!r} vs {I.ERN_RATE_PREFIX!r}")
+check(cs_cap is not None and cs_cap.group(1) == I.ERN_CAP_PREFIX,
+      "the mod's ERN cap prefix equals the apworld's",
+      f"{cs_cap.group(1) if cs_cap else None!r} vs {I.ERN_CAP_PREFIX!r}")
+
+# The six upgrade names are addressed BY INDEX on the mod side, so their ORDER
+# matters as much as their spelling.
+cs_names = re.search(r'UpgradeNames\s*=\s*\{(.*?)\};', eur, re.S)
+cs_list = re.findall(r'"([^"]+)"', cs_names.group(1)) if cs_names else []
+check(cs_list == I.ERN_UPGRADE_NAMES_ORDER,
+      "the mod's ERN upgrade order equals the apworld's",
+      f"{cs_list} vs {I.ERN_UPGRADE_NAMES_ORDER}")
+
+en = open(os.path.join(REPO, "src/CW4Archipelago.Core/EnergyRules.cs"), encoding="utf-8").read()
+cs_store = re.search(r'StorageItem\s*=\s*"([^"]*)"', en)
+cs_gen = re.search(r'GenerationItem\s*=\s*"([^"]*)"', en)
+check(cs_store is not None and cs_store.group(1) == I.ENERGY_STORAGE_ITEM,
+      "the mod's energy storage item name equals the apworld's",
+      f"{cs_store.group(1) if cs_store else None!r} vs {I.ENERGY_STORAGE_ITEM!r}")
+check(cs_gen is not None and cs_gen.group(1) == I.BASE_GENERATION_ITEM,
+      "the mod's base generation item name equals the apworld's",
+      f"{cs_gen.group(1) if cs_gen else None!r} vs {I.BASE_GENERATION_ITEM!r}")
+print(f"      progressive names checked: 12 ERN upgrades + 2 energy", flush=True)
+
 # ---------------------------------------------------------------- PART 3
 print("-- PART 3/6: in-process logic (default options) --", flush=True)
 from test.general import setup_solo_multiworld  # noqa: E402

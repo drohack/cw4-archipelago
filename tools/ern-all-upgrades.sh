@@ -208,7 +208,7 @@ for NAME in $NAMES; do
   stats
 
   # Now push the ceiling to 200 percent and look again.
-  for i in 1 2 3 4; do send "item:ERN Efficiency Cap: $(echo "$NAME" | tr '_' ' ')" "DEBUG fake item"; done
+  for i in 1 2 3 4; do send "item:Progressive ERN Efficiency Cap: $(echo "$NAME" | tr '_' ' ')" "DEBUG fake item"; done
   sleep 6
   echo "  eff with 4 boosts: $(effof "$IDX")"
   echo "  -- with the upgrade at 200 percent --"

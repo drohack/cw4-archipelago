@@ -16,7 +16,7 @@ public class TrapRulesTests
     [Theory]
     [InlineData("Cannon")]
     [InlineData("Mission Unlock: Home")]
-    [InlineData("Energy Storage Upgrade")]
+    [InlineData("Progressive Energy Storage")]
     [InlineData("")]
     public void NonTraps_AreNotTraps(string name) => Assert.False(TrapRules.IsTrap(name));
 

@@ -140,7 +140,7 @@ to_full() {
 
 boost_to_max() {
   local name="$1" i
-  for i in 1 2 3 4; do send "item:ERN Efficiency Cap: $name" "DEBUG fake item"; done
+  for i in 1 2 3 4; do send "item:Progressive ERN Efficiency Cap: $name" "DEBUG fake item"; done
   sleep 5
 }
 

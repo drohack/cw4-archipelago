@@ -146,8 +146,8 @@ done
 echo "  eff=${E:-unreadable}"
 stable_rate "100 percent"
 
-say "200 PERCENT - four ERN Efficiency Cap: Mine Production"
-for i in 1 2 3 4; do send "item:ERN Efficiency Cap: Mine Production" "DEBUG fake item"; done
+say "200 PERCENT - four Progressive ERN Efficiency Cap: Mine Production"
+for i in 1 2 3 4; do send "item:Progressive ERN Efficiency Cap: Mine Production" "DEBUG fake item"; done
 sleep 5
 # The cap now EXTENDS the ramp rather than steepening it, so 200 percent takes a
 # second full 3600 ticks to arrive. Wait for it instead of assuming.
