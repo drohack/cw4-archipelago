@@ -128,6 +128,7 @@ CATS = {
     "Traps (ids)": I.TRAP_ITEMS,
     "ERN upgrade rate": I.ERN_RATE_ITEMS,
     "ERN upgrade cap": I.ERN_CAP_ITEMS,
+    "Boons (one-shot)": I.BOON_ITEMS,
 }
 tot = 0
 for k, v in CATS.items():
@@ -248,7 +249,19 @@ check(cs_store is not None and cs_store.group(1) == I.ENERGY_STORAGE_ITEM,
 check(cs_gen is not None and cs_gen.group(1) == I.BASE_GENERATION_ITEM,
       "the mod's base generation item name equals the apworld's",
       f"{cs_gen.group(1) if cs_gen else None!r} vs {I.BASE_GENERATION_ITEM!r}")
+br = open(os.path.join(REPO, "src/CW4Archipelago.Core/BoonRules.cs"), encoding="utf-8").read()
+cs_boons = set(re.findall(r'=\s*"([^"]+)"', br))
+# The six surge names are BUILT from a prefix plus the upgrade order, so match
+# them that way rather than looking for six literals that do not exist.
+cs_prefix = re.search(r'SurgePrefix\s*=\s*"([^"]*)"', br)
+if cs_prefix:
+    for u in I.ERN_UPGRADE_NAMES_ORDER:
+        cs_boons.add(cs_prefix.group(1) + u)
+missing_boons = set(I.BOON_ITEMS) - cs_boons
+check(not missing_boons, "every apworld boon name exists in the mod's BoonRules",
+      str(sorted(missing_boons)))
 print(f"      progressive names checked: 12 ERN upgrades + 2 energy", flush=True)
+print(f"      boon names checked: {len(I.BOON_ITEMS)}", flush=True)
 
 # ---------------------------------------------------------------- PART 3
 print("-- PART 3/6: in-process logic (default options) --", flush=True)
@@ -294,6 +307,8 @@ MATRIX = [
     # a MISMATCH against an empty measurement rather than as a real result.
     ("no ern upgrades", {"ern_upgrade_copies": 0}),
     ("one ern upgrade copy", {"ern_upgrade_copies": 1}),
+    ("no energy upgrades", {"energy_storage_copies": 0, "base_generation_copies": 0}),
+    ("max energy upgrades", {"energy_storage_copies": 36, "base_generation_copies": 36}),
     ("one starter", {"starter_missions": 1}),
     ("five starters", {"starter_missions": 5}),
     ("finale open", {"missions_for_finale": 0}),
@@ -418,6 +433,7 @@ if base:
         "Build limits": sum(v for k, v in c.items() if "Build Limit" in k),
         "ERN upgrade rate": sum(v for k, v in c.items() if k in set(I.ERN_RATE_ITEMS)),
         "ERN upgrade cap": sum(v for k, v in c.items() if k in set(I.ERN_CAP_ITEMS)),
+        "Boons": sum(v for k, v in c.items() if k in set(I.BOON_ITEMS)),
     }
     for k, v in groups.items():
         print(f"      {k:<20} {v}", flush=True)

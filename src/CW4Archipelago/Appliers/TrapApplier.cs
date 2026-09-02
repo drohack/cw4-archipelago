@@ -35,11 +35,47 @@ public sealed class TrapApplier
         var item = state.ReceivedItems[state.TrapsApplied];
         state.TrapsApplied++;
 
+        // Boons share this counter deliberately. Both traps and boons must fire
+        // EXACTLY once and must not replay when a reconnect re-delivers the
+        // whole received list, and that is the only hard part - so there is one
+        // mechanism for it rather than two that can drift.
+        //
+        // Checked BEFORE the trap test, because a boon is not a trap and the
+        // trap test returns. That return is what made every boon dead code:
+        // FireBoon existed with no caller for a whole session while 63 of 236
+        // pool items quietly did nothing.
+        if (BoonRules.IsBoon(item))
+        {
+            ModCore.Log.LogInfo($"BOON: {item}");
+            FireBoon(item);
+            return;
+        }
+
         if (!TrapRules.IsTrap(item))
             return;
 
         ModCore.Log.LogInfo($"TRAP: {item}");
         Fire(item);
+    }
+
+    private static void FireBoon(string item)
+    {
+        // Surges are prefix-matched rather than listed, because there is one
+        // per upgrade and the upgrade order lives in ErnUpgradeRules.
+        int surge = BoonRules.SurgeIndex(item);
+        if (surge >= 0) { ErnUpgrades.StartSurge(surge); return; }
+
+        switch (item)
+        {
+            case BoonRules.AmmoResupply: BoonEffects.Resupply(); return;
+            // 0 means "use the tuned default fraction", same convention the
+            // traps use for their amounts.
+            case BoonRules.EnergyCache: BoonEffects.EnergyCache(0f); return;
+            case BoonRules.FieldShield: BoonEffects.Shield(); return;
+            // "all" grants every ware the factory has a channel for; see
+            // BoonRules.ResourceCache for why this is one item, not three.
+            case BoonRules.ResourceCache: BoonEffects.ResourceCache("all", 0, false); return;
+        }
     }
 
     private static void Fire(string item)

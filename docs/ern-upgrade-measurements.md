@@ -158,9 +158,14 @@ have reported a confident zero:
    written into the node.
 2. **Total ware held** (`measure:ware`, summing `GetWareHeld` over player
    units) read a flat `0 -> 0` while the nodes were visibly producing at
-   `counter=24`. Two independent faults: `GetWareHeld` does not see the
-   factory's contents, AND a total saturates once the factory fills, which the
-   designer spotted before it wasted a run.
+   `counter=24`. Two independent faults, and the first was misdiagnosed at the
+   time: `GetWareHeld` reads `UnitManager.waresHeld`, which on a factory is its
+   AMMO_WARES **input** slots - the mined **output** stock is
+   `Factory.producedWareCounts`, reached through `GetProducedWares` /
+   `SetProducedWares`. So it was the wrong dictionary, not a blind spot. (Both
+   are real storage: `DevTools.TopUpUnit` fills a factory's inputs with
+   `SetWareHeld` and that works.) AND a total saturates once the factory fills,
+   which the designer spotted before it wasted a run.
 3. **The factory build button's rate readout** - which works, because a rate
    does not saturate when storage fills, and it is the same number the player
    reads on screen:

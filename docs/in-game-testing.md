@@ -268,3 +268,61 @@ Applying it to a nice-to-have unit is a different failure: a wrong data name on 
 supporting unit killed a 20-minute sweep at setup, after the game had booted
 perfectly. Supporting units get `optional_spawn`, which warns and lets their
 observable read `n/a`.
+
+## Traps and boons have DIFFERENT admission rules
+
+A trap that whiffs feels broken. The player spends a check, receives a
+punishment, nothing happens, and the whole trap pool starts to feel suspect -
+which is why Emitter Overdrive was pulled from the pool for being dead on
+roughly a third of the campaign.
+
+A boon that whiffs is a shrug. Designer's ruling, verbatim: *"needs a factory
+down, but if they don't have one it just wiffs, which is fine."*
+
+So a boon may depend on infrastructure the player might not have. What it may
+NOT do is whiff for a reason the player cannot see or act on. That distinction
+killed the three per-ware resource items: a factory only holds wares the MISSION
+gives it a channel for, so "Bluite Cache" would have been structurally dead on
+most maps with nothing the player could do about it. One "Resource Cache" that
+grants whatever the factory can hold pays out wherever a factory exists.
+
+Corollary for the logs: **an effect that whiffs must SAY WHY.** A silent
+"0 -> 0" is indistinguishable from a broken write - that exact line appeared for
+three wares before the channel check was added, and it read like a bug.
+
+## Read the thing that should NOT move, too
+
+Two effects were doing more than they advertised, in opposite directions, and
+neither was visible from its own log line:
+
+    Ammo Resupply   also filled the RIFT LAB, whose "ammo" is the energy store,
+                    so it was a silent free full-energy refill
+    trap:drain      the same bug with the opposite sign - it emptied the whole
+                    economy to zero, which "Ammo Drain" does not claim
+
+`"filled 5 weapons, 54 ammo added"` was true and complete while the effect was
+also refilling the entire economy. A test that checks only the advertised
+quantity confirms the advertisement, not the behaviour.
+
+Worse, the obvious check does not settle it either: energy MOVES ON ITS OWN as
+weapons draw packets, so the store falling after a drain is equally consistent
+with the bug and with normal play. The fix was to make the filter report itself
+- `[energy stores skipped: 1]` can only be non-zero if the filter ran. When a
+quantity has other reasons to move, measure something that can only mean one
+thing.
+
+## A wiring edit that reports success is not a wiring edit
+
+`FireBoon` sat with NO CALLERS for an entire session while 63 of 236 pool items
+did nothing. The edit meant to add its branch was a string replace whose anchor
+did not match, and the script printed "boon dispatch wired" anyway.
+
+Two habits, both cheap:
+
+- **After wiring anything, read the file back** - not the tool's success line.
+- **Make the edit fail loudly.** A helper that exits non-zero when the anchor is
+  missing turns this whole class of bug into an immediate stop. `sed`/`replace`
+  silently doing nothing is the hazard; the Edit tool erroring is the fix.
+
+And when one silent failure is found, **re-verify every other wiring claim from
+the same session**, because the same script wrote them all.

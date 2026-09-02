@@ -90,6 +90,58 @@ public sealed class ErnUpgrades
         for (int i = 0; i < Effective.Length; i++) Effective[i] = -1f;
     }
 
+    /// <summary>Per upgrade, the tick a temporary surge expires on, or 0.
+    ///
+    /// A surge grants one upgrade at the game's OWN 100 percent ceiling for a
+    /// while, whether or not a portal exists and whether or not an ERN is
+    /// docked. That is what makes it a different item rather than a worse
+    /// version of the permanent cap: it needs no infrastructure, and it never
+    /// exceeds 100 percent, so the permanent items stay strictly better.
+    ///
+    /// Applied AFTER ComputeEffective, because Tick clears the whole override
+    /// array every tick - a surge written before the clear would last exactly
+    /// one frame.</summary>
+    private static readonly int[] SurgeUntil = new int[ErnUpgradeRules.UpgradeNames.Length];
+
+    /// <summary>Sim ticks a surge lasts. 3600 is one full EFFICIENCY_TIME, so a
+    /// surge is worth about as much as ramping an ERN from nothing - a taste of
+    /// the upgrade, not a replacement for owning it.</summary>
+    public const int SurgeTicks = 3600;
+
+    public static void StartSurge(int index)
+    {
+        if (!ErnUpgradeRules.IsValidIndex(index)) return;
+        var gs = GameSpace.instance;
+        if (gs == null)
+        {
+            ModCore.Log.LogWarning("ERN surge: no mission running, nothing to boost");
+            return;
+        }
+        int tick = 0;
+        try { tick = gs.tickCount; } catch { }
+        SurgeUntil[index] = tick + SurgeTicks;
+        ModCore.Log.LogInfo(
+            $"BOON ern surge: {ErnUpgradeRules.UpgradeNames[index]} at 100 percent "
+            + $"until tick {SurgeUntil[index]}");
+    }
+
+    private static void ApplySurges(int tick)
+    {
+        for (int i = 0; i < SurgeUntil.Length; i++)
+        {
+            if (SurgeUntil[i] <= 0) continue;
+            if (tick >= SurgeUntil[i]) { SurgeUntil[i] = 0; continue; }
+            // MAX, so a surge can never REDUCE an upgrade a player has already
+            // earned past 100 percent with cap items.
+            if (Effective[i] < 1f) Effective[i] = 1f;
+        }
+    }
+
+    private static void ClearSurges()
+    {
+        for (int i = 0; i < SurgeUntil.Length; i++) SurgeUntil[i] = 0;
+    }
+
     public void Tick()
     {
         var gs = GameSpace.instance;
@@ -105,10 +157,8 @@ public sealed class ErnUpgrades
             _orderChecked = false;
             _lastTick = -1;
             ClearEffective();
+            ClearSurges();
         }
-
-        var state = ModCore.Client.State;
-        if (state == null) { ClearEffective(); return; }
 
         // Recomputed from scratch each tick: a slot that has just been released
         // must stop overriding immediately, and a stale value would keep a
@@ -122,6 +172,20 @@ public sealed class ErnUpgrades
         int dt = _lastTick < 0 ? 0 : tick - _lastTick;
         _lastTick = tick;
         if (dt < 0) dt = 0;                       // mission restarted under us
+
+        // SURGES FIRST, and independent of slot state.
+        //
+        // A surge is driven entirely by SurgeUntil - it needs no received items,
+        // no port and no docked ERN - so it must not sit behind the state null
+        // check below. It did, which meant the debug command could start a surge
+        // that then never applied.
+        //
+        // Runs before the port pass so ComputeEffective's MAX can raise it
+        // further for a player who also owns cap items.
+        try { ApplySurges(tick); } catch { }
+
+        var state = ModCore.Client.State;
+        if (state == null) return;
 
         foreach (var u in gs.units)
         {

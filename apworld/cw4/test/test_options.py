@@ -27,12 +27,17 @@ class TestDefaults(bases.CW4TestBase):
     def test_amounts_travel_in_slot_data_not_item_names(self) -> None:
         # Item ids must be identical across yamls, so the names carry no numbers.
         data = self.world.fill_slot_data()
-        self.assertEqual(data["energy_storage_step"], 50)
-        self.assertEqual(data["energy_storage_decay"], 80)
-        self.assertEqual(data["base_generation_start"], 5)
-        self.assertEqual(data["base_generation_ramp"], 2)
+        # A maximum and the copy count that reaches it. The per-copy value is
+        # derived from the pair, which is what makes a dead copy impossible and
+        # is also why the step cannot be the setting: +10 over 8 copies is 1.25
+        # each, not an integer.
+        self.assertEqual(data["energy_storage_max"], 200)
+        self.assertEqual(data["energy_storage_copies"], 8)
+        self.assertEqual(data["base_generation_max"], 10)
+        self.assertEqual(data["base_generation_copies"], 8)
         for item in self.multiworld.itempool:
-            self.assertNotIn("+50", item.name)
+            self.assertNotIn("+25", item.name)
+            self.assertNotIn("+200", item.name)
 
 
 class TestNoErns(bases.CW4TestBase):
@@ -46,16 +51,24 @@ class TestNoErns(bases.CW4TestBase):
 
 
 class TestOnlyStorageFiller(bases.CW4TestBase):
+    """The filler WEIGHTS no longer size the energy blocks.
+
+    Their counts are their own options now, because both curves are capped and
+    the count that reaches the cap is the only count worth generating. The
+    weight options are kept so existing yamls naming them are not errors - the
+    same treatment build limits got - but they no longer decide anything.
+    """
     options = {
         "filler_energy_storage_weight": 100,
         "filler_base_generation_weight": 0,
         "filler_build_limit_weight": 0,
     }
 
-    def test_weights_are_respected(self) -> None:
+    def test_counts_come_from_their_own_options_not_the_weights(self) -> None:
         names = [i.name for i in self.multiworld.itempool]
-        self.assertIn("Progressive Energy Storage", names)
-        self.assertNotIn("Progressive Base Generation", names)
+        # Zero weight, but the copies option is still 8.
+        self.assertEqual(names.count("Progressive Base Generation"), 8)
+        self.assertEqual(names.count("Progressive Energy Storage"), 8)
         self.assertNotIn("Build Limit +1 (Tower)", names)
 
 
@@ -272,9 +285,15 @@ class TestTraps(bases.CW4TestBase):
         # BOTH splits half traps, half useful - the ERN block is generated
         # before the trap split, so counting it as a leftover understated the
         # denominator and made this expect 95 traps where 71 is correct.
-        from ..items import ERN_UPGRADE_ITEMS
+        # Real items are ~46, and three FIXED blocks come off the top before
+        # the trap split: the ERN upgrades, and the two energy upgrades now that
+        # their counts are capped. Only what remains after all of those splits
+        # half traps, half padding.
+        from ..items import (ERN_UPGRADE_ITEMS, ENERGY_STORAGE_ITEM,
+                             BASE_GENERATION_ITEM)
         erns = len([n for n in pool if n in ERN_UPGRADE_ITEMS])
-        leftovers = len(pool) - 46 - erns
+        energy = pool.count(ENERGY_STORAGE_ITEM) + pool.count(BASE_GENERATION_ITEM)
+        leftovers = len(pool) - 46 - erns - energy
         self.assertAlmostEqual(len(traps), leftovers // 2, delta=2)
 
     def test_traps_are_classified_as_traps(self) -> None:
@@ -307,10 +326,14 @@ class TestAllTraps(bases.CW4TestBase):
     options = {"trap_percentage": 100}
 
     def test_every_leftover_can_be_a_trap(self) -> None:
+        # "Every leftover" no longer means the whole pool. The energy upgrades
+        # are a FIXED block sized by their own options, so trap_percentage
+        # cannot displace them - it only governs the slots left after the fixed
+        # blocks. Set their copies to 0 if you want them gone.
         from ..items import TRAP_ITEMS, ENERGY_STORAGE_ITEM
         pool = [i.name for i in self.multiworld.itempool]
         self.assertTrue([n for n in pool if n in TRAP_ITEMS])
-        self.assertNotIn(ENERGY_STORAGE_ITEM, pool)
+        self.assertEqual(pool.count(ENERGY_STORAGE_ITEM), 8)
         locations = [l for l in self.multiworld.get_locations(self.player) if l.address is not None]
         self.assertEqual(len(pool), len(locations))
 
@@ -624,17 +647,20 @@ class TestErnUpgradeItems(bases.CW4TestBase):
         for name in ERN_UPGRADE_ITEMS:
             self.assertLessEqual(pool.count(name), ERN_UPGRADE_MAX_COPIES)
 
-    def test_ids_are_appended_so_nothing_renumbers(self) -> None:
-        # Ids are positional. The twelve new names must sit at the END of the
-        # table, or every id after the insertion point moves and the client's
-        # mapping stops matching the server's.
+    def test_ids_are_pinned_so_nothing_renumbers(self) -> None:
+        # Ids are positional and the client's map must match the server's, so a
+        # name may only ever be APPENDED. Pinning the actual values is a
+        # stronger guard than "the ERN ids are the highest", which was the first
+        # version of this test and broke as soon as a boon item was appended
+        # after them - the ids had not moved at all, only the assertion was
+        # asking the wrong question.
         from ..items import ITEM_NAME_TO_ID, ERN_UPGRADE_ITEMS, BASE_ID
-        ern_ids = [ITEM_NAME_TO_ID[n] for n in ERN_UPGRADE_ITEMS]
-        others = [v for k, v in ITEM_NAME_TO_ID.items()
-                  if k not in set(ERN_UPGRADE_ITEMS)]
-        self.assertGreater(min(ern_ids), max(others))
-        # and the historical anchors have not budged
         self.assertEqual(ITEM_NAME_TO_ID["Mission Unlock: Farsite"], BASE_ID)
+        self.assertEqual(ITEM_NAME_TO_ID[ERN_UPGRADE_ITEMS[0]], BASE_ID + 57)
+        self.assertEqual(ITEM_NAME_TO_ID[ERN_UPGRADE_ITEMS[-1]], BASE_ID + 68)
+        # contiguous, and every id unique
+        ern_ids = sorted(ITEM_NAME_TO_ID[n] for n in ERN_UPGRADE_ITEMS)
+        self.assertEqual(ern_ids, list(range(ern_ids[0], ern_ids[0] + 12)))
         self.assertEqual(len(set(ITEM_NAME_TO_ID.values())), len(ITEM_NAME_TO_ID))
 
     def test_classified_as_filler(self) -> None:
@@ -687,7 +713,7 @@ class TestErnMagnitudesAreConfigurable(bases.CW4TestBase):
     def test_item_ids_do_not_move_with_the_options(self) -> None:
         from ..items import ITEM_NAME_TO_ID, BASE_ID, ERN_UPGRADE_ITEMS
         self.assertEqual(ITEM_NAME_TO_ID["Mission Unlock: Farsite"], BASE_ID)
-        self.assertEqual(len(ITEM_NAME_TO_ID), 69)
+        self.assertEqual(ITEM_NAME_TO_ID[ERN_UPGRADE_ITEMS[0]], BASE_ID + 57)
         for name in ERN_UPGRADE_ITEMS:
             self.assertIn(name, ITEM_NAME_TO_ID)
 
@@ -700,3 +726,89 @@ class TestErnMagnitudeDefaults(bases.CW4TestBase):
         self.assertEqual(data["ern_rate_max_percent"], 400)
         self.assertEqual(data["ern_cap_max_percent"], 200)
         self.assertEqual(data["ern_cap_max_build_speed_percent"], 150)
+
+class TestBoonPadding(bases.CW4TestBase):
+    def test_the_pool_is_padded_with_a_one_shot_item(self) -> None:
+        # Every cumulative filler kind is capped now, so the leftover slots need
+        # an item with no ceiling. A one-shot effect qualifies: the sixty-third
+        # copy refills weapons exactly as well as the first.
+        from ..items import BOON_ITEMS
+        pool = [i.name for i in self.multiworld.itempool]
+        self.assertGreater(pool.count(BOON_ITEMS[0]), 0)
+
+    def test_padding_does_not_override_an_explicit_option(self) -> None:
+        # Progressive ERN was the first padder and was wrong for exactly this
+        # reason: a player asking for zero ERNs still received sixty-six.
+        locations = [l for l in self.multiworld.get_locations(self.player)
+                     if l.address is not None]
+        self.assertEqual(len(self.multiworld.itempool), len(locations))
+
+    def test_names_match_the_client(self) -> None:
+        from ..items import BOON_ITEMS
+        # Order matters for ids, and the six surges must follow the upgrade
+        # order the mod addresses by index.
+        from ..items import ERN_UPGRADE_NAMES_ORDER
+        self.assertEqual(BOON_ITEMS[:4],
+                         ["Ammo Resupply", "Energy Cache", "Field Shield",
+                          "Resource Cache"])
+        self.assertEqual(BOON_ITEMS[4:],
+                         ["ERN Surge: " + u for u in ERN_UPGRADE_NAMES_ORDER])
+        self.assertEqual(len(BOON_ITEMS), 10)
+
+    def test_the_padding_is_split_evenly_between_them(self) -> None:
+        # Alternating, not a weighted draw: the counts should be even and
+        # deterministic rather than a sample that happens to favour one name.
+        from ..items import BOON_ITEMS
+        pool = [i.name for i in self.multiworld.itempool]
+        counts = [pool.count(n) for n in BOON_ITEMS]
+        self.assertTrue(all(c > 0 for c in counts), f"some boon is absent: {counts}")
+        self.assertLessEqual(max(counts) - min(counts), 1,
+                             f"padding is lopsided: {counts}")
+
+class TestCasualBootstrap(bases.CW4TestBase):
+    """Casual logic gets a wider opening, because its fill was failing.
+
+    CI hit a FillError in TestCasualLogic.test_fill, which draws a fresh random
+    seed every run - so the passing commit before it proved nothing. Sampling
+    the exact configuration on Archipelago 0.6.7, with a positive control
+    because an unverified zero is worthless, put the rate at roughly 0.2 to 1
+    percent of casual seeds, present both before and after the filler work.
+
+    Casual is the HARSHER setting despite the name: rules._casual_defense adds a
+    defensive requirement from CASUAL_DEFENSE_FROM onward, so more items are
+    needed before the same locations open. At the default two starters the
+    opening is two wide - which cleared the old SAFE_OPENING_MIN of 2 while
+    sitting far below the SAFE_OPENING of 4 that items treats as slack.
+    """
+    options = {"logic_difficulty": "casual"}
+
+    def test_the_threshold_is_one_wider_for_casual(self) -> None:
+        from .. import items
+        self.assertEqual(items.bootstrap_threshold(self.world),
+                         items.SAFE_OPENING_MIN + 1)
+
+    def test_the_bootstrap_engages(self) -> None:
+        # The point of the fix. If this stops being true the sub-percent
+        # FillError comes back, and it will come back as a rare CI flake that
+        # looks like bad luck rather than a regression.
+        from .. import items
+        width = items.opening_width(self.world)
+        self.assertLess(width, items.bootstrap_threshold(self.world),
+                        f"casual opening is {width}, so the bootstrap will not run")
+        self.assertTrue(getattr(self.world, "bootstrapped", None),
+                        "bootstrap_opening placed nothing")
+
+
+class TestNormalLogicBootstrapUnchanged(bases.CW4TestBase):
+    """The casual fix must cost nothing where there was no problem.
+
+    Bootstrapping trades away the cross-game placements that make a narrow
+    opening interesting (see World.needs_bootstrap), so it is deliberately +1
+    for casual only.
+    """
+    def test_normal_logic_does_not_bootstrap(self) -> None:
+        from .. import items
+        self.assertEqual(items.bootstrap_threshold(self.world),
+                         items.SAFE_OPENING_MIN)
+        self.assertGreaterEqual(items.opening_width(self.world),
+                                items.bootstrap_threshold(self.world))

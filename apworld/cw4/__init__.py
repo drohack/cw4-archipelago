@@ -104,7 +104,7 @@ class CW4World(World):
         rare enough, and visible enough in the yaml, to be worth a re-roll rather
         than a heuristic that guesses at intent.
         """
-        if items.opening_width(self) >= items.SAFE_OPENING_MIN:
+        if items.opening_width(self) >= items.bootstrap_threshold(self):
             return False
         return all(self.multiworld.worlds[p].game == self.game
                    for p in self.multiworld.player_ids)
@@ -126,10 +126,10 @@ class CW4World(World):
         data["missions_for_finale"] = self.options.missions_for_finale.value
         # Amounts for the energy upgrades. They are here rather than in the item
         # names so that item ids stay identical across yamls.
-        data["energy_storage_step"] = self.options.energy_storage_step.value
-        data["energy_storage_decay"] = self.options.energy_storage_decay.value
-        data["base_generation_start"] = self.options.base_generation_start.value
-        data["base_generation_ramp"] = self.options.base_generation_ramp.value
+        data["energy_storage_max"] = self.options.energy_storage_max.value
+        data["energy_storage_copies"] = self.options.energy_storage_copies.value
+        data["base_generation_max"] = self.options.base_generation_max.value
+        data["base_generation_copies"] = self.options.base_generation_copies.value
         # Magnitudes for the ERN port upgrades, here for the same reason: an
         # amount in an item name would move item ids whenever a player retuned
         # an option.

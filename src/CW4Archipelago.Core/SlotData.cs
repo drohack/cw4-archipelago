@@ -31,17 +31,27 @@ public sealed class SlotData
     // Amounts for the energy upgrades. They travel here rather than in the item
     // names so that item ids stay identical across every yaml. Fractions are
     // sent as TENTHS and percentages as whole percents; see EnergyRules.
-    [JsonPropertyName("energy_storage_step")]
-    public int EnergyStorageStep { get; set; } = 50;
+    /// <summary>Where the storage total stops. The rift lab's own store is
+    /// about 100, so the 900 ceiling is roughly 1000 total.</summary>
+    [JsonPropertyName("energy_storage_max")]
+    public int EnergyStorageMax { get; set; } = 200;
 
-    [JsonPropertyName("energy_storage_decay")]
-    public int EnergyStorageDecay { get; set; } = 80;
+    /// <summary>How many copies reach that maximum. The per-copy step is
+    /// derived from the pair, so the last copy lands exactly on the cap and
+    /// none is wasted: 200 over 8 copies is 25 each.</summary>
+    [JsonPropertyName("energy_storage_copies")]
+    public int EnergyStorageCopies { get; set; } = 8;
 
-    [JsonPropertyName("base_generation_start")]
-    public int BaseGenerationStart { get; set; } = 5;
+    /// <summary>How many copies reach the generation maximum. 10 over 8 copies
+    /// is 1.25 energy/sec each.</summary>
+    [JsonPropertyName("base_generation_copies")]
+    public int BaseGenerationCopies { get; set; } = 8;
 
-    [JsonPropertyName("base_generation_ramp")]
-    public int BaseGenerationRamp { get; set; } = 2;
+    /// <summary>Where the generation total stops, in energy per second. For
+    /// scale, CW4's own production is about 3 to 4/sec, so the default of 10
+    /// roughly triples the economy at full stack.</summary>
+    [JsonPropertyName("base_generation_max")]
+    public int BaseGenerationMax { get; set; } = 10;
 
     // Magnitudes for the ERN port upgrade items, as whole PERCENTS, travelling
     // here for the same reason the energy amounts do: item ids must be

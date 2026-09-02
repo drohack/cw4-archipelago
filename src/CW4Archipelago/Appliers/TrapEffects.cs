@@ -327,7 +327,23 @@ public static class TrapEffects
     /// <summary>Takes a FRACTION of the energy store. Proportional on purpose:
     /// a flat amount is invisible late and fatal early (5 off a store of 100
     /// refilled almost instantly in testing). Energy regenerates, so this is a
-    /// setback, never a loss.</summary>
+    /// setback, never a loss.
+    ///
+    /// WRITES commandBase.ammo, NOT GameSpace.energyStore. This trap wrote the
+    /// latter and was therefore a NO-OP: EnergyGranter's own header says
+    /// energyStore and energyProduction "are summaries the sim recomputes every
+    /// tick, so writing them moves the HUD and delivers nothing". The trap
+    /// moved the number on screen, the sim overwrote it, and nothing was ever
+    /// taken.
+    ///
+    /// It went unnoticed because a drained HUD reading looks exactly like a
+    /// working trap, and energy climbs back on its own - so "it refilled
+    /// quickly" was the expected behaviour anyway.
+    ///
+    /// Its mirror, BoonEffects.EnergyCache, had the right field all along
+    /// (verified moving the store 22.9 -> 47.9), which is what made the
+    /// discrepancy visible: the two halves of one pair were writing different
+    /// fields.</summary>
     public static void Energy(float fraction)
     {
         var gs = Live("energy");
@@ -335,11 +351,23 @@ public static class TrapEffects
         if (fraction <= 0f) fraction = EnergyFraction;
         fraction = Mathf.Clamp01(fraction);
 
-        float before = gs.energyStore;
+        CommandBase? cb = null;
+        try { cb = gs.commandBase; } catch { }
+        if (cb == null || !GameUtil.IsAlive(cb))
+        {
+            // A campaign mission starts with the lab in the player's hand, so
+            // this is a real state rather than an error.
+            ModCore.Log.LogInfo("TRAP energy: no rift lab placed, nothing to drain");
+            return;
+        }
+
+        float before = cb.ammo;
         float after = Math.Max(0f, before - before * fraction);
-        gs.energyStore = after;
+        cb.ammo = after;
         ModCore.Log.LogInfo(
-            $"TRAP energy: store {before:0.##} -> {after:0.##} (took {fraction * 100f:0}%, {before - after:0.##})");
+            $"TRAP energy: store {before:0.##} -> {after:0.##} " +
+            $"(took {fraction * 100f:0}%, {before - after:0.##}); " +
+            $"summary gs.energyStore={gs.energyStore:0.##} is NOT the field written");
     }
 
     // --- 5. emitter burst (timed, self-restoring) -------------------------
@@ -467,13 +495,25 @@ public static class TrapEffects
         var gs = Live("drain");
         if (gs == null) return;
 
-        int n = 0; float drained = 0f;
+        int n = 0, ghosts = 0, stores = 0; float drained = 0f;
         foreach (var u in gs.units)
         {
             if (u == null) continue;
             try
             {
                 if (!IsPlayerUnit(u)) continue;
+                // NOT THE RIFT LAB, and not a ghost - both fixed to match
+                // BoonEffects.Resupply, which is this trap's exact mirror.
+                //
+                // The two had drifted in opposite directions. The lab's "ammo"
+                // IS the energy store, so this trap was silently emptying the
+                // whole economy to zero on top of the ammo it advertises -
+                // which is a far harsher effect than "Ammo Drain" claims, and
+                // it duplicated the Energy Drain trap by accident. It also
+                // drained units still under construction, which Resupply
+                // skipped.
+                if (BoonEffects.IsEnergyStore(u)) { stores++; continue; }
+                if (u.isBuilding) { ghosts++; continue; }
                 float a = u.ammo;
                 if (a <= 0f) continue;
                 u.ammo = 0f;
@@ -482,7 +522,9 @@ public static class TrapEffects
             }
             catch { }
         }
-        ModCore.Log.LogInfo($"TRAP drain: emptied {n} weapon(s), {drained:0.##} ammo removed");
+        ModCore.Log.LogInfo($"TRAP drain: emptied {n} weapon(s), {drained:0.##} ammo removed"
+                    + (ghosts > 0 ? $" (skipped {ghosts} still under construction)" : "")
+                    + $" [energy stores skipped: {stores}]");
     }
 
     // --- readback + live tuning -------------------------------------------

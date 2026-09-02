@@ -165,6 +165,7 @@ public static class ModCore
         _finaleLock.Tick();
         _locations.Tick();
         TrapEffects.Tick();   // restores a timed trap:emit burst
+        Appliers.BoonEffects.Tick();    // expires a Field Shield
         Appliers.MeasureProbe.Tick();   // in-loop stopwatches, debug only
 
         // Periodic pending-check flush safety (~ every 5s at 60fps).

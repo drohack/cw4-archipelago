@@ -10,46 +10,102 @@ public class EnergyRulesTests
         return s;
     }
 
+    private static SlotState Copies(string item, int n)
+    {
+        var s = new SlotState();
+        var all = new string[n];
+        for (int i = 0; i < n; i++) all[i] = item;
+        s.ApplyReceivedItems(all);
+        return s;
+    }
+
+    // Both curves are LINEAR AND CAPPED, replacing two shapes that were wrong in
+    // opposite directions:
+    //
+    //   storage    decayed geometrically, converging on step/(1-decay), and was
+    //              99 percent spent by copy 21 of 41 - about twenty dead items
+    //   generation ramped UP per copy, so the total grew quadratically to 313
+    //              energy/sec at 54 copies against a natural 3 to 4/sec
+    //
+    // The settings are the MAXIMUM and the COPY COUNT THAT REACHES IT, so the
+    // per-copy step is derived. That makes a dead copy impossible by
+    // construction and matches how the setting is described - "+200 when you
+    // have 8" - and it is also why the step cannot be the option: +10 over 8
+    // copies is 1.25 each, which is not an integer setting.
+
     [Fact]
     public void NoUpgrades_NoBonus()
     {
         var s = new SlotState();
-        Assert.Equal(0f, EnergyRules.StorageBonus(s, 50, 80));
-        Assert.Equal(0f, EnergyRules.GenerationBonus(s, 5, 2));
+        Assert.Equal(0f, EnergyRules.StorageBonus(s, 200, 8));
+        Assert.Equal(0f, EnergyRules.GenerationBonus(s, 10, 8));
     }
 
     [Fact]
-    public void Storage_Diminishes_PerCopy()
+    public void Storage_ReachesTheMaximumOnItsLastCopy()
     {
-        // 50, then 80 percent of each previous: 50, 40, 32.
-        var one = WithItems(EnergyRules.StorageItem);
-        var three = WithItems(EnergyRules.StorageItem, EnergyRules.StorageItem, EnergyRules.StorageItem);
-        Assert.Equal(50f, EnergyRules.StorageBonus(one, 50, 80), 3);
-        Assert.Equal(122f, EnergyRules.StorageBonus(three, 50, 80), 3);
+        // "+200 when you have 8" - so 25 each, exactly on the cap at copy 8.
+        Assert.Equal(25f, EnergyRules.StorageBonus(Copies(EnergyRules.StorageItem, 1), 200, 8), 3);
+        Assert.Equal(100f, EnergyRules.StorageBonus(Copies(EnergyRules.StorageItem, 4), 200, 8), 3);
+        Assert.Equal(200f, EnergyRules.StorageBonus(Copies(EnergyRules.StorageItem, 8), 200, 8), 3);
     }
 
     [Fact]
-    public void Storage_FlatWhenDecayIsFull()
+    public void Storage_AtTheCeiling_Is36CopiesOf25()
     {
-        var three = WithItems(EnergyRules.StorageItem, EnergyRules.StorageItem, EnergyRules.StorageItem);
-        Assert.Equal(150f, EnergyRules.StorageBonus(three, 50, 100), 3);
+        // The top of the option range: +900 over 36 copies is still 25 each.
+        Assert.Equal(25f, EnergyRules.StorageBonus(Copies(EnergyRules.StorageItem, 1), 900, 36), 3);
+        Assert.Equal(900f, EnergyRules.StorageBonus(Copies(EnergyRules.StorageItem, 36), 900, 36), 3);
     }
 
     [Fact]
-    public void Generation_Ramps_PerCopy()
+    public void Generation_ReachesTheMaximumOnItsLastCopy()
     {
-        // Tenths: start 5 (+0.5), ramp 2 (+0.2 more each) -> 0.5, 0.7, 0.9.
-        var one = WithItems(EnergyRules.GenerationItem);
-        var three = WithItems(EnergyRules.GenerationItem, EnergyRules.GenerationItem, EnergyRules.GenerationItem);
-        Assert.Equal(0.5f, EnergyRules.GenerationBonus(one, 5, 2), 3);
-        Assert.Equal(2.1f, EnergyRules.GenerationBonus(three, 5, 2), 3);
+        // "+10 max when you have 8" - 1.25 each, which is why the step is
+        // DERIVED rather than configured: 1.25 is not an integer setting.
+        Assert.Equal(1.25f, EnergyRules.GenerationBonus(Copies(EnergyRules.GenerationItem, 1), 10, 8), 3);
+        Assert.Equal(5f, EnergyRules.GenerationBonus(Copies(EnergyRules.GenerationItem, 4), 10, 8), 3);
+        Assert.Equal(10f, EnergyRules.GenerationBonus(Copies(EnergyRules.GenerationItem, 8), 10, 8), 3);
     }
 
     [Fact]
-    public void Generation_FlatWhenRampIsZero()
+    public void NeitherRunsPastItsMaximum()
     {
-        var three = WithItems(EnergyRules.GenerationItem, EnergyRules.GenerationItem, EnergyRules.GenerationItem);
-        Assert.Equal(1.5f, EnergyRules.GenerationBonus(three, 5, 0), 3);
+        // A hand-edited yaml, or a seed generated before a cap was lowered.
+        Assert.Equal(200f, EnergyRules.StorageBonus(Copies(EnergyRules.StorageItem, 99), 200, 8), 3);
+        Assert.Equal(10f, EnergyRules.GenerationBonus(Copies(EnergyRules.GenerationItem, 99), 10, 8), 3);
+    }
+
+    [Fact]
+    public void EveryCopyUpToTheMaximumIsWorthTheSame()
+    {
+        // The whole point of dropping the decay: under the old curve copy 22
+        // onward granted under 0.6 energy each. Now every copy is identical and
+        // the count that reaches the cap is the count generated.
+        float prev = 0f;
+        for (int n = 1; n <= 8; n++)
+        {
+            var v = EnergyRules.StorageBonus(Copies(EnergyRules.StorageItem, n), 200, 8);
+            Assert.Equal(25f, v - prev, 3);
+            prev = v;
+        }
+    }
+
+    [Fact]
+    public void UsefulCopies_IsTheConfiguredCount()
+    {
+        Assert.Equal(8, EnergyRules.UsefulCopies(8));
+        Assert.Equal(36, EnergyRules.UsefulCopies(36));
+        Assert.Equal(0, EnergyRules.UsefulCopies(0));
+    }
+
+    [Fact]
+    public void ZeroOrNegativeSettings_AreInertRatherThanHarmful()
+    {
+        var s = Copies(EnergyRules.StorageItem, 5);
+        Assert.Equal(0f, EnergyRules.StorageBonus(s, 0, 8));
+        Assert.Equal(0f, EnergyRules.StorageBonus(s, 200, 0));
+        Assert.Equal(0f, EnergyRules.StorageBonus(s, -5, 8));
     }
 
     [Fact]

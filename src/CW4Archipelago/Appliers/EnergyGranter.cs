@@ -56,8 +56,8 @@ public sealed class EnergyGranter
         var state = ModCore.Client.State;
         var slot = state.Hints;
 
-        float storage = EnergyRules.StorageBonus(state, slot.EnergyStorageStep, slot.EnergyStorageDecay);
-        float perSecond = EnergyRules.GenerationBonus(state, slot.BaseGenerationStart, slot.BaseGenerationRamp);
+        float storage = EnergyRules.StorageBonus(state, slot.EnergyStorageMax, slot.EnergyStorageCopies);
+        float perSecond = EnergyRules.GenerationBonus(state, slot.BaseGenerationMax, slot.BaseGenerationCopies);
 
         try
         {

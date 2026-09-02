@@ -228,6 +228,34 @@ public sealed class DebugChannel
             return;
         }
         if (lower == "boon:ammo") { BoonEffects.Resupply(); return; }
+        if (lower == "boon:shield") { BoonEffects.Shield(); return; }
+        if (lower.StartsWith("boon:cache"))
+        {
+            var t = line.Substring(10).Trim().Split(
+                new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            var which = t.Length > 0 ? t[0].ToLowerInvariant() : "bluite";
+            int amt = t.Length > 1 && int.TryParse(t[1], out var ca) ? ca : 0;
+            // "create" selects CreateProducedWares over SetProducedWares,
+            // so a run can measure which write the sim honours.
+            bool create = t.Length > 2 && t[2] == "create";
+            BoonEffects.ResourceCache(which, amt, create);
+            return;
+        }
+        // Starts a surge WITHOUT going through the received-items path, so the
+        // effect can be tested independently of the dispatch that carries it -
+        // which is the whole reason this exists: FireBoon sat uncalled for a
+        // session and no test could have told the difference.
+        if (lower.StartsWith("boon:surge"))
+        {
+            var a = line.Substring(10).Trim();
+            if (int.TryParse(a, out var si) && CW4Archipelago.Core.ErnUpgradeRules.IsValidIndex(si))
+                ErnUpgrades.StartSurge(si);
+            else
+                ModCore.Log.LogWarning(
+                    $"boon:surge needs an upgrade index 0-{CW4Archipelago.Core.ErnUpgradeRules.UpgradeNames.Length - 1}"
+                    + $" (got '{a}')");
+            return;
+        }
         if (lower.StartsWith("boon:energy"))
         {
             float.TryParse(line.Substring(11).Trim(), out var frac);

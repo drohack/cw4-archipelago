@@ -29,7 +29,8 @@ LOCATIONS = (sum(c for c, _, _ in L.INSTANCE_COUNTS.values())
 
 DEFAULTS = {"starter_missions": 2, "progressive_erns": 4, "trap_percentage": 50,
             "traps_off": False, "filler_off": False,
-            "ern_upgrade_copies": 4}
+            "ern_upgrade_copies": 4,
+            "energy_storage_copies": 8, "base_generation_copies": 8}
 
 
 def derive(**o):
@@ -43,7 +44,10 @@ def derive(**o):
     # remainder. Twelve names, capped copies each.
     erns = len(I.ERN_UPGRADE_ITEMS) * min(opt["ern_upgrade_copies"],
                                           I.ERN_UPGRADE_MAX_COPIES)
-    remaining = max(0, LOCATIONS - real - erns)
+    # The energy upgrades are a fixed block too now: their curves are capped, so
+    # the count that reaches the cap is the only count worth generating.
+    energy_block = opt["energy_storage_copies"] + opt["base_generation_copies"]
+    remaining = max(0, LOCATIONS - real - erns - energy_block)
     traps = remaining * opt["trap_percentage"] // 100
     if opt["traps_off"]:            # every trap weight zero -> slots become filler
         traps = 0
@@ -51,7 +55,8 @@ def derive(**o):
     return {"unlocks": unlocks, "units": len(I.UNIT_ITEMS),
             "bonus": len(I.BONUS_UNIT_ITEMS), "erns": opt["progressive_erns"],
             "traps": traps, "filler": filler, "erns": erns,
-            "total": real + erns + traps + filler}
+            "energy": energy_block,
+            "total": real + erns + energy_block + traps + filler}
 
 
 CASES = [
@@ -61,6 +66,8 @@ CASES = [
     ("all traps", {"trap_percentage": 100}),
     ("no erns", {"progressive_erns": 0}),
     ("no ern upgrades", {"ern_upgrade_copies": 0}),
+    ("no energy upgrades", {"energy_storage_copies": 0, "base_generation_copies": 0}),
+    ("max energy upgrades", {"energy_storage_copies": 36, "base_generation_copies": 36}),
     ("one ern upgrade copy", {"ern_upgrade_copies": 1}),
     ("max erns", {"progressive_erns": 40}),
     ("one starter", {"starter_missions": 1}),
@@ -92,7 +99,10 @@ for label, opts in CASES:
     d = derive(**opts)
     m = measured.get(label, {})
     m_traps = sum(v for k, v in m.items() if k in I.TRAP_ITEMS)
-    m_filler = sum(v for k, v in m.items()
+    # "filler" is now the PADDING - the one-shot boon that absorbs the leftover
+    # slots. The energy upgrades moved into their own fixed block.
+    m_filler = sum(v for k, v in m.items() if k in set(I.BOON_ITEMS))
+    m_energy = sum(v for k, v in m.items()
                    if k in (I.ENERGY_STORAGE_ITEM, I.BASE_GENERATION_ITEM))
     m_erns = sum(v for k, v in m.items() if k in set(I.ERN_UPGRADE_ITEMS))
     m_total = sum(m.values())
@@ -109,7 +119,8 @@ for label, opts in CASES:
         continue
 
     ok = (d["traps"] == m_traps and d["filler"] == m_filler
-          and d["erns"] == m_erns and d["total"] == m_total)
+          and d["erns"] == m_erns and d["energy"] == m_energy
+          and d["total"] == m_total)
     bad += 0 if ok else 1
     print(f"{label:<26}{d['traps']:>7}{d['filler']:>8}{d['erns']:>6}{d['total']:>7}   "
           f"{m_traps:>6}{m_filler:>6}{m_erns:>6}{m_total:>6}   "

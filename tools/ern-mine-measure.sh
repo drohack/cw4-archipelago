@@ -14,11 +14,13 @@
 #   Resource.PRODUCTION_INTERVAL   never moves - the upgrade is not written
 #                                  into the node, unlike Fire Rate's COOL_DOWN
 #   total ware held (measure:ware) read a flat 0 -> 0 even while the nodes were
-#                                  visibly producing (counter=24), so
-#                                  GetWareHeld does not see the factory's
-#                                  contents. It would ALSO have saturated once
-#                                  the factory filled, which the designer
-#                                  spotted before it wasted a run.
+#                                  visibly producing (counter=24) - because
+#                                  GetWareHeld reads waresHeld, a factory's
+#                                  INPUT slots, while the mined output stock is
+#                                  Factory.producedWareCounts. Wrong dictionary,
+#                                  not a blind spot. It would ALSO have
+#                                  saturated once the factory filled, which the
+#                                  designer spotted before it wasted a run.
 #
 # The factory build button shows a live RATE, and a rate does not saturate when
 # storage fills:

@@ -69,6 +69,33 @@ And one thing that is neither: reachability is checked exhaustively over the
 region graph, every location against an all-items state. That is a proof for that
 property, not a sample, and it should not be reported as "N seeds looked fine".
 
+## A zero from an unverified harness is not a measurement
+
+CI hit one `FillError` in `TestCasualLogic.test_fill`. Two things about that test
+matter and neither is obvious: it draws a FRESH RANDOM SEED every run, so the
+commit that passed before it proves nothing, and casual is the HARSHER setting
+despite the name - `rules._casual_defense` ADDS a requirement from mission 6 on.
+
+Hunting the rate produced the instructive part. A first sampling harness
+reported **0/200** and "under 0.5 percent". Adding a positive control - force a
+`FillError` and confirm the loop reports it - turned the same configuration into
+**1/100**. Two independent reasons that zero was worthless:
+
+- the harness had never been shown capable of reporting a failure at all, so
+  "0/200" and "this loop does not run the test" look identical
+- at a 1 percent rate, drawing zero from 200 happens about 13 percent of the
+  time anyway
+
+So: **before believing a zero, prove the harness can produce a one.**
+`tools/audit/casualrate.py` now forces a failure before sampling and refuses to
+print a rate if the control does not fire.
+
+And for a sub-percent rate, sampling is the weak instrument. 0/800 after the fix
+is only about 90 percent confidence; `tools/audit/bootstrapcheck.py` asks the
+structural question instead - is the threshold 3 under casual and 2 otherwise,
+does `needs_bootstrap` now fire, did `bootstrap_opening` place anything - and
+answers it in two seeds rather than thousands.
+
 ## Measurement traps
 
 Every one of these produced a confidently wrong number first.
@@ -162,6 +189,8 @@ Every one of these produced a confidently wrong number first.
 | 2026-09-02 | `7ef049c`+ | Pool arithmetic vs generated, 14 configurations | 14/14 exact, including both ends of `ern_upgrade_copies` |
 | 2026-09-02 | `7ef049c`+ | Default pool | 20 unlocks, 21 units, 3 bonus, 1 ERN, 48 ERN upgrades, 71 traps, 71 energy |
 | 2026-09-02 | `7ef049c`+ | `derive.py` stale-cache guard | caught its own false 12/12 pass |
+| 2026-09-02 | `4637887` | CASUAL logic fill, 0.6.7, control-verified | **1/100 then 1/600 FillError** - long-standing, not new |
+| 2026-09-02 | working tree | Same after `bootstrap_threshold` +1 for casual | 0/800, and the bootstrap provably engages |
 
 ## Open, from the numbers above
 

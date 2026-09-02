@@ -270,55 +270,57 @@ class TrapWeightAmmoDrain(Range):
     default = 100
 
 
-class EnergyStorageStep(Range):
-    """Energy capacity granted by the FIRST Progressive Energy Storage.
+class EnergyStorageMax(Range):
+    """How much the rift lab's energy STORE grows once you hold every copy.
 
-    Raises the rift lab's storage ceiling, which is the buffer construction draws
-    from - a bigger buffer means more sustained building before you stall. The
-    campaign starts with a ceiling of 100, so the default is a substantial boost.
+    The store is how much energy you can bank, not how fast it arrives. The
+    rift lab's own store is about 100, so the 900 ceiling is roughly 1000 total.
+
+    Paired with the copy count below: the per-copy value is derived from the
+    two, so the last copy lands exactly on this maximum and no copy is ever
+    wasted. 200 over 8 copies is 25 each.
     """
-    display_name = "Energy Storage Step"
-    range_start = 10
-    range_end = 500
-    default = 50
-
-
-class EnergyStorageDecay(Range):
-    """Percent of the previous upgrade that each LATER storage upgrade grants.
-
-    Storage has diminishing returns, so copies are worth progressively less: at
-    the default 80 percent, a 50-point step gives 50, 40, 32, 25 and so on. Set
-    to 100 for a flat bonus per copy.
-    """
-    display_name = "Energy Storage Decay (percent)"
-    range_start = 10
-    range_end = 100
-    default = 80
-
-
-class BaseGenerationStart(Range):
-    """Energy per second granted by the FIRST Progressive Base Generation, in TENTHS.
-
-    The default of 5 is +0.5/sec. A fresh mission generates about 1/sec, so the
-    first copy is already a noticeable lift.
-    """
-    display_name = "Base Generation Start (tenths per second)"
-    range_start = 1
-    range_end = 20
-    default = 5
-
-
-class BaseGenerationRamp(Range):
-    """How much MORE each later generation upgrade grants, in TENTHS per second.
-
-    Generation ramps rather than staying flat: at the default, copies grant
-    0.5, 0.7, 0.9 and so on, so a long game keeps feeling like progress. Set to 0
-    for a flat bonus per copy.
-    """
-    display_name = "Base Generation Ramp (tenths per second)"
+    display_name = "Energy Storage Maximum"
     range_start = 0
-    range_end = 20
-    default = 2
+    range_end = 900
+    default = 200
+
+
+class EnergyStorageCopies(Range):
+    """How many Progressive Energy Storage items are in the pool, and therefore
+    how many it takes to reach the maximum above.
+
+    This is exactly the number generated - there is no such thing as a spare
+    copy, because the per-copy value is the maximum divided by this.
+    """
+    display_name = "Energy Storage Copies"
+    range_start = 0
+    range_end = 36
+    default = 8
+
+
+class BaseGenerationMax(Range):
+    """How much energy per second the rift lab GENERATES once you hold every
+    copy - income, as opposed to the store above.
+
+    For scale, CW4's own production is about 3 to 4 energy/sec, so the default
+    of 10 roughly triples the economy at full stack and the 100 ceiling is a
+    cheat setting.
+    """
+    display_name = "Base Generation Maximum"
+    range_start = 0
+    range_end = 100
+    default = 10
+
+
+class BaseGenerationCopies(Range):
+    """How many Progressive Base Generation items are in the pool, and how many
+    it takes to reach the maximum above. 10 over 8 copies is 1.25 each.
+    """
+    display_name = "Base Generation Copies"
+    range_start = 0
+    range_end = 36
+    default = 8
 
 
 class FillerEnergyStorageWeight(Range):
@@ -371,10 +373,10 @@ class CW4Options(PerGameCommonOptions):
     trap_weight_emitter_overdrive: TrapWeightEmitterOverdrive
     trap_weight_unit_stun: TrapWeightUnitStun
     trap_weight_ammo_drain: TrapWeightAmmoDrain
-    energy_storage_step: EnergyStorageStep
-    energy_storage_decay: EnergyStorageDecay
-    base_generation_start: BaseGenerationStart
-    base_generation_ramp: BaseGenerationRamp
+    energy_storage_max: EnergyStorageMax
+    energy_storage_copies: EnergyStorageCopies
+    base_generation_max: BaseGenerationMax
+    base_generation_copies: BaseGenerationCopies
     filler_energy_storage_weight: FillerEnergyStorageWeight
     filler_base_generation_weight: FillerBaseGenerationWeight
     filler_build_limit_weight: FillerBuildLimitWeight
@@ -414,10 +416,10 @@ option_groups = [
         ErnCapMaxBuildSpeed,
     ], start_collapsed=True),
     OptionGroup("Energy Upgrades", [
-        EnergyStorageStep,
-        EnergyStorageDecay,
-        BaseGenerationStart,
-        BaseGenerationRamp,
+        EnergyStorageMax,
+        EnergyStorageCopies,
+        BaseGenerationMax,
+        BaseGenerationCopies,
     ], start_collapsed=True),
 ]
 

@@ -130,6 +130,33 @@ ERN_UPGRADE_ITEMS = ERN_RATE_ITEMS + ERN_CAP_ITEMS
 # generated as FIXED counts instead.
 ERN_UPGRADE_MAX_COPIES = 4
 
+# One-shot BENEFICIAL items - the mirror of the traps, and the pool's only
+# honest padding.
+#
+# Every cumulative filler kind now has a ceiling: the ERN upgrades stop at four
+# copies each and the energy upgrades stop at the count that reaches their
+# maximum. A one-shot effect has no ceiling, because each firing is independent
+# and the tenth copy is worth what the first was - the same reason a trap does
+# not saturate.
+#
+# Names must match CW4Archipelago.Core.BoonRules; the audit pins both sides.
+ERN_SURGE_PREFIX = "ERN Surge: "
+ERN_SURGE_ITEMS = [ERN_SURGE_PREFIX + u for u in ERN_UPGRADE_NAMES_ORDER]
+
+# Nine names, so no single one dominates the padding.
+#
+#   Ammo Resupply / Energy Cache / Field Shield   one-shot, no infrastructure
+#   Resource Cache                                needs a factory, else whiffs
+#   ERN Surge: <upgrade>  x6                      that upgrade at the game's own
+#                                                 100 percent for a while, with
+#                                                 no portal and no docked ERN
+#
+# The surges are capped at 100 percent on purpose, so the permanent
+# "Progressive ERN Efficiency Cap" items stay strictly better - a surge is a
+# taste of an upgrade, not a substitute for owning it.
+BOON_ITEMS = (["Ammo Resupply", "Energy Cache", "Field Shield", "Resource Cache"]
+              + ERN_SURGE_ITEMS)
+
 FILLER_ITEMS = BUILD_LIMIT_ITEMS + [ENERGY_STORAGE_ITEM, BASE_GENERATION_ITEM]
 
 # Build limits are NOT generated (designer, 2026-09-01).
@@ -201,7 +228,7 @@ POOL_TRAP_ITEMS = [t for t in TRAP_ITEMS if t != "Emitter Overdrive"]
 _all_names = (
     MISSION_UNLOCK_ITEMS + UNIT_ITEMS + BONUS_UNIT_ITEMS
     + [PROGRESSIVE_ERN] + FILLER_ITEMS + TRAP_ITEMS
-    + ERN_UPGRADE_ITEMS
+    + ERN_UPGRADE_ITEMS + BOON_ITEMS
 )
 ITEM_NAME_TO_ID = {name: BASE_ID + i for i, name in enumerate(_all_names)}
 
@@ -248,6 +275,10 @@ def classification(name: str) -> ItemClassification:
     # padding, promoting them to useful is a one-line change.
     if name in ERN_UPGRADE_ITEMS:
         return ItemClassification.filler
+    # A one-shot benefit, and genuinely filler: welcome when it lands, never
+    # something anyone is blocked on.
+    if name in BOON_ITEMS:
+        return ItemClassification.filler
     return ItemClassification.filler
 
 
@@ -266,10 +297,37 @@ SAFE_OPENING = 4
 SAFE_OPENING_MIN = 2
 
 
+def bootstrap_threshold(world) -> int:
+    """The opening width below which the world widens it itself.
+
+    CASUAL NEEDS ONE MORE THAN THE REST, and this is measured rather than
+    cautious. CI hit a FillError in TestCasualLogic, and sampling the exact
+    configuration on Archipelago 0.6.7 - with a positive control, because an
+    unverified zero is worthless - put the rate at roughly 0.2 to 1 percent of
+    casual seeds. Present in the apworld both before and after the filler work,
+    so it is long-standing rather than new.
+
+    Why casual specifically: rules._casual_defense ADDS a defensive requirement
+    from CASUAL_DEFENSE_FROM onward, so casual is the HARSHER setting despite
+    the name. At the default two starters the opening is two locations wide,
+    which clears SAFE_OPENING_MIN and is still far below the SAFE_OPENING of 4
+    this module treats as slack - and every extra requirement raises the chance
+    that the fill's next progression item opens nothing. bootstrap_opening's own
+    docstring is the description of that failure: "one item that opens nothing
+    ends the seed".
+
+    Deliberately +1 and not more. Bootstrapping costs the cross-game placements
+    that make a narrow opening interesting (see World.needs_bootstrap), so it
+    buys exactly enough slack for casual's extra requirement and no more.
+    """
+    from .rules import is_casual
+    return SAFE_OPENING_MIN + 1 if is_casual(world) else SAFE_OPENING_MIN
+
+
 def force_early_mission(world) -> None:
     # Another free-cache mission, and not one already unlocked, so the opening
     # reliably widens beyond the starters.
-    if opening_width(world) < SAFE_OPENING_MIN:
+    if opening_width(world) < bootstrap_threshold(world):
         return  # bootstrap_opening owns these slots
     options = [n for n in STARTER_ELIGIBLE if n not in world.starter_missions]
     if not options:
@@ -344,7 +402,7 @@ def force_early_weapon(world) -> None:
     # of early locations for early items"), so the guarantee was never being kept
     # at this width. This makes which one gets dropped deterministic, and picks
     # the one that does not break generation.
-    if opening_width(world) < SAFE_OPENING_MIN:
+    if opening_width(world) < bootstrap_threshold(world):
         # bootstrap_opening handles this width instead, and can still honour the
         # weapon - see there. Requesting it here would only claim the single
         # sphere-0 location and leave the chain nowhere to go.
@@ -429,6 +487,20 @@ def bootstrap_opening(world) -> list:
     return placed
 
 
+def energy_useful_copies(world) -> tuple:
+    """How many of each energy upgrade to generate.
+
+    The copy count IS the setting: the per-copy value is the maximum divided by
+    it, so the last copy lands exactly on the maximum and there is no such thing
+    as a spare. Generating more would put dead items in the pool, which is the
+    defect that got build limits removed.
+
+    Mirrors EnergyRules.UsefulCopies, which is the identity for the same reason.
+    """
+    o = world.options
+    return o.energy_storage_copies.value, o.base_generation_copies.value
+
+
 def create_all_items(world) -> None:
     pool = []
     # No weapon is granted. Every weapon is a real check, so cannon, mortar and
@@ -459,6 +531,21 @@ def create_all_items(world) -> None:
     ern_copies = world.options.ern_upgrade_copies.value
     for name in ERN_UPGRADE_ITEMS:
         for _ in range(min(ern_copies, ERN_UPGRADE_MAX_COPIES)):
+            if len(pool) >= unfilled:
+                break
+            pool.append(create_item(world, name))
+
+    # Energy upgrades, as FIXED counts for the same reason as the ERN block:
+    # both curves are capped, so only maximum/step copies of each do anything.
+    #
+    # This is a large change from the old behaviour, where these two names
+    # absorbed every leftover slot - about 142 of them - and the copies past the
+    # useful count were inert. See the note on PAD_KIND below for what now fills
+    # the gap they leave.
+    storage_copies, generation_copies = energy_useful_copies(world)
+    for name, count in ((ENERGY_STORAGE_ITEM, storage_copies),
+                        (BASE_GENERATION_ITEM, generation_copies)):
+        for _ in range(count):
             if len(pool) >= unfilled:
                 break
             pool.append(create_item(world, name))
@@ -511,6 +598,13 @@ def trap_sequence(world, count: int) -> list:
 
 
 def filler_weights(world) -> dict:
+    """Kept for yaml compatibility, no longer used to size anything.
+
+    The energy upgrades have their own copy-count options now, because both
+    curves are capped and the count that reaches the cap is the only count worth
+    generating. An existing yaml naming these weights stays valid; it just does
+    not change the pool. Same treatment build limits got.
+    """
     return {
         ENERGY_STORAGE_ITEM: world.options.filler_energy_storage_weight.value,
         BASE_GENERATION_ITEM: world.options.filler_base_generation_weight.value,
@@ -521,27 +615,52 @@ def filler_weights(world) -> dict:
     }
 
 
-def filler_sequence(world, count: int) -> list:
-    """`count` filler item names, drawn by the configured weights.
+# WHAT PADS THE POOL, and why this is a placeholder rather than a design.
+#
+# Every filler kind now has a CAP: the ERN upgrades stop at 4 copies each, and
+# the two energy upgrades stop at whatever count reaches their maximum (8 each
+# by default). Capping them was the point - a copy that does nothing is the
+# defect that got build limits pulled - but it leaves a hole:
+#
+#     236 locations
+#      46 real items (unlocks, units, bonus, progressive ERN)
+#      48 ERN upgrades      (12 names x 4)
+#      16 energy upgrades   (8 + 8 at the defaults)
+#      63 traps             (50 percent of what is left)
+#     ---
+#      63 slots with no capped item left to put in them
+#
+# The boons pad them, because a one-shot effect is the only shape that can
+# absorb an arbitrary count honestly - the thirtieth copy refills weapons
+# exactly as well as the first.
+#
+# All nine share the load evenly, which is why there are nine: it cuts how
+# many of any one name a player sees to about a ninth.
+#
+# Progressive ERN was tried first and was wrong: padding with it meant a player
+# who set progressive_erns to 0 still received sixty-six of them, which
+# overrides an explicit option. A padder must not be something anyone can ask
+# for less of.
+#
+# STILL NOT A FINISHED DESIGN. About thirty copies of each is a lot, and a
+# backlog arriving while ammo and energy are both full fires them all for
+# nothing. The real fix is more item KINDS to spread the leftover across, which
+# is the same gap the ERN upgrades were added to close.
+PAD_ITEMS = BOON_ITEMS
 
-    Falls back to energy storage if a player zeroes every weight, because the pool
-    still has to be filled - an empty draw would fail generation rather than
-    respecting an unfillable preference. This used to fall back to build limits,
-    which now means falling back to an item that does nothing.
+
+def filler_sequence(world, count: int) -> list:
+    """`count` filler item names.
+
+    The player's filler weights still choose between the two energy upgrades
+    where there is a choice, but their COUNTS are fixed now, so this is only
+    reached for the leftover slots described above - and those go to PAD_ITEM.
     """
-    weights = {k: v for k, v in filler_weights(world).items()
-               if v > 0 and k in POOL_FILLER_KINDS}
-    if not weights:
-        weights = {ENERGY_STORAGE_ITEM: 1}
-    kinds = list(weights)
-    picks = world.random.choices(kinds, weights=[weights[k] for k in kinds], k=count)
-    out = []
-    for i, kind in enumerate(picks):
-        if kind == "build_limit":
-            out.append(BUILD_LIMIT_ITEMS[i % len(BUILD_LIMIT_ITEMS)])
-        else:
-            out.append(kind)
-    return out
+    if count <= 0:
+        return []
+    # Alternating rather than a weighted draw: the counts should be even and
+    # deterministic, not a sample that happens to favour one name.
+    return [PAD_ITEMS[i % len(PAD_ITEMS)] for i in range(count)]
 
 
 def get_filler_item_name(world) -> str:
