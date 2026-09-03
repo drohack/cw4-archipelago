@@ -46,6 +46,7 @@ public sealed class DebugChannel
     public void Tick()
     {
         HoldSim();
+        KeyWatch();
         if (--_pollCountdown > 0)
             return;
         _pollCountdown = 30;
@@ -132,6 +133,9 @@ public sealed class DebugChannel
         if (lower.StartsWith("say:")) { ModCore.Client.Say(line.Substring(4).Trim()); return; }
         if (lower.StartsWith("showall:")) { ModCore.SetShowAll(line.Substring(8).Trim() == "on"); return; }
         if (lower == "canvas:dump") { CanvasDump(); return; }
+        if (lower == "ui:input") { InputDump(); return; }
+        if (lower.StartsWith("ui:keys")) { _keyWatch = line.Substring(7).Trim() != "off"; 
+            ModCore.Log.LogInfo($"KEYWATCH: {(_keyWatch ? "on" : "off")}"); return; }
         if (lower == "msgbox:dump")
         {
             ModCore.Log.LogInfo($"MSGBOX DUMP: history={ModCore.MessageHistory.Count}");
@@ -590,6 +594,88 @@ public sealed class DebugChannel
         }
         catch { }
         ModCore.Log.LogInfo($"DEBUG UNITS: allowed=[{string.Join(",", allowed)}] structButtons={structButtons}");
+    }
+
+    /// <summary>
+    /// Why can a player not type into the login panel? A TMP_InputField needs
+    /// three things the panel does not currently verify: an active EventSystem,
+    /// an input module driving it, and a GraphicRaycaster on the canvas it was
+    /// parented to. BuildPanel takes the FIRST root canvas FindObjectsOfType
+    /// returns, which is not a documented order - so the panel can land on a
+    /// canvas that renders but cannot be clicked.
+    /// </summary>
+    private static bool _keyWatch;
+
+    /// <summary>Does a keystroke reach Unity at ALL?
+    ///
+    /// Needed because an injected-key test that changes nothing is ambiguous:
+    /// the key may never have reached the process (Windows refuses foreground
+    /// to a background console), or it may have reached it and been dropped by
+    /// the input field. Input.inputString is upstream of every uGUI widget, so
+    /// a line here means the key arrived and the field is at fault; silence
+    /// means the injection failed and the test proves nothing.</summary>
+    private static void KeyWatch()
+    {
+        if (!_keyWatch) return;
+        try
+        {
+            var s = Input.inputString;
+            if (!string.IsNullOrEmpty(s))
+            {
+                var es = UnityEngine.EventSystems.EventSystem.current;
+                ModCore.Log.LogInfo($"KEYWATCH: inputString='{s}' " +
+                    $"selected={(es == null || es.currentSelectedGameObject == null ? "none" : es.currentSelectedGameObject.name)}");
+            }
+        }
+        catch { }
+    }
+
+    private static void InputDump()
+    {
+        var es = UnityEngine.EventSystems.EventSystem.current;
+        ModCore.Log.LogInfo($"INPUTDUMP: EventSystem.current=" +
+            (es == null ? "NULL" : es.gameObject.name));
+        if (es != null)
+            ModCore.Log.LogInfo($"INPUTDUMP:   esActive={es.isActiveAndEnabled} " +
+                $"module={(es.currentInputModule == null ? "NULL" : es.currentInputModule.GetIl2CppType().Name)} " +
+                $"selected={(es.currentSelectedGameObject == null ? "none" : es.currentSelectedGameObject.name)}");
+
+        foreach (var m in UnityEngine.Object.FindObjectsOfType<UnityEngine.EventSystems.BaseInputModule>())
+            if (m != null)
+                ModCore.Log.LogInfo($"INPUTDUMP:   module '{m.gameObject.name}' " +
+                    $"{m.GetIl2CppType().Name} active={m.isActiveAndEnabled}");
+
+        foreach (var cv in UnityEngine.Object.FindObjectsOfType<Canvas>())
+        {
+            if (cv == null || !cv.isRootCanvas) continue;
+            GraphicRaycaster? gr = null;
+            try { gr = cv.GetComponent<GraphicRaycaster>(); } catch { }
+            ModCore.Log.LogInfo($"INPUTDUMP:   rootCanvas '{cv.gameObject.name}' " +
+                $"raycaster={(gr != null)} rcEnabled={(gr != null && gr.enabled)} " +
+                $"order={cv.sortingOrder} active={cv.isActiveAndEnabled}");
+        }
+
+        var panel = GameObject.Find("CW4ApPanel");
+        ModCore.Log.LogInfo($"INPUTDUMP: panel={(panel == null ? "NULL" : "found")}");
+        if (panel != null)
+        {
+            var pc = panel.GetComponentInParent<Canvas>();
+            GraphicRaycaster? pgr = null;
+            try { if (pc != null) pgr = pc.rootCanvas.GetComponent<GraphicRaycaster>(); } catch { }
+            ModCore.Log.LogInfo($"INPUTDUMP:   hostCanvas=" +
+                $"'{(pc != null ? pc.rootCanvas.gameObject.name : "null")}' " +
+                $"hostRaycaster={(pgr != null)} panelActive={panel.activeInHierarchy}");
+            foreach (var f in panel.GetComponentsInChildren<TMPro.TMP_InputField>(true))
+            {
+                if (f == null) continue;
+                Image? img = null;
+                try { img = f.GetComponent<Image>(); } catch { }
+                ModCore.Log.LogInfo($"INPUTDUMP:   field '{f.gameObject.name}' " +
+                    $"interactable={f.interactable} focused={f.isFocused} " +
+                    $"raycastTarget={(img != null && img.raycastTarget)} " +
+                    $"text='{f.text}'");
+            }
+        }
     }
 
     private static void CanvasDump()

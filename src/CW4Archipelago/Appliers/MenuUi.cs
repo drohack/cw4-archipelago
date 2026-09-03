@@ -216,9 +216,29 @@ public sealed class MenuUi
 
     private void BuildPanel()
     {
+        // Pick the host canvas DETERMINISTICALLY.
+        //
+        // This used to take the first root canvas FindObjectsOfType returned,
+        // and that order is not specified. The menu has three - MainMenuCanvas
+        // (sortingOrder 0), "Modal And Notification Canvas" (50) and
+        // AchievementCanvas (99) - so the panel could land under a canvas that
+        // covers the screen, where it still RENDERS but never receives a click:
+        // every field looks dead and nothing can be typed into it. Take the
+        // topmost canvas that can actually be clicked instead, which is the one
+        // it has been landing on by luck, and say so in the log so a repeat
+        // report is diagnosable from LogOutput.log alone.
         Canvas host = null!;
+        int bestOrder = int.MinValue;
         foreach (var cv in UnityEngine.Object.FindObjectsOfType<Canvas>())
-            if (cv != null && cv.isRootCanvas) { host = cv; break; }
+        {
+            if (cv == null || !cv.isRootCanvas || !cv.isActiveAndEnabled) continue;
+            GraphicRaycaster? gr = null;
+            try { gr = cv.GetComponent<GraphicRaycaster>(); } catch { }
+            if (gr == null || !gr.enabled) continue;      // renders but cannot be clicked
+            if (cv.sortingOrder < bestOrder) continue;
+            bestOrder = cv.sortingOrder;
+            host = cv;
+        }
         if (host == null)
             throw new Exception("no host canvas");
 
@@ -263,7 +283,27 @@ public sealed class MenuUi
         _status.enableWordWrapping = true;
 
         BuildCompact(host);
-        ModCore.Log.LogInfo("MENU: AP panel created");
+        EnsureEventSystem();
+        ModCore.Log.LogInfo($"MENU: AP panel created on canvas '{host.gameObject.name}' " +
+            $"(sortingOrder {host.sortingOrder}, raycaster ok)");
+    }
+
+    /// <summary>A uGUI text field is dead without an EventSystem to focus it.
+    /// The game supplies one, so this only ever fires if that changes - but the
+    /// failure it prevents (a panel that draws and cannot be typed into) is
+    /// indistinguishable by eye from several other faults, so it is worth the
+    /// six lines to rule out.</summary>
+    private static void EnsureEventSystem()
+    {
+        try
+        {
+            if (UnityEngine.EventSystems.EventSystem.current != null) return;
+            var go = new GameObject("CW4ApEventSystem");
+            go.AddComponent<UnityEngine.EventSystems.EventSystem>();
+            go.AddComponent<UnityEngine.EventSystems.StandaloneInputModule>();
+            ModCore.Log.LogWarning("MENU: no EventSystem found - created one so the panel can take input");
+        }
+        catch (Exception e) { ModCore.Log.LogWarning($"MENU: EventSystem check failed: {e.Message}"); }
     }
 
     // Compact status line for the level-select screen (top-left).

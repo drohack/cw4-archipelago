@@ -65,8 +65,10 @@ Covered so far:
    launch is slow - BepInEx is generating interop assemblies.
 3. **Mod**: unzip `CW4Archipelago-vX.Y.Z.zip` from the
    [releases page](../../releases) into the same game folder.
-4. **Archipelago host**: put `cw4.apworld` (same release) into your
-   Archipelago installation's `custom_worlds/` folder.
+4. **Archipelago host** (only if you are generating the multiworld): install
+   [Archipelago](https://github.com/ArchipelagoMW/Archipelago/releases/latest)
+   0.6.7 or newer, put `cw4.apworld` (same release) into its `custom_worlds/`
+   folder, and `Creeper World 4.yaml` into `Players/`.
 
 Details, the yaml options, and troubleshooting:
 [docs/installation.md](docs/installation.md).

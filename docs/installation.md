@@ -1,13 +1,34 @@
 # Installation
 
+## What to download
+
+Three files, and every step below says which one it needs.
+
+| file | where |
+|---|---|
+| `BepInEx-Unity.IL2CPP-win-x64-6.0.0-pre.2.zip` | [BepInEx 6.0.0-pre.2 release](https://github.com/BepInEx/BepInEx/releases/tag/v6.0.0-pre.2) |
+| `CW4Archipelago-vX.Y.Z.zip` (the mod) | [this project's releases](https://github.com/drohack/cw4-archipelago/releases/latest) |
+| `cw4.apworld` and `Creeper World 4.yaml` | same release as the mod |
+
+Plus [Archipelago](https://github.com/ArchipelagoMW/Archipelago/releases/latest)
+itself, **0.6.7 or newer**, if you are the one generating the multiworld. A
+player who is only joining someone else's game does not need it.
+
 ## Requirements
 
 - Creeper World 4 (Steam, Windows). Tested against the current Steam build
   (Unity 2019.4.23f1, IL2CPP).
-- BepInEx 6, IL2CPP, win-x64, version 6.0.0-pre.2. This exact build is what
-  the mod is developed and crash-tested against:
-  https://github.com/BepInEx/BepInEx/releases/tag/v6.0.0-pre.2
-  (file: `BepInEx-Unity.IL2CPP-win-x64-6.0.0-pre.2.zip`)
+- BepInEx **6**, IL2CPP, win-x64, version 6.0.0-pre.2.
+
+  **Why 6 and not 5:** Creeper World 4 is an IL2CPP build of Unity, and
+  BepInEx 5 only supports Mono games. IL2CPP support arrives in the BepInEx 6
+  pre-releases, so 5 will not load at all here - it is not a matter of
+  preferring the newer one.
+
+  **Why that exact pre-release:** 6.0.0-pre.2 is what the mod is developed and
+  crash-tested against. Later pre-releases change the Il2CppInterop surface the
+  mod compiles against, so mixing versions tends to fail at load with a type
+  error rather than anything self-explanatory.
 
 ## Step 1: Install BepInEx
 
@@ -27,8 +48,9 @@ BepInEx is generating interop assemblies for the game. This happens once.
 
 ## Step 3: Install the mod
 
-Unzip `CW4Archipelago-vX.Y.Z.zip` (from the releases page) into the same
-game folder. It adds `BepInEx/plugins/CW4Archipelago/` with the mod and its
+Unzip `CW4Archipelago-vX.Y.Z.zip` - from
+[this project's releases](https://github.com/drohack/cw4-archipelago/releases/latest) -
+into the same game folder. It adds `BepInEx/plugins/CW4Archipelago/` with the mod and its
 libraries.
 
 Launch the game. The main menu now shows the Archipelago connection panel;
@@ -37,13 +59,29 @@ hidden while the mod is active.
 
 ## Step 4: Archipelago host setup
 
-Whoever generates the multiworld needs `cw4.apworld` (from the same release)
-in their Archipelago installation's `custom_worlds/` folder, and each CW4
-player needs a yaml with `game: Creeper World 4`. A ready-to-use one ships with
-the release as `Creeper World 4.yaml` - drop it in `Players/` and edit the name.
+This step is only for whoever GENERATES the multiworld. If you are joining a
+game someone else generated, skip to "Connecting".
 
-Requires **Archipelago 0.6.7 or newer**, which is what the world is tested
-against in CI.
+1. Install [Archipelago](https://github.com/ArchipelagoMW/Archipelago/releases/latest)
+   **0.6.7 or newer** - that is the version the world is tested against in CI,
+   and the one its `archipelago.json` declares as its minimum.
+2. Put `cw4.apworld` (from the same release as the mod) into the Archipelago
+   installation's `custom_worlds/` folder. Create it if it is not there.
+
+   **Which folder is that?** Archipelago uses its install folder when that is
+   writable, and `%USERPROFILE%/Archipelago` when it is not - so an install
+   under `Program Files` puts your files in the second one while a portable or
+   source copy keeps them alongside the program. Rather than guess: the folder
+   holding `Players/` is the one that also wants `custom_worlds/`.
+3. Put `Creeper World 4.yaml` (same release) into `Players/`, and edit `name:`
+   to your slot name. Every option has a default, so you can change nothing
+   else and it will generate.
+4. Run `ArchipelagoGenerate.exe` (or `python Generate.py`). It writes a seed
+   archive to `output/` containing a `.archipelago` multidata file - that is
+   what gets hosted.
+
+To check the world loaded, the generator prints a line per game; look for
+`Creeper World 4` with its version and location count.
 
 ## Yaml options
 

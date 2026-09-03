@@ -6,12 +6,22 @@ using Il2CppInterop.Runtime.Injection;
 
 namespace CW4Archipelago;
 
-[BepInPlugin("com.droha.cw4archipelago", "CW4 Archipelago", "0.1.1")]
+[BepInPlugin("com.droha.cw4archipelago", "CW4 Archipelago", Plugin.Version)]
 public class Plugin : BasePlugin
 {
+    /// <summary>The one place this plugin's version is written.
+    ///
+    /// It used to appear here twice as a literal AND in the csproj AND in
+    /// apworld/cw4/archipelago.json, and after v0.1.1 shipped, main kept
+    /// calling itself 0.1.1 through twelve commits - including an item rename.
+    /// A build and a seed could then both say "0.1.1" and disagree about what
+    /// items are called. package-release.ps1 now refuses to build unless this,
+    /// the csproj Version and world_version all match.</summary>
+    public const string Version = "0.1.2";
+
     public override void Load()
     {
-        Log.LogInfo("CW4 Archipelago v0.1.1 loading");
+        Log.LogInfo($"CW4 Archipelago v{Version} loading");
 
         var mcnet = typeof(Archipelago.MultiClient.Net.ArchipelagoSessionFactory).Assembly.GetName();
         Log.LogInfo($"Archipelago.MultiClient.Net {mcnet.Version} available");

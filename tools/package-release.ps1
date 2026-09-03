@@ -14,10 +14,30 @@ New-Item -ItemType Directory -Force $dist | Out-Null
 
 # --- plugin zip ---
 $proj = Join-Path $repo "src\CW4Archipelago\CW4Archipelago.csproj"
-dotnet build -c Release -v q $proj
-if ($LASTEXITCODE -ne 0) { throw "build failed" }
 [xml]$csproj = Get-Content $proj
 $version = ($csproj.Project.PropertyGroup.Version | Where-Object { $_ }) | Select-Object -First 1
+
+# The version is written in three files, and after v0.1.1 shipped they drifted:
+# main kept calling itself 0.1.1 through twelve commits, one of which renamed
+# every progressive item. A player then had a mod and a seed that both said
+# "0.1.1" and disagreed about what the items were called, and nothing in the
+# build objected. Refuse to package unless all three agree.
+$pluginCs = Get-Content (Join-Path $repo "src\CW4Archipelago\Plugin.cs") -Raw
+if ($pluginCs -notmatch 'public const string Version = "([^"]+)"') {
+    throw "could not read Plugin.Version from Plugin.cs"
+}
+$pluginVersion = $Matches[1]
+$worldMeta = Get-Content (Join-Path $repo "apworld\cw4\archipelago.json") -Raw | ConvertFrom-Json
+$worldVersion = $worldMeta.world_version
+if ($version -ne $pluginVersion -or $version -ne $worldVersion) {
+    throw ("version mismatch - csproj $version, Plugin.cs $pluginVersion, " +
+           "archipelago.json $worldVersion. Bump all three before releasing.")
+}
+Write-Output "version $version (csproj, Plugin.cs and archipelago.json agree)"
+
+dotnet build -c Release -v q $proj
+if ($LASTEXITCODE -ne 0) { throw "build failed" }
+
 $out = Join-Path $repo "src\CW4Archipelago\bin\Release"
 $stage = Join-Path $env:TEMP "cw4ap-stage"
 if (Test-Path $stage) { Remove-Item -Recurse -Force $stage }
