@@ -137,10 +137,15 @@ done
 mark
 send "glyphs:dump Farsite"
 sleep 3
-active=$(since | grep "DEBUG GLYPHS: story1 " | grep "active=ON" | grep -o "obj=[0-9]*" | cut -d= -f2 | tr '\n' ',')
-verdict $([ "$active" = "4,5," ] && echo 0 || echo 1) "Farsite icons are Collect,Custom (got ${active:-none})"
+# Farsite draws its Custom check as the TOTEMS icon, so the marker's objective
+# field reads 1 where the location is still "Farsite - Custom" - see
+# MissionRules.IconAlias. Both assertions below asserted the pre-alias drawing
+# and had to move with it: the alias is the feature, not a regression. Sorted,
+# because the order is whatever order the glyph children come back in.
+active=$(since | grep "DEBUG GLYPHS: story1 " | grep "active=ON" | grep -o "obj=[0-9]*" | cut -d= -f2 | sort -n | tr '\n' ',')
+verdict $([ "$active" = "1,4," ] && echo 0 || echo 1) "Farsite icons are Collect and Custom-drawn-as-Totems (got ${active:-none})"
 n=$(since | grep "DEBUG GLYPHS: story1 " | grep -c "active=ON.*tex='ObjTotem'")
-verdict $([ "$n" = 0 ] && echo 0 || echo 1) "no active totems icon on Farsite (got $n)"
+verdict $([ "$n" = 1 ] && echo 0 || echo 1) "the aliased Custom icon uses the totem texture (got $n)"
 n=$(since | grep -c "DEBUG GLYPHS: story1 .*active=ON.*pos=(0,0,0)")
 verdict $([ "$n" = 1 ] && echo 0 || echo 1) "exactly one icon at the row origin (got $n)"
 

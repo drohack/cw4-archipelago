@@ -1,0 +1,124 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The debug and measurement channel: a SEPARATE BepInEx plugin that ships
+       in no release. It was 2,657 of the mod's 8,792 lines - 30 percent of what
+       players installed was test scaffolding, runtime-gated but still compiled
+       in. Splitting it out leaves the shipped mod single-purpose.
+
+       The DLL's PRESENCE is the switch. There is no config flag any more: if
+       this plugin is installed the command channel is live, and if it is not
+       there is no channel to enable. Local builds deploy it, so the tools/*.sh
+       harnesses keep working with no edits.
+
+       Depends on the mod one way only (BepInDependency + ProjectReference). The
+       mod must never reference this.
+
+       Build prerequisites are the same as the mod: src\GameDir.props and a CW4
+       install with BepInEx run once. The game must be CLOSED to build. -->
+
+  <Import Project="..\GameDir.props" Condition="Exists('..\GameDir.props')" />
+
+  <Target Name="EnsureGameDir" BeforeTargets="BeforeBuild">
+    <Error Condition="'$(GameDir)' == '' Or !Exists('$(GameDir)')"
+           Text="GameDir is not set or does not exist. Copy src\GameDir.props.example to src\GameDir.props and point it at your Creeper World 4 install (with BepInEx installed and run once)." />
+  </Target>
+
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <AssemblyName>CW4Archipelago.Debug</AssemblyName>
+    <RootNamespace>CW4Archipelago.Debug</RootNamespace>
+    <!-- Its own version line, deliberately NOT the mod's. This assembly
+         ships in no release, so no player ever sees this number and it must
+         stay out of the three-file version lock that package-release.ps1
+         and CI enforce (csproj, Plugin.cs, archipelago.json). Same choice
+         CW4DevTools makes. -->
+    <Version>0.1.0</Version>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Nullable>annotations</Nullable>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <GenerateDependencyFile>false</GenerateDependencyFile>
+    <!-- The mod and its NuGet dependencies are already installed in the game's
+         plugin folder; copying them again here would put a second copy of
+         CW4Archipelago.dll on disk and BepInEx would load the wrong one. -->
+    <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CW4Archipelago\CW4Archipelago.csproj">
+      <Private>false</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\CW4Archipelago.Core\CW4Archipelago.Core.csproj">
+      <Private>false</Private>
+    </ProjectReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="BepInEx.Core">
+      <HintPath>$(GameDir)\BepInEx\core\BepInEx.Core.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="BepInEx.Unity.IL2CPP">
+      <HintPath>$(GameDir)\BepInEx\core\BepInEx.Unity.IL2CPP.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Il2CppInterop.Runtime">
+      <HintPath>$(GameDir)\BepInEx\core\Il2CppInterop.Runtime.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="0Harmony">
+      <HintPath>$(GameDir)\BepInEx\core\0Harmony.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Il2CppSystem.Core">
+      <HintPath>$(GameDir)\BepInEx\interop\Il2CppSystem.Core.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Il2Cppmscorlib">
+      <HintPath>$(GameDir)\BepInEx\interop\Il2Cppmscorlib.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Assembly-CSharp">
+      <HintPath>$(GameDir)\BepInEx\interop\Assembly-CSharp.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>$(GameDir)\BepInEx\interop\UnityEngine.CoreModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.UI">
+      <HintPath>$(GameDir)\BepInEx\interop\UnityEngine.UI.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.UIModule">
+      <HintPath>$(GameDir)\BepInEx\interop\UnityEngine.UIModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.TextRenderingModule">
+      <HintPath>$(GameDir)\BepInEx\interop\UnityEngine.TextRenderingModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="Unity.TextMeshPro">
+      <HintPath>$(GameDir)\BepInEx\interop\Unity.TextMeshPro.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.ScreenCaptureModule">
+      <HintPath>$(GameDir)\BepInEx\interop\UnityEngine.ScreenCaptureModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="UnityEngine.InputLegacyModule">
+      <HintPath>$(GameDir)\BepInEx\interop\UnityEngine.InputLegacyModule.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+
+  <!-- Its own plugin folder, so it can be deleted on its own - which is exactly
+       what a player installation is: the release zip never contains it. -->
+  <!-- Build with -p:SkipDeploy=true to compile WITHOUT installing into the
+       game. -->
+  <Target Name="DeployToGame" AfterTargets="Build" Condition="'$(SkipDeploy)' != 'true'">
+    <Copy SourceFiles="$(TargetDir)CW4Archipelago.Debug.dll" DestinationFolder="$(GameDir)\BepInEx\plugins\CW4ApDebug" />
+    <Message Importance="high" Text="Deployed CW4Archipelago.Debug to $(GameDir)\BepInEx\plugins\CW4ApDebug" />
+  </Target>
+
+</Project>

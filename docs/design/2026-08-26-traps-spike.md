@@ -232,8 +232,12 @@ logs success, and affects nothing. Keep it.
 
 ## What is in the build
 
-Config-gated behind `DebugCommands` (off for players), so this is dormant code,
-not yet a player feature - no trap is wired to an AP item.
+Reachable only from the debug command channel, so this is dormant code, not
+yet a player feature - no trap is wired to an AP item. **CORRECTION
+(2026-09-03): that channel was a `DebugCommands` config flag when this was
+written; it is now a separate plugin, `src/CW4Archipelago.Debug`, that no
+release contains. The effects themselves still live in the shipped mod,
+because a trap item would need them.**
 
 - `src/CW4Archipelago/Appliers/TrapEffects.cs` - the effects; the tuning
   constants in one block at the top; `CellToWorld`; the `IsPlayerUnit` filter;
@@ -249,6 +253,7 @@ not yet a player feature - no trap is wired to an AP item.
   without a human pressing play) and `spawn:<unitKey> [n]` (places units beside
   the rift lab, or at map centre before it exists, so the debuffs have targets;
   `spawn:CommandBase` works and is how a test base gets placed).
+  **MOVED 2026-09-03 to `src/CW4Archipelago.Debug/DebugChannel.cs`.**
 - `src/CW4Archipelago/CW4Archipelago.csproj` - added the `Il2CppSystem.Core`
   reference, needed for `Il2CppSystem.Collections.Generic.HashSet<T>`
   (`gs.units`, `gs.emitters`).

@@ -86,29 +86,58 @@ To check the world loaded, the generator prints a line per game; look for
 ## Yaml options
 
 Every option has a default, so a yaml that names none of them generates a
-sensible seed. The ones most worth setting:
+sensible seed. All 24 are listed below; the yaml template shipped with the
+release carries each option's full description, and this table is the summary.
 
-| Option | Default | What it does |
-|---|---|---|
-| `missions_for_finale` | 12 | How many other missions must be completable before the finale can be won. 0 disables the gate. Maximum 19 |
-| `logic_difficulty` | standard | `standard` assumes only what is needed to WIN. `casual` also assumes a sniper or missile launcher from We Were Never Alone onward, so anti-air arrives earlier |
-| `starter_missions` | 2 | How many missions start unlocked, drawn from those whose cache needs no weapon. Range 2 to 6. The minimum was 1 until 2026-09-03: one starter is a one-location opening, and about one seed in 400 failed to generate from it, so the floor is now 2 |
-| `early_weapon` | random | Which of Cannon and Mortar is guaranteed to arrive first, in the very first sphere. `mortar` is the slower opening, `cannon` the brisk one, `random` picks per seed. It does not affect when the OTHER weapon arrives - that is about two thirds of the way in either way |
-| `trap_percentage` | 50 | Share of the non-progression slots that are traps. **50 is a lot in a solo game** - lower it if they grate. 0 removes them |
-| `progressive_erns` | 4 | How many Progressive ERN items go in the pool. ERNs are never required, so this is purely pool budget. Range 0 to 40 |
+**The ones most worth setting:**
 
-Finer tuning, all optional: seven `trap_weight_*` options (default 100 each)
-set the relative frequency of the individual traps; `energy_storage_step` and
-`energy_storage_decay` shape the storage upgrades; `base_generation_start` and
-`base_generation_ramp` shape the generation upgrades; and the `filler_*_weight`
-options split the leftover slots between energy storage and base generation.
-(`filler_build_limit_weight` is still accepted but does nothing - build limits are
-not generated, because every building starts unlimited so there is no limit for a
-"+1" to raise.)
+| Option | Default | Range | What it does |
+|---|---|---|---|
+| `missions_for_finale` | 12 | 0 to 19 | How many other missions must be completable before the finale can be won. 0 disables the gate |
+| `logic_difficulty` | standard | standard, casual | `standard` assumes only what is needed to WIN. `casual` also assumes a sniper or missile launcher from We Were Never Alone onward, so anti-air arrives earlier |
+| `starter_missions` | 2 | 2 to 6 | How many missions start unlocked, drawn from those whose cache needs no weapon. The minimum was 1 until 2026-09-03: one starter is a one-location opening, and about one seed in 400 failed to generate from it, so the floor is now 2 |
+| `early_weapon` | random | mortar, cannon, random | Which of Cannon and Mortar is guaranteed to arrive first, in the very first sphere. `mortar` is the slower opening, `cannon` the brisk one. It does not affect when the OTHER weapon arrives - that is about two thirds of the way in either way |
+| `trap_percentage` | 50 | 0 to 100 | Share of the non-progression slots that are traps. **50 is a lot in a solo game** - lower it if they grate. 0 removes them |
+| `progressive_erns` | 4 | 0 to 40 | How many Progressive ERN items go in the pool. ERNs are never required, so this is purely pool budget |
 
-Fractional values travel as TENTHS because Archipelago ranges are integers - so
-`base_generation_start: 5` means +0.5 energy per second. Each option's own
-description in the yaml template says which unit it uses.
+**ERN port upgrades.** Percentages are whole percents. The defaults are
+measured values, not guesses - see `docs/ern-upgrade-measurements.md`.
+
+| Option | Default | Range | What it does |
+|---|---|---|---|
+| `ern_upgrade_copies` | 4 | 0 to 4 | Copies of each of the twelve ERN port upgrade items (a Rate and a Cap for each of six upgrades), so the default puts 48 in the pool. 4 is the ceiling, not a preference: the fourth copy is the one that lands on the maximum |
+| `ern_rate_max` | 400 | 100 to 800 | What four Rate copies are worth as a percent of the game's own fill speed. 400 turns 3600 ticks to full efficiency into 900 |
+| `ern_cap_max` | 200 | 100 to 400 | How far four Cap copies raise an upgrade's ceiling. 200 is double the game's own |
+| `ern_cap_max_build_speed` | 150 | 100 to 400 | The Cap maximum for BUILD SPEED only, which needs its own value because the game shortens build time steeply and non-linearly |
+
+**Energy upgrades.** Both curves are capped, so the copy count IS the number
+generated - there is no spare copy, because the per-copy step is the maximum
+divided by the count.
+
+| Option | Default | Range | What it does |
+|---|---|---|---|
+| `energy_storage_max` | 200 | 0 to 900 | How much the rift lab's energy STORE grows at full stack. The lab's own store is about 100, so 900 is roughly 1000 total |
+| `energy_storage_copies` | 8 | 0 to 36 | Progressive Energy Storage items in the pool. 200 over 8 is 25 each |
+| `base_generation_max` | 10 | 0 to 100 | Energy per second the rift lab GENERATES at full stack - income, not store. CW4's own production is about 3 to 4/sec, so 10 roughly triples the economy |
+| `base_generation_copies` | 8 | 0 to 36 | Progressive Base Generation items in the pool. 10 over 8 is 1.25 each |
+
+**Trap weights.** Six options, `0 to 100`, all defaulting to 100, setting the
+relative frequency of each trap within the `trap_percentage` share:
+`trap_weight_spore_strike`, `trap_weight_spore_scatter`,
+`trap_weight_creeper_surge`, `trap_weight_energy_drain`,
+`trap_weight_unit_stun` and `trap_weight_ammo_drain`. A seventh,
+`trap_weight_emitter_overdrive`, exists but is inert - see below.
+
+**Four options are accepted but do nothing.** They are kept so that a yaml
+naming them stays valid rather than erroring:
+
+- `trap_weight_emitter_overdrive` - Emitter Overdrive is not generated. It does
+  nothing on missions that have no emitters, which is a third of the campaign,
+  and a trap that silently does nothing is worse than no trap.
+- `filler_energy_storage_weight`, `filler_base_generation_weight` and
+  `filler_build_limit_weight` - filler counts come from the `*_copies` options
+  above, not from weights. Build limits are not generated at all, because every
+  building starts unlimited so there is no limit for a "+1" to raise.
 
 ## Connecting
 
@@ -127,7 +156,6 @@ first launch) and are also editable from the in-game panel:
   AutoConnect joins automatically at the main menu.
 - `[Missions]` ShowSpan - show the SPAN Experiments button (off by default;
   the randomizer covers the 20 Farsite missions).
-- `[Debug]` DebugCommands - a file-command channel for testing; leave off.
 
 Your received items and checked locations are cached per slot under
 `Documents/My Games/creeperworld4/archipelago/`, so a brief disconnect keeps

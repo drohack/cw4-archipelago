@@ -38,21 +38,31 @@ field() { state | grep -oE "$1=[-0-9]+" | cut -d= -f2; }
 # recursively, so it must move out of plugins/ entirely.
 PLUGINS="$G/BepInEx/plugins"
 PARKED="$G/BepInEx/plugins-disabled"
+# BOTH halves of the randomizer, not just the mod. CW4ApDebug declares a hard
+# BepInDependency on the mod, so parking the mod alone leaves BepInEx logging
+# "Could not load [CW4 Archipelago Debug] because it has missing dependencies" -
+# which the zero-errors assertion at the end correctly fails on. The dev tools
+# are being tested standalone; the whole randomizer goes away, or none of it.
+RANDOMIZER_DIRS="CW4Archipelago CW4ApDebug"
 RESTORE_RANDOMIZER=0
 restore_randomizer() {
-  if [ "$RESTORE_RANDOMIZER" = "1" ] && [ -d "$PARKED/CW4Archipelago" ]; then
-    mkdir -p "$PLUGINS"
-    mv "$PARKED/CW4Archipelago" "$PLUGINS/CW4Archipelago" 2>/dev/null \
-      && echo "  (randomizer restored to plugins/)"
-  fi
+  [ "$RESTORE_RANDOMIZER" = "1" ] || return 0
+  mkdir -p "$PLUGINS"
+  for d in $RANDOMIZER_DIRS; do
+    [ -d "$PARKED/$d" ] && mv "$PARKED/$d" "$PLUGINS/$d" 2>/dev/null
+  done
+  echo "  (randomizer restored to plugins/)"
 }
 trap restore_randomizer EXIT
-if [ -d "$PLUGINS/CW4Archipelago" ]; then
-  mkdir -p "$PARKED"
-  rm -rf "$PARKED/CW4Archipelago"
-  mv "$PLUGINS/CW4Archipelago" "$PARKED/CW4Archipelago" \
-    && RESTORE_RANDOMIZER=1 \
-    && echo "  (randomizer parked for this run; it will be restored at the end)"
+for d in $RANDOMIZER_DIRS; do
+  if [ -d "$PLUGINS/$d" ]; then
+    mkdir -p "$PARKED"
+    rm -rf "$PARKED/$d"
+    mv "$PLUGINS/$d" "$PARKED/$d" && RESTORE_RANDOMIZER=1
+  fi
+done
+if [ "$RESTORE_RANDOMIZER" = "1" ]; then
+  echo "  (randomizer parked for this run; it will be restored at the end)"
 fi
 
 echo "== setup: known config, game closed =="

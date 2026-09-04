@@ -8,14 +8,17 @@
 # objective that is not a check in this slot. Neither is visible in a log line.
 #
 # EXPECTED RESULT (assert this against the screenshot):
-#   Farsite       sphere, 2 icons, both GREEN: collect then custom (a skull)
+#   Farsite       sphere, 2 icons, both GREEN: collect then TOTEMS
 #                 (vanilla draws ONE icon here and it is a TOTEMS icon, on a
 #                  mission with no totems at all - it has 2 caches and a custom
 #                  objective, measured live. The mod reconciles the icon set to
-#                  the objectives that actually have checks: the totems icon is
-#                  retextured to collect, and the custom icon is added. No stray
-#                  quad may sit at the container origin, and the two must be
-#                  spaced like every other planet's.)
+#                  the objectives that actually have checks. The second icon is
+#                  Farsite's CUSTOM check drawn as a totem on purpose - lighting
+#                  the two totems is what the mission actually asks, and a skull
+#                  says nothing; see MissionRules.IconAlias. It is still the
+#                  "Farsite - Custom" location. No stray quad may sit at the
+#                  container origin, and the two must be spaced like every other
+#                  planet's.)
 #   Home          sphere, 3 icons: nullify GREEN, totems GREEN, collect GREY
 #                 (its Cache 1 is checked, the rest are open)
 #   Not My Mars   sphere, 3 icons, ALL GREY (everything checked)

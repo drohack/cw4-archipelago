@@ -74,9 +74,9 @@ public static class BoonRules
     /// is a taste of an upgrade, not a substitute for owning it.</summary>
     public const string SurgePrefix = "ERN Surge: ";
 
-    public static string SurgeItem(string upgrade) => SurgePrefix + upgrade;
+    private static string SurgeItem(string upgrade) => SurgePrefix + upgrade;
 
-    public static bool IsSurge(string item)
+    private static bool IsSurge(string item)
         => item != null && item.StartsWith(SurgePrefix, System.StringComparison.Ordinal);
 
     /// <summary>The upgrade index a surge item names, or -1.</summary>

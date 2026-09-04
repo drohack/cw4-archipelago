@@ -36,8 +36,8 @@ if ($version -ne $pluginVersion -or $version -ne $worldVersion) {
 Write-Output "version $version (csproj, Plugin.cs and archipelago.json agree)"
 
 # THE WORKFLOW THIS IMPLIES: bump the version in the COMMIT AFTER a release.
-# tools/bump-version.ps1 does it - `.	oolsump-version.ps1 -Commit -Push`
-# straight after publishing. It refuses to bump from an inconsistent state or
+# tools/bump-version.ps1 does it - run it with -Commit -Push straight after
+# publishing. It refuses to bump from an inconsistent state or
 # onto a version that has already shipped.
 # CI enforces the same rule (the `version` job), so main sitting past a tag at a
 # shipped version is a red build rather than something noticed weeks later. The
@@ -45,7 +45,7 @@ Write-Output "version $version (csproj, Plugin.cs and archipelago.json agree)"
 #
 # AND IT HAS TO BE A NEW VERSION. The check above only proves the three files
 # agree with each OTHER; it says nothing about whether that version has already
-# shipped. On 2026-09-04 main sat four commits past v0.1.2 still calling itself
+# shipped. On 2026-09-03 main sat four commits past v0.1.2 still calling itself
 # 0.1.2 - the same drift this script exists to prevent, one level up. If the tag
 # already exists, the version has shipped and packaging again would produce a
 # second, different "v$version".
@@ -74,7 +74,25 @@ $zip = Join-Path $dist "CW4Archipelago-v$version.zip"
 if (Test-Path $zip) { Remove-Item -Force $zip }
 Compress-Archive -Path (Join-Path $stage "BepInEx") -DestinationPath $zip
 Remove-Item -Recurse -Force $stage
-Write-Output "wrote $zip"
+
+# The debug and measurement channel is a separate plugin
+# (src\CW4Archipelago.Debug) and must never reach a player. Today it cannot: it
+# builds to its own bin\Release and this script copies only the mod's. That is a
+# property of the directory layout, which is exactly the kind of thing a later
+# csproj change breaks silently - so assert on the artifact itself rather than
+# on the layout that produced it.
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+$archive = [System.IO.Compression.ZipFile]::OpenRead($zip)
+try {
+    $entries = $archive.Entries | ForEach-Object { $_.FullName }
+} finally { $archive.Dispose() }
+$leaked = $entries | Where-Object { $_ -like "*Debug.dll" }
+if ($leaked) {
+    Remove-Item -Force $zip
+    throw ("the release zip contains debug assemblies: " + ($leaked -join ", ") +
+           ". The debug channel ships in no release.")
+}
+Write-Output "wrote $zip ($($entries.Count) entries, no debug assembly)"
 
 # --- apworld ---
 $ap = Join-Path $repo "Archipelago"

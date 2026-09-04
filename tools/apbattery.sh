@@ -72,12 +72,21 @@ wait_since "SCENE: 'Galaxy'" 40 || echo "[apbattery] WARN: menu slow"
 wait_since "MENU: AP panel created" 20; verdict $? "AP panel built"
 wait_since "AP CONNECTED slot='$SLOT'" 40; verdict $? "auto-connected"
 
-echo "[apbattery] step 3/9: server grants Cannon + Home unlock"
+echo "[apbattery] step 3/9: server grants Cannon + Home and Farsite unlocks"
 mark
 srv "/send $SLOT Cannon"
 wait_since "AP ITEM RECEIVED: Cannon" 20; verdict $? "received Cannon"
 srv "/send $SLOT Mission Unlock: Home"
 wait_since "AP ITEM RECEIVED: Mission Unlock: Home" 20; verdict $? "received Home unlock"
+# Farsite has to be GRANTED like any other mission. It used to be permanently
+# available, so steps 4, 6 and 7 below just assumed it - and when starters became
+# random (and Farsite merely eligible) this battery started failing four
+# assertions in a row off one stale premise, all of them downstream of a mission
+# that never loaded. apbattery2.sh had already been corrected for exactly this;
+# this one was missed. Sending the unlock makes the run independent of which two
+# missions THIS seed happened to pick.
+srv "/send $SLOT Mission Unlock: Farsite"
+wait_since "AP ITEM RECEIVED: Mission Unlock: Farsite" 20; verdict $? "received Farsite unlock"
 
 echo "[apbattery] step 4/9: tracker colors at story select"
 mark
@@ -124,12 +133,16 @@ mark
 # Use a real, still-unchecked location from another unlocked mission (Home),
 # so the flush is not deduped by an already-checked story1 location.
 send "disconnect"; sleep 3
-send "check:Home - Totems"; sleep 3
+# "Home - Totems" was the location name until objectives became per INSTANCE;
+# the real name is "Home - Totem 1". A check on a name the world does not have
+# is silently nothing, so this step asserted a flush that never had anything to
+# flush.
+send "check:Home - Totem 1"; sleep 3
 send "connect"; sleep 8
 # End-to-end property: however it is routed (queued+flushed, or sent on the
 # auto-reconnect), the check must arrive at the server. Precise queue mechanics
 # are covered by the Core unit tests.
-grep -q "Home - Totems" "$SRV_LOG"; verdict $? "disconnected check reached the server"
+grep -q "Home - Totem 1" "$SRV_LOG"; verdict $? "disconnected check reached the server"
 
 echo "[apbattery] step 10/10: zero plugin errors"
 mark; send "dump"; sleep 1

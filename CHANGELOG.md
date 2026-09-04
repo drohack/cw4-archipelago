@@ -3,8 +3,79 @@
 Versions follow semantic versioning. The plugin and the apworld share one number,
 so a release is a matched pair - if you update one, update the other.
 
-## Unreleased
+## v0.1.5 - a smaller mod to install
 
+No gameplay changes. This is a structural release: the mod players install got
+30 percent smaller, and the yaml documentation now matches the options that
+actually exist.
+
+- **The debug and measurement channel is no longer part of the mod.** It was
+  2,651 of 8,792 lines - a file-command channel and two measurement probes,
+  used only by the test harnesses in `tools/`. It was gated at runtime, so it
+  never did anything in a normal game, but it was still compiled into what
+  players downloaded. It now lives in a separate plugin that ships in no
+  release, and the `DebugCommands` config key is gone with it.
+- **Fixed: the yaml options documentation.** `docs/installation.md` described 7
+  of the 24 options and named four that do not exist - `energy_storage_step`,
+  `energy_storage_decay`, `base_generation_start` and `base_generation_ramp`,
+  all replaced by max/copies pairs some releases ago. Anyone copying that table
+  got options the generator silently ignores. All 24 are now documented, with
+  ranges and defaults read from the options themselves, and the four that are
+  accepted but do nothing say so.
+- Dead code removed: the throwaway research probe (1,897 lines), fourteen
+  one-off measurement harnesses, and four unused symbols.
+
+## v0.1.4 - release plumbing
+
+Gameplay is identical to v0.1.3 - every logic, tracker and generation fix
+shipped there. This release exists so the published artifacts match main
+exactly.
+
+- CI fails any push where the version has already shipped, so drift is caught on
+  the push that causes it rather than at the next release. v0.1.1 and v0.1.2
+  both drifted for days without anything noticing.
+- Publishing a release now bumps the version automatically.
+- The plugin logs the commit it was built from, so a released build and a local
+  one that share a version number can be told apart from the log.
+
+## v0.1.3 - honest map, tighter logic, seeds that always build
+
+- **Generation.** Solo seeds used to fail to build about once in 18,000 -
+  loudly, writing no seed at all. The world now places its own progression and
+  retries on failure, the way oot and pokemon_emerald do. Measured 0 failures in
+  16,000 seeds, with no unreachable or unbeatable seeds. Multiworld is
+  untouched. This supersedes v0.1.2's `bootstrap_opening`.
+- **The map tells the truth.** Red now means a check cannot be reached, yellow
+  means reachable but out of logic, grey means done. Farsite's free first cache
+  reads green as it always should have, and its skull is drawn as a totem,
+  because lighting the totems is what the mission actually asks.
+- **Logic, from playing the campaign.** Totems on Shattered, Wallis and Founders
+  need the greenar chain. Reclaim needs a Nullifier everywhere. Not My Mars and
+  Ruins Repurposed need a Miner. Serious, Sequence, Wallis and Ever After have
+  real requirements they did not have before, some of which escalate across a
+  mission's objectives. Two seeds were soft-locked before these corrections.
+- Greenar Refinery is retired - the Factory now unlocks it too. There was never
+  a reason to have one without the other.
+- `starter_missions` now starts at 2. One starter could not be made to generate
+  reliably.
+- A mission's own grant of a locked unit is refused at source, rather than the
+  build strip being rebuilt to remove a button that should never have existed.
+- The CONNECT button becomes DISCONNECT once connected.
+
+## v0.1.2 - matching mod and apworld
+
+Use the mod and the apworld from this release together. v0.1.1's assets were
+built before twelve commits that renamed every progressive item, so a v0.1.1
+seed and a v0.1.2 mod disagree about what the items are called and those items
+silently do nothing.
+
+- ERN port upgrades: all six measured, the efficiency cap and the ramp fixed,
+  and their magnitudes are yaml options.
+- Every progressive item is named "Progressive ...", so trackers group them.
+- Ten filler items (ammo, energy, resource caches, field shield, six ERN
+  surges), each proven in game; five that did nothing are fixed.
+- The login panel picks its canvas deterministically and logs which one it got.
+- The release build refuses to package if the version disagrees across files.
 - **New option: `early_weapon`.** Cannon and Mortar are interchangeable in logic,
   so which one opens a seed was decided by the fill - a genuine coin flip,
   measured 10-10 over 20 seeds. This makes it a choice: `mortar` for a slower

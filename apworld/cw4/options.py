@@ -345,7 +345,14 @@ class BaseGenerationCopies(Range):
 
 
 class FillerEnergyStorageWeight(Range):
-    """Relative weight of Progressive Energy Storages among the filler items."""
+    """Relative weight of Progressive Energy Storages among the filler items.
+
+    CURRENTLY UNUSED, like the two weights below it. The energy upgrades have
+    their own copy-count options now (energy_storage_copies), because both
+    curves are capped and the count that reaches the cap is the only count worth
+    generating - a weight cannot express that. Kept so an existing yaml naming
+    it is not an error.
+    """
     display_name = "Filler Weight: Energy Storage"
     range_start = 0
     range_end = 100
@@ -353,7 +360,11 @@ class FillerEnergyStorageWeight(Range):
 
 
 class FillerBaseGenerationWeight(Range):
-    """Relative weight of Progressive Base Generations among the filler items."""
+    """Relative weight of Progressive Base Generations among the filler items.
+
+    CURRENTLY UNUSED: the count comes from base_generation_copies. See
+    FillerEnergyStorageWeight.
+    """
     display_name = "Filler Weight: Base Generation"
     range_start = 0
     range_end = 100

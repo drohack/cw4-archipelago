@@ -19,7 +19,6 @@ public static class ModCore
 
     private static readonly ConcurrentQueue<Action> Dispatch = new();
     private static MenuUi _menu = null!;
-    private static DebugChannel _debug = null!;
     private static UnitGate _units = null!;
     private static ErnGranter _erns = null!;
     private static LocationWatcher _locations = null!;
@@ -66,7 +65,6 @@ public static class ModCore
         Config = config;
         Client = new ApClient(log, Enqueue, StoreRoot());
         _menu = new MenuUi();
-        _debug = new DebugChannel();
         _units = new UnitGate();
         _erns = new ErnGranter();
         _locations = new LocationWatcher();
@@ -166,7 +164,6 @@ public static class ModCore
         _locations.Tick();
         TrapEffects.Tick();   // restores a timed trap:emit burst
         Appliers.BoonEffects.Tick();    // expires a Field Shield
-        Appliers.MeasureProbe.Tick();   // in-loop stopwatches, debug only
 
         // Periodic pending-check flush safety (~ every 5s at 60fps).
         if (++_retryCountdown >= 300)
@@ -174,9 +171,6 @@ public static class ModCore
             _retryCountdown = 0;
             Client.RetryPendingIfConnected();
         }
-
-        if (Config.DebugCommands.Value)
-            _debug.Tick();
     }
 
     private static int _retryCountdown;

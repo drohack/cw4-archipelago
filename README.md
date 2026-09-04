@@ -87,7 +87,6 @@ received items.
 - `src/CW4Archipelago.Core.Tests/` - those unit tests
 - `src/CW4DevTools/` - a separate cheat and survey plugin used to research the
   game. Deliberately not part of the randomizer, and installed separately
-- `src/CW4APProbe/` - earlier development probe, kept for game-mechanism research
 - `apworld/cw4/` - the Archipelago world (Python)
 - `docs/` - design and research documentation
 - `tools/` - test batteries, probes and release packaging

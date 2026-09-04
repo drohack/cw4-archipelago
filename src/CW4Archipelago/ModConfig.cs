@@ -11,7 +11,6 @@ public sealed class ModConfig
     public ConfigEntry<string> Password { get; }
     public ConfigEntry<bool> AutoConnect { get; }
     public ConfigEntry<bool> ShowSpan { get; }
-    public ConfigEntry<bool> DebugCommands { get; }
 
     public ModConfig(ConfigFile file)
     {
@@ -23,7 +22,9 @@ public sealed class ModConfig
         ShowSpan = file.Bind("Missions", "ShowSpan", false,
             "Show the SPAN Experiments button. The randomizer covers the 20 Farsite missions; " +
             "SPAN is a future expansion and is hidden by default.");
-        DebugCommands = file.Bind("Debug", "DebugCommands", false,
-            "Enable the file-command test channel (BepInEx/cw4ap-commands.txt). Off for players.");
+        // No Debug section: the file-command test channel is a separate
+        // plugin now (src/CW4Archipelago.Debug), and installing it is what
+        // enables it. Harnesses that still write DebugCommands into the .cfg
+        // are harmless - BepInEx ignores an unknown key.
     }
 }

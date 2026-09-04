@@ -82,7 +82,6 @@ BONUS_UNIT_ITEMS = ["Airship", "Bertha", "Sweeper"]
 RETIRED_ITEMS = {"Greenar Refinery"}
 
 PROGRESSIVE_ERN = "Progressive ERN"
-PROGRESSIVE_ERN_COUNT = 4
 
 # Every name that HAS an id. Like Emitter Overdrive these are deliberately still
 # here and deliberately not generated - see POOL_FILLER_KINDS below. Dropping the
@@ -945,24 +944,6 @@ def trap_sequence(world, count: int) -> list:
         return filler_sequence(world, count)
     kinds = list(weights)
     return world.random.choices(kinds, weights=[weights[k] for k in kinds], k=count)
-
-
-def filler_weights(world) -> dict:
-    """Kept for yaml compatibility, no longer used to size anything.
-
-    The energy upgrades have their own copy-count options now, because both
-    curves are capped and the count that reaches the cap is the only count worth
-    generating. An existing yaml naming these weights stays valid; it just does
-    not change the pool. Same treatment build limits got.
-    """
-    return {
-        ENERGY_STORAGE_ITEM: world.options.filler_energy_storage_weight.value,
-        BASE_GENERATION_ITEM: world.options.filler_base_generation_weight.value,
-        # Read but unused while build limits are out of the pool - see
-        # POOL_FILLER_KINDS. Kept so the option keeps working if they go back in,
-        # and so an existing yaml naming it is not an error.
-        "build_limit": world.options.filler_build_limit_weight.value,
-    }
 
 
 # WHAT PADS THE POOL, and why this is a placeholder rather than a design.

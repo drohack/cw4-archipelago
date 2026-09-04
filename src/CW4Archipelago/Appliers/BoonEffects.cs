@@ -43,8 +43,9 @@ public static class BoonEffects
     /// free full energy refill and Drain emptied the store to zero, neither
     /// documented and neither intended.
     ///
-    /// TryCast is the established test in this codebase (UpgradeProbe uses it
-    /// for ERNInterface, ERN and Reactor) and works even before
+    /// TryCast is the established test in this codebase (the debug plugin's
+    /// UpgradeProbe uses it for ERNInterface, ERN and Reactor) and works even
+    /// before
     /// GameSpace.commandBase is populated - a campaign mission starts with the
     /// lab in the player's hand, so that property is null until it is placed.</summary>
     public static bool IsEnergyStore(UnitManager u)

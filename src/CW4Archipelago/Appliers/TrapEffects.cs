@@ -19,8 +19,9 @@ namespace CW4Archipelago.Appliers;
 /// no-ops where a mission ships no emitters, which is a balance caveat, not a
 /// bug. Re-fog was the one effect dropped outright - see the block at the end.
 ///
-/// Reachable through the config-gated DebugChannel "trap:" commands; wiring
-/// them to real AP items is a separate step.
+/// Reachable only through the "trap:" commands in the separate debug plugin
+/// (src/CW4Archipelago.Debug), which no release contains; wiring them to real
+/// AP items is a separate step.
 /// </summary>
 public static class TrapEffects
 {
@@ -383,9 +384,6 @@ public static class TrapEffects
     private static readonly System.Collections.Generic.Dictionary<IntPtr, EmitterSnapshot> Burst = new();
     private static float _burstExpiry;
     private static IntPtr _burstGameSpace = IntPtr.Zero;
-
-    /// <summary>Whether a burst is currently running (for Status and tests).</summary>
-    public static int BurstCount => Burst.Count;
 
     /// <summary>Multiplies every enemy emitter's output for a window, then puts
     /// the snapshot back. The ONLY trap that carries state, which is why

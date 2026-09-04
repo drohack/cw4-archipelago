@@ -7,12 +7,12 @@
   Unity dependency. Everything that can be decided without the game lives here,
   which is what makes it unit-testable.
 - `src/CW4Archipelago.Core.Tests/` - those tests (tier 1 below).
+- `src/CW4Archipelago.Debug/` - the file-command channel and the in-loop
+  measurement probes, as a plugin of their own. Ships in no release, so a
+  player installation has no debug channel at all. Installing it IS
+  enabling it - there is no config flag.
 - `src/CW4DevTools/` - a separate cheat and survey plugin, documented below.
   Deliberately not part of the randomizer and installed separately.
-- `src/CW4APProbe/` - the research probe: a file-command-driven harness that
-  proved every game mechanism. Kept for answering "can the game do X"
-  questions. Never shipped. NOTE its csproj deploys itself unconditionally -
-  unlike the other two it honours no `SkipDeploy`, so building it installs it.
 - `apworld/cw4/` - the Archipelago world (Python source).
 - `tools/` - test batteries, probes and packaging scripts.
 - `docs/randomizer-design.md` - the design source of truth (items, locations,
@@ -29,7 +29,9 @@
    are derived from the game and must never be committed or redistributed.
 3. Copy `src/GameDir.props.example` to `src/GameDir.props` and set your game
    path.
-4. `dotnet build` in `src/CW4Archipelago` (or `src/CW4APProbe`). Building
+4. `dotnet build` in `src/CW4Archipelago`, and in
+   `src/CW4Archipelago.Debug` if you want the command channel the
+   `tools/*.sh` harnesses drive. Building
    deploys the plugin into the game's `BepInEx/plugins/` automatically.
    **The game must be closed when building** - the deploy step cannot
    overwrite a loaded DLL (MSB3021).
@@ -70,6 +72,9 @@ Four tiers, in ascending cost:
      save archiving, the message-box receive path, and the menu-entry
      auto-connect. Both write their own hermetic BepInEx config and start a
      local server from the clone.
+   - `tools/msgbox.sh` - the message box on its own: it builds and anchors to
+     the minimap, ingests server item-receive/send lines and connection lines
+     with AP colours, and its history survives a second mission boot.
 
 ## CW4 Dev Tools (separate plugin)
 
@@ -542,9 +547,15 @@ loads the DLL anyway. `BepInEx/plugins-disabled/` is outside the scanned tree.
 (Renaming a loose `.dll` to `.dll.disabled` does work, since only `.dll` is
 scanned.)
 
-The real mod exposes a config-gated file-command channel (enable
-`DebugCommands` in `BepInEx/config/com.droha.cw4archipelago.cfg`): write
-commands to `<game>/BepInEx/cw4ap-commands.txt`, read results from
+The file-command channel lives in a separate plugin,
+`src/CW4Archipelago.Debug`, which deploys to `BepInEx/plugins/CW4ApDebug` on
+build and is in no release. Its PRESENCE is the switch - build it and the
+channel is live; delete the folder and it is gone. (It used to be a
+`DebugCommands` config flag inside the mod, which meant every player installed
+2,657 lines of scaffolding. The harnesses still write that key into the .cfg
+and it now does nothing; BepInEx ignores an unknown key, so they were left
+alone deliberately - unedited harnesses are the regression test for the split.)
+Write commands to `<game>/BepInEx/cw4ap-commands.txt`, read results from
 `LogOutput.log`. Commands: connect, disconnect, dump, units, item:<name>,
 check:<location>, boot:<storyN>, objective:<n>, win, ada:close, tracker:dump,
 story:open, clickplanet:<storyN>, limit:<unit>, ern:status, gatecheck:<storyN>,
@@ -618,9 +629,15 @@ year of zeros could not, and the reason it was needed is in
 [research-findings.md](research-findings.md) - the fog scan once reported "no fog
 cells" on a mission with 7845 of them.
 
-The probe (`src/CW4APProbe`) keeps its own file-command protocol
-(`probe-unlocks.txt`) and older batteries (`tools/battery2.sh`,
-`tools/erntest.sh`, `tools/survey.sh`) for game-mechanism research.
+The research probe that produced these findings was deleted on 2026-09-03:
+its file-command protocol, unit whitelist, `boot:`, pane refresh and `dump`
+capabilities all exist in the mod's own debug channel and in
+`src/CW4DevTools/`, and it re-implemented four helpers that now live in
+`GameUtil`. Git history keeps it. The three batteries that DROVE it -
+`tools/battery2.sh`, `tools/erntest.sh` and `tools/survey.sh` - went with it the
+same day: each wrote to `BepInEx/probe-unlocks.txt`, a file nothing reads any
+more, so leaving them would have left three harnesses that look runnable and
+cannot run.
 
 `tools/names-probe.sh` dumps the game's naming: the 88-entry registry, the build
 ghosts, the CMOD GUIDs, and a `spawn:` pass over candidate names (spawn is a name
@@ -720,8 +737,7 @@ automated plugin build is a self-hosted runner on a machine that owns the game.
    (104 tests) and the apworld suite (108). These are tiers 1 and 2 above and
    the checklist used to skip both.
 3. `tools/apbattery.sh` and `tools/apbattery2.sh` - the mod's own end-to-end
-   batteries against a real server. (`tools/battery2.sh` drives the PROBE, not
-   the mod; it is research tooling and is not a release gate.)
+   batteries against a real server.
 4. `tools/eventdriven-test.sh` passes 22/22 and `tools/devtools-test.sh` has no
    failures - between them they cover the event hooks, which fail silently.
 5. `tools/map-visual-check.sh` and READ the screenshot against the expected

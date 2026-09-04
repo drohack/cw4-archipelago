@@ -10,7 +10,8 @@
 Approved design for turning `src/CW4Archipelago` from a load-only skeleton into a
 playable Archipelago client: connect/auto-connect, receive items live, send
 location checks, drive the main menu and mission map, per-slot save archiving.
-Every game mechanism used here was proven in `src/CW4APProbe` and is written up
+Every game mechanism used here was proven in the research probe (deleted
+2026-09-03; see git history) and is written up
 in `research-findings.md`; the item/location/logic content comes from
 `randomizer-design.md`.
 
@@ -74,6 +75,10 @@ src/CW4Archipelago (BepInEx plugin)
      MenuUi           hide chronom/markV/colonies/editor; AP login panel (TMP)
      SaveArchiver     per-slot archive/restore of mcs.dat story entries + saves
      DebugChannel     file commands, only when config DebugCommands=true
+                      **CORRECTION (2026-09-03): moved out of this
+                      assembly into src/CW4Archipelago.Debug, a separate
+                      plugin. No config flag - installing it enables it,
+                      and no release contains it.**
 ```
 
 IL2CPP rules that shape this (see research-findings "Crash lessons"): the
@@ -131,6 +136,8 @@ game's default limit for unit x. There are no limit-0 items.
 
 - Config (BepInEx `com.droha.cw4archipelago.cfg`): Host, Port, Slot, Password,
   AutoConnect, DebugCommands, and ShowSpan. Panel edits write config.
+  **CORRECTION (2026-09-03): DebugCommands is gone. The debug channel is
+  its own plugin now and its presence is the switch.**
   AutoConnect connects at Galaxy scene entry and reconnects with backoff.
   **CORRECTION: 3 attempts at 5s, 10s, 15s** - no 20s step and no 60s cap.
 - Slot cache: `<Documents>/My Games/creeperworld4/archipelago/slots/<seed>-<slot>.json`
@@ -222,7 +229,9 @@ but the rest of the mod (connection, items, checks) still loads.
    Archipelago clone after `tools/ap-sync.ps1`.
 3. Game integration battery (`tools/apbattery.sh`): local AP server from the
    clone (MultiServer.py with piped stdin for `/send` console commands), game
-   launched with AutoConnect + DebugCommands, log assertions for connect, live
+   launched with AutoConnect + the debug plugin installed (the battery still
+   writes a DebugCommands key, which is now ignored), log assertions for
+   connect, live
    item receipt, checks reaching the server, tracker colors, gating, archive
    round trip, offline queue and flush, zero plugin errors.
 4. Manual smoke with a real player at the end of the milestone.

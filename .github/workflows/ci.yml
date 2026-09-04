@@ -47,7 +47,7 @@ jobs:
           fi
 
           # 2. And it must not be a version that has already SHIPPED. This is
-          #    the check package-release.ps1 gained on 2026-09-04 after main sat
+          #    the check package-release.ps1 gained on 2026-09-03 after main sat
           #    four commits past v0.1.2 still calling itself 0.1.2. Doing it here
           #    too moves detection from "whenever someone next packages" to the
           #    push that causes it.
