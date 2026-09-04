@@ -309,7 +309,10 @@ MATRIX = [
     ("one ern upgrade copy", {"ern_upgrade_copies": 1}),
     ("no energy upgrades", {"energy_storage_copies": 0, "base_generation_copies": 0}),
     ("max energy upgrades", {"energy_storage_copies": 36, "base_generation_copies": 36}),
-    ("one starter", {"starter_missions": 1}),
+    # starter_missions 1 stopped being selectable on 2026-09-03 (see the option's
+    # own docstring): one starter is a one-location opening and about one seed in
+    # 400 failed to generate. 2 is the floor, so that is what the narrow case is.
+    ("minimum starters", {"starter_missions": 2}),
     ("five starters", {"starter_missions": 5}),
     ("finale open", {"missions_for_finale": 0}),
     ("finale maxed", {"missions_for_finale": 19}),

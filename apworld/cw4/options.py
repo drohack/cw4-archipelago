@@ -186,9 +186,30 @@ class StarterMissions(Range):
     They are drawn at random from the missions whose cache can be collected with
     no weapon, so a seed always has something to do from the first minute. More
     starters means a broader opening but fewer unlock items in the pool.
+
+    MINIMUM IS 2, AND USED TO BE 1. One starter gives exactly one location
+    reachable with no items, and Archipelago's fill places progression one item
+    at a time without looking ahead: a single item that opens nothing ends the
+    seed. That was measured at 12 percent of one-starter seeds originally, cut
+    to about 1.3 percent by early items and bootstrap_opening, and after the
+    2026-09-03 logic review it sat at 0.25 percent - still one seed in 400
+    failing to generate.
+
+    Two further fixes were measured against it. Merging the greenar pair into
+    one item (the campaign's biggest dud class) took one starter to 0.25 percent
+    and TWO starters to 0.014 percent - one failure in 7200 seeds. Additionally
+    forcing one starter to be a mission a weapon can open took one starter to
+    0.056 percent, still not zero, and bought nothing at two starters, so it was
+    not adopted - it would have cost the varied openings that make random
+    starters interesting.
+
+    So one starter is not supportable and the floor is 2. The designer's rule
+    for this, 2026-09-03: "we want to try for a default of 2, and get 1 as a
+    possibility without errors. But if 1 is too hard then limit the minimum to
+    2."
     """
     display_name = "Starter Missions"
-    range_start = 1
+    range_start = 2
     range_end = 6
     default = 2
 

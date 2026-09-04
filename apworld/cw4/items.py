@@ -66,6 +66,21 @@ UNIT_ITEMS = [
 # Never unlocked in vanilla - pure bonus items.
 BONUS_UNIT_ITEMS = ["Airship", "Bertha", "Sweeper"]
 
+# Names that still EXIST but are no longer generated.
+#
+# "there's litterlay no reason to have a refinery without the factory"
+# (designer, 2026-09-03), and as two items they were the campaign's biggest
+# generation hazard: totems on 14 missions need both, as do Chronat, Platform
+# and Rocket Pad, so a lone one of the pair opened nothing and Archipelago's
+# fill - one item at a time, blind to pairs - could strand a seed on it. The
+# Factory item now unlocks the refinery as well (see UnitRules.ItemAlsoUnlocks
+# in the plugin).
+#
+# The NAME has to stay in UNIT_ITEMS: item ids are positional, so removing it
+# would renumber every id after it and break every existing seed. Retiring
+# rather than deleting is what the Build Limit items did.
+RETIRED_ITEMS = {"Greenar Refinery"}
+
 PROGRESSIVE_ERN = "Progressive ERN"
 PROGRESSIVE_ERN_COUNT = 4
 
@@ -290,7 +305,55 @@ def create_item(world, name: str) -> CW4Item:
 
 # How many empty reachable locations the opening needs before Archipelago's fill
 # is safe to take over. Two is not enough: one wasted placement still strands it.
-SAFE_OPENING = 4
+#
+# ONLY CASUAL SEEDS EVER READ THIS. Measured 2026-09-03: bootstrap_opening did
+# not run on ANY of 200 default-option seeds, because bootstrap_threshold is
+# SAFE_OPENING_MIN (2) outside casual while opening_width at two starters is
+# exactly 2, so "2 < 2" is false. Tuning this value therefore cannot help a
+# standard-logic seed - a fact worth knowing before anyone tries, as two
+# sessions of slack tuning did.
+#
+# RAISED FROM 4 TO 6 on 2026-09-03, because casual logic got stricter and 4
+# stopped being enough. Greenar is now required for the totems on three more missions
+# (Shattered, Wallis, Founders), Nullifier for every Reclaim, and Miner for Not
+# My Mars and Ruins Repurposed - which also turned Shattered from a mission a
+# weapon could open into one it cannot, leaving Farsite and Home as the only two
+# that carry an opening by themselves.
+#
+# More requirements means more ways for the fill's next pick to be half of a pair
+# and open nothing, which is the failure bootstrap_opening exists to outlast.
+# Measured on TestCasualLogic, the harshest tier, 400 seeds per value, with a
+# positive control:
+#
+#     SAFE_OPENING = 4     3/400 failed   (0.8 percent)
+#     SAFE_OPENING = 6     0/400
+#     SAFE_OPENING = 8     0/400
+#
+# EIGHT WAS TRIED AND REJECTED. It did not lower the residual (a 32-config
+# sweep found stragglers at both six and eight, around 0.3 percent of seeds in
+# whichever configurations the sample happened to hit), and it broke
+# TestCasualLogic.test_anti_air_is_required_from_the_first_spores: with eight
+# locations to open, bootstrap_opening pre-places enough progression that
+# anti-air is already in the state, so a check that casual logic should gate was
+# reachable. That is the bootstrap SCRIPTING the opening, which its own docstring
+# says it must not do. Six is the most slack this world can take before the
+# opening stops being the player's to discover.
+#
+# The residual is therefore NOT a slack problem, and its cause is named in
+# bootstrap_opening: the fill cannot see that Greenar Refinery and Factory are a
+# PAIR, so a lone one of them opens nothing. Requiring greenar on three more
+# missions made that trap more common. A pair-aware bootstrap is the real fix;
+# slack only outlasts the trap rather than removing it.
+#
+# The cost is bounded: SAFE_OPENING is read only by bootstrap_opening, and
+# needs_bootstrap also requires this world to be alone in the multiworld, so a
+# real multiworld never pays for it.
+#
+# A single 100-seed sample said 0/100 at SAFE_OPENING = 4 while another said
+# 4/100. At rates this low, one sample of a hundred cannot tell a fix from luck -
+# use tools/audit/fillrate.py with N in the hundreds before believing any change
+# here.
+SAFE_OPENING = 6
 
 # Below this, the opening cannot absorb a single wasted placement and the world
 # steps in. At or above it, Archipelago's fill is left alone.
@@ -324,16 +387,294 @@ def bootstrap_threshold(world) -> int:
     return SAFE_OPENING_MIN + 1 if is_casual(world) else SAFE_OPENING_MIN
 
 
+# THE FAILURES ARE NOT ABOUT THE OPENING'S SHAPE. Measured 2026-09-03 over 9000
+# seeds, bucketed by how many of the two starter missions a weapon can open:
+#
+#     0 broad starters     2 / 5576   0.036 percent
+#     1 broad starter      2 / 3223   0.062 percent
+#     2 broad starters     0 /  196
+#
+# and two of the four failing pairs CONTAINED a broad mission - (Home,
+# Shattered) and (Home, War and Peace). So constraining the starter draw to
+# include Farsite or Home fixes nothing; an earlier "0 in 12,600" for that idea
+# was two events against zero, which is noise, and it was retracted.
+#
+# The reason is the one the designer gave: an opening CHAINS. Ten missions have
+# a cache reachable with a rift lab and one tower, so a thin starter's free
+# cache can hold a mission unlock that opens another free cache, and since the
+# greenar merge a Factory plus a weapon opens totems on fourteen missions. There
+# was never a two-slot cliff; weapon_breadth measures what a weapon opens on ONE
+# mission and says nothing about whether a seed can get going.
+#
+# What remains is the solver's own incompleteness, uncorrelated with anything we
+# choose at draw time: fill_restrictive allows each item at most TWO swaps
+# ("if swap_count > 1: continue") and caches three swap states, so a solvable
+# instance can still defeat it. Nothing in the rules or the draw can forbid
+# that, which is why the only measured fixes are ones that make the pool easier
+# (the greenar merge, 4x) or the opening wider (starter_missions 3, measured
+# 0/4800 against 8/4800 - declined by the designer).
+#
+# DO NOT TRY TO HELP ARCHIPELAGO'S FILL. Five interventions were measured on
+# 2026-09-03 and every single one made generation WORSE or did nothing:
+#
+#     engage bootstrap_opening for standard      7x worse
+#     pre-place one guaranteed broad unlock      8x worse
+#     drop the early weapon request             24x worse
+#     a second/third early mission unlock            worse
+#     fill_hook: order locations deepest first   3.4x worse (0.111 vs 0.033)
+#     fill_hook: order locations shallowest first 3x worse (0.100 vs 0.033)
+#
+# The shuffle Archipelago applies before filling is LOAD-BEARING: its swap and
+# backtrack heuristics work across a random spread, and any order we impose
+# creates correlated structure they handle worse. The same goes for taking its
+# locations or its slots away from it.
+#
+# What DID work was changing the PROBLEM rather than the search - merging the
+# greenar pair so fewer items open nothing (4x better), and refusing the
+# one-starter option that cannot be filled reliably. Both came from the
+# designer, not from reasoning about the fill.
+#
+# DO NOT PRE-PLACE ANYTHING INTO A TWO-SLOT OPENING. Measured three separate
+# ways on 2026-09-03, and every one made generation WORSE:
+#
+#     bootstrap_opening for standard        7x worse   (1.208 vs 0.167 percent)
+#     one guaranteed broad mission unlock   8x worse   (0.278 vs 0.033 percent)
+#     a second/third early mission unlock   worse      (17 and 11 vs 0 failures)
+#
+# The mechanism, which took all three to see: with two starter missions there
+# are exactly two locations reachable holding nothing, and Archipelago's fill
+# needs BOTH of them free to run its own search and swapping. Spending one to
+# guarantee something - even something as useful as a mission unlock that
+# chains - costs more than the guarantee buys.
+#
+# This is also why a BROAD STARTER works where "reach a broad mission early"
+# does not: a starter mission is open for free and consumes no slot, whereas
+# arriving at one later means spending a slot on its unlock. Same destination,
+# opposite effect on the fill.
+#
+# WHY STANDARD LOGIC IS STILL LEFT ALONE, measured 2026-09-03.
+#
+# After the late-mission logic review, a 32-configuration sweep found fill
+# failures in about 0.06 percent of seeds (5 in 8000), all in STANDARD-logic
+# configurations - the ones where the line above returns SAFE_OPENING_MIN, so
+# opening_width (2 at two starters) is not LESS than the threshold (2) and the
+# bootstrap never runs at all. Two fixes were tried and measured:
+#
+# 1. ENGAGE THE BOOTSTRAP FOR STANDARD TOO (return SAFE_OPENING_MIN + 1
+#    unconditionally). MEASURED HARMFUL - it makes the failure SEVEN TIMES more
+#    likely, 58 failures in 4800 seeds against 8 for the current code. It was
+#    written up here as "the known remedy" on the strength of helping CASUAL,
+#    which was an inference and never measured on standard. It does not
+#    transfer: pre-placing consumes the two reachable opening slots, so the fill
+#    inherits an opening with LESS room than it started with, and a random
+#    productive choice paints it into a corner more often than its own search
+#    would. It also costs:
+#      - 21 tests fail, and not because they are wrong. Pre-placing removes
+#        items from the pool, so "the pool holds every item" and "pool length
+#        equals location count" stop being true, and access tests that call
+#        collect_all_but no longer see the pre-placed items.
+#      - The churn is INHERENT TO PRE-PLACING, not to how much: with the target
+#        cut to 3, placements averaged 2.75 per seed and 20 tests still failed.
+#      - At SAFE_OPENING = 6 it places EIGHT items on every solo standard seed,
+#        which is bootstrap_opening scripting the opening - the thing its own
+#        docstring promises not to do.
+#
+# 2. ASK FOR MORE EARLY ITEMS (a second and third early mission unlock, which
+#    pre-places nothing). MEASURABLY WORSE, 300 seeds per config across five
+#    configurations:
+#
+#        1 early unlock (current)      0 failures in 1500 seeds
+#        2 early unlocks              17 failures in 1500 seeds
+#        3 early unlocks              11 failures in 1500 seeds
+#
+#    This agrees with the numbers already in force_early_weapon: asking for more
+#    early items than the opening can hold strands them.
+#
+# WHAT DOES WORK: a WIDER OPENING. The defect is that two starter missions give
+# exactly two reachable locations, so two dud placements end the seed. Three
+# starters give three, and the same 4800-seed sweep goes to ZERO failures. That
+# is the fix to reach for, and it needs no pre-placing and no test churn - see
+# the StarterMissions option default.
+#
+# For the record, the failure is also a LOUD one: generation stops with a
+# FillError and the player re-rolls. That is a different class from the silent
+# soft-locks this review removed, where a seed generated happily and could not
+# be finished. It is still worth fixing, but it never costs a playthrough.
+
+
+def weapon_breadth(mission: int, casual: bool = False) -> int:
+    """How many of a mission's checks a WEAPON alone opens, beyond the free ones.
+
+    The opening's real capacity is not how many checks are free - it is how many
+    the fill's first progression item can unlock. A mission whose only early
+    check is its waived cache contributes one location and then nothing, however
+    many objectives it has.
+
+    Measured, not listed, so it tracks the rules: when Miner became a logic
+    requirement on Not My Mars and Ruins Repurposed, this began reporting 0 for
+    them without anything else being edited.
+    """
+    from .locations import location_names_for_mission
+    from .rules import OFFENSE, location_requirements
+    held = {OFFENSE[0]}
+    n = 0
+    for name in location_names_for_mission(mission):
+        reqs = location_requirements(name, mission, casual)
+        if not reqs:
+            continue                       # free already, not weapon-opened
+        if all(any(item in held for item in group) for group in reqs):
+            n += 1
+    return n
+
+
+# How many times to re-attempt our own progression fill before the error is
+# allowed out. Each attempt reshuffles, so attempts are near-independent: one
+# attempt fails about 1 seed in 18,000, and every observed failure is the same
+# shape - the opening does not chain in the first few placements, which a
+# different order almost always fixes.
+OWN_FILL_ATTEMPTS = 5
+
+# Every seed, or only solo ones?
+#
+# The designer chose every seed (2026-09-03), reasoning that a multiworld can
+# fail too. The retry LOOP costs nothing when nothing fails, but the fill itself
+# runs every time, and that is what a multiworld pays: our progression is placed
+# into our own locations, so it can no longer live in another player's world.
+# World.needs_bootstrap records the measurement of what that is worth - "4 CW4
+# progression items per seed living in the other world" over 40 seeds. Set to
+# True to make this solo-only.
+OWN_FILL_SOLO_ONLY = True
+
+
+def place_own_progression(world) -> list:
+    """Place OUR progression into OUR locations, retrying on failure.
+
+    WHY. Archipelago's main fill is greedy and its backtracking is hard-capped -
+    each item may be swapped at most twice (Fill.py: "if swap_count > 1:
+    continue") behind a three-entry state cache - so a SOLVABLE arrangement can
+    still defeat it. Ours defeated it about once in 18,000 seeds, always the
+    same way: the first few placements fail to chain and it stops with the world
+    still empty. A captured failure had 231 of 236 locations unfilled and 15
+    mission unlocks still in hand.
+
+    A world cannot catch or retry the MAIN fill. It can place its own items and
+    retry, which is exactly what oot does for songs (6 attempts) and
+    pokemon_emerald for badges and HMs. This is that idiom.
+
+    Two things distribute_items_restrictive does around fill_restrictive that we
+    must therefore do ourselves:
+      - EXCLUDED locations must never take progression, or a player's
+        exclude_locations option is silently ignored.
+      - PRIORITY locations should be used first. fill_restrictive takes the
+        first VALID location in list order, so putting them at the front is
+        enough to honour priority_locations.
+    """
+    from BaseClasses import LocationProgressType
+    from Fill import FillError, fill_restrictive, sweep_from_pool
+
+    mw = world.multiworld
+    if OWN_FILL_SOLO_ONLY and not all(mw.worlds[p].game == world.game
+                                      for p in mw.player_ids):
+        return []
+
+    ours = [item for item in mw.itempool
+            if item.player == world.player and item.advancement]
+    if not ours:
+        return []
+
+    priority, default = [], []
+    for loc in mw.get_unfilled_locations(world.player):
+        if loc.address is None:
+            continue                     # event locations already hold their item
+        if loc.progress_type == LocationProgressType.EXCLUDED:
+            continue                     # the player asked for no progression here
+        (priority if loc.progress_type == LocationProgressType.PRIORITY
+         else default).append(loc)
+
+    if OWN_FILL_ATTEMPTS < 1:
+        return []            # switched off - see test/bases.py CW4TestBase
+
+    placed = []
+    for attempt in range(1, OWN_FILL_ATTEMPTS + 1):
+        world.random.shuffle(priority)
+        world.random.shuffle(default)
+        locations = priority + default
+        pool = list(ours)
+        world.random.shuffle(pool)
+        filled = []
+        try:
+            fill_restrictive(mw, sweep_from_pool(mw.state), locations, pool,
+                             single_player_placement=True, lock=False,
+                             on_place=filled.append, name="CW4 own progression")
+            placed = [(loc.name, loc.item.name) for loc in filled]
+            # Recorded so a run can show how often the retry actually fires and
+            # whether it recovers - the only direct evidence that the retry, and
+            # not luck, is what removed the failures.
+            world.own_fill_attempts = attempt
+            break
+        except FillError:
+            # Undo the attempt completely before reshuffling, the way
+            # pokemon_emerald does, or the next attempt inherits half a fill.
+            for loc in filled:
+                if loc.item is not None:
+                    loc.item.location = None
+                    loc.item = None
+                loc.locked = False
+            if attempt == OWN_FILL_ATTEMPTS:
+                raise
+
+    for _loc_name, item_name in placed:
+        for item in mw.itempool:
+            if item.player == world.player and item.name == item_name:
+                mw.itempool.remove(item)
+                break
+    return placed
+
+
 def force_early_mission(world) -> None:
-    # Another free-cache mission, and not one already unlocked, so the opening
-    # reliably widens beyond the starters.
+    """Unlock one more mission early, so the opening widens past the starters.
+
+    PREFERS a mission a weapon can actually open several checks on.
+
+    It used to choose uniformly from STARTER_ELIGIBLE, which was fine while most
+    of that set had weapon-openable checks. It stopped being fine on 2026-09-03:
+    Miner became a logic requirement on Not My Mars and Ruins Repurposed and
+    Nullifier gated every Reclaim, which left 7 of the 10 starter-eligible
+    missions with a waived cache and nothing else a weapon can reach. The chance
+    of a default two-starter seed opening entirely onto such missions went from
+    22 to 47 percent, and the world's own test configurations began failing to
+    fill in roughly 1 to 3 percent of seeds.
+
+    Widening the bootstrap instead was tried and rejected: needs_bootstrap also
+    governs the early-weapon guarantee and the pool accounting, so making it
+    unconditional disabled force_early_weapon and broke the
+    pool-exactly-fills-locations invariant on every solo seed. This is the
+    surgical version - it changes WHICH mission is granted, nothing else, and
+    only when the starters cannot already carry the opening themselves.
+    """
     if opening_width(world) < bootstrap_threshold(world):
         return  # bootstrap_opening owns these slots
     options = [n for n in STARTER_ELIGIBLE if n not in world.starter_missions]
     if not options:
         return
+    from .rules import is_casual
+    casual = is_casual(world)
+    # If a starter already opens up under a weapon, the opening is not fragile
+    # and the choice stays free - a uniform pick keeps openings varied.
+    starters_carry = any(weapon_breadth(n, casual) > 0
+                         for n in world.starter_missions)
+    if not starters_carry:
+        broad = [n for n in options if weapon_breadth(n, casual) > 0]
+        if broad:
+            options = broad
     name = f"Mission Unlock: {MISSION_TITLES[world.random.choice(options)]}"
-    world.multiworld.early_items[world.player][name] = 1
+    # LOCAL early items, per the Archipelago FAQ's first remedy for a
+    # restrictive start (docs/apworld_dev_faq.md, "My game has a restrictive
+    # start that leads to fill errors"). early_items may be satisfied in ANOTHER
+    # player's world (Fill.py:426-470 splits the two), which does nothing for an
+    # opening that needs OUR locations to chain. Identical for a solo seed;
+    # correct for a multiworld.
+    world.multiworld.local_early_items[world.player][name] = 1
 
 
 def opening_width(world) -> int:
@@ -402,6 +743,14 @@ def force_early_weapon(world) -> None:
     # of early locations for early items"), so the guarantee was never being kept
     # at this width. This makes which one gets dropped deterministic, and picks
     # the one that does not break generation.
+    #
+    # AND THE OPPOSITE IS TRUE AT TWO STARTERS. Dropping the early WEAPON
+    # request there - on the theory that a weapon opens no new mission and was
+    # competing with the unlock for two slots - made things 24 TIMES WORSE:
+    # 71 failures in 6000 seeds against 3. Measured 2026-09-03. The width-1
+    # numbers above do NOT generalise: at two slots the early weapon is doing
+    # most of the work, presumably because it opens the rest of whichever
+    # starter mission can use it. Do not remove this request.
     if opening_width(world) < bootstrap_threshold(world):
         # bootstrap_opening handles this width instead, and can still honour the
         # weapon - see there. Requesting it here would only claim the single
@@ -410,7 +759,8 @@ def force_early_weapon(world) -> None:
         return
 
     world.early_weapon = name
-    world.multiworld.early_items[world.player][name] = 1
+    # LOCAL, for the same reason as force_early_mission above.
+    world.multiworld.local_early_items[world.player][name] = 1
 
 
 def bootstrap_opening(world) -> list:
@@ -510,7 +860,7 @@ def create_all_items(world) -> None:
     # but the ITEM still exists, so ids are unaffected.
     starters = {f"Mission Unlock: {MISSION_TITLES[n]}" for n in world.starter_missions}
     for name in MISSION_UNLOCK_ITEMS + UNIT_ITEMS + BONUS_UNIT_ITEMS:
-        if name in starters:
+        if name in starters or name in RETIRED_ITEMS:
             continue
         pool.append(create_item(world, name))
     for _ in range(world.options.progressive_erns.value):

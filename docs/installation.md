@@ -92,7 +92,7 @@ sensible seed. The ones most worth setting:
 |---|---|---|
 | `missions_for_finale` | 12 | How many other missions must be completable before the finale can be won. 0 disables the gate. Maximum 19 |
 | `logic_difficulty` | standard | `standard` assumes only what is needed to WIN. `casual` also assumes a sniper or missile launcher from We Were Never Alone onward, so anti-air arrives earlier |
-| `starter_missions` | 2 | How many missions start unlocked, drawn from those whose cache needs no weapon. Range 1 to 6. Setting it to 1 gives a deliberately narrow opening - one check, which chains you to the next mission |
+| `starter_missions` | 2 | How many missions start unlocked, drawn from those whose cache needs no weapon. Range 2 to 6. The minimum was 1 until 2026-09-03: one starter is a one-location opening, and about one seed in 400 failed to generate from it, so the floor is now 2 |
 | `early_weapon` | random | Which of Cannon and Mortar is guaranteed to arrive first, in the very first sphere. `mortar` is the slower opening, `cannon` the brisk one, `random` picks per seed. It does not affect when the OTHER weapon arrives - that is about two thirds of the way in either way |
 | `trap_percentage` | 50 | Share of the non-progression slots that are traps. **50 is a lot in a solo game** - lower it if they grate. 0 removes them |
 | `progressive_erns` | 4 | How many Progressive ERN items go in the pool. ERNs are never required, so this is purely pool budget. Range 0 to 40 |

@@ -38,7 +38,14 @@ def derive(**o):
     opt = dict(DEFAULTS, **o)
     starters = min(opt["starter_missions"], len(I.STARTER_ELIGIBLE))
     unlocks = len(I.MISSION_UNLOCK_ITEMS) - starters
-    real = unlocks + len(I.UNIT_ITEMS) + len(I.BONUS_UNIT_ITEMS) + opt["progressive_erns"]
+    # RETIRED names still live in UNIT_ITEMS - ids are positional, so a removed
+    # name would renumber every id after it - but they are never generated. The
+    # Greenar Refinery was retired on 2026-09-03 when the Factory took over
+    # unlocking it, and without this subtraction every configuration derived one
+    # real item too many and one filler too few.
+    retired = len([n for n in I.UNIT_ITEMS if n in I.RETIRED_ITEMS])
+    real = (unlocks + len(I.UNIT_ITEMS) - retired + len(I.BONUS_UNIT_ITEMS)
+            + opt["progressive_erns"])
     # The ERN port upgrades are a FIXED block generated before the trap split,
     # so they come off the top like the real items rather than out of the filler
     # remainder. Twelve names, capped copies each.
@@ -52,7 +59,7 @@ def derive(**o):
     if opt["traps_off"]:            # every trap weight zero -> slots become filler
         traps = 0
     filler = remaining - traps
-    return {"unlocks": unlocks, "units": len(I.UNIT_ITEMS),
+    return {"unlocks": unlocks, "units": len(I.UNIT_ITEMS) - retired,
             "bonus": len(I.BONUS_UNIT_ITEMS), "erns": opt["progressive_erns"],
             "traps": traps, "filler": filler, "erns": erns,
             "energy": energy_block,
@@ -70,7 +77,9 @@ CASES = [
     ("max energy upgrades", {"energy_storage_copies": 36, "base_generation_copies": 36}),
     ("one ern upgrade copy", {"ern_upgrade_copies": 1}),
     ("max erns", {"progressive_erns": 40}),
-    ("one starter", {"starter_missions": 1}),
+    # Renamed with audit.py when the starter_missions floor became 2 on
+    # 2026-09-03; the labels must match or the cache lookup goes stale.
+    ("minimum starters", {"starter_missions": 2}),
     ("five starters", {"starter_missions": 5}),
     ("finale open", {}),
     ("finale maxed", {}),

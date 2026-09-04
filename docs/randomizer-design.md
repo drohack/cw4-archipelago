@@ -774,3 +774,446 @@ additive - spawn N beside the rift lab at mission start for N items held,
 plus live spawn on receipt, waiting for the rift lab if needed. Map-native
 ERNs stay untouched; the deny sweep exists in the probe but is NOT part of
 the randomizer (user: "i don't think i care about ern deny").
+
+## Playthrough findings (user, 2026-09-03) - AUTHORITATIVE
+
+Found by playing seeds with the map colours working, which is the first time
+"logic says this is reachable" could be compared against a real attempt. Three
+of these were discovered by being SOFT-LOCKED, so they are corrections to logic
+that was too loose, not tuning.
+
+### Implemented
+
+- **Totems need the greenar chain everywhere except three missions.** Shattered,
+  Wallis and Founders were added.
+  - Founders was found by soft-lock: "the totems on founders are the only green
+    icon on my map, but i can't get them as they need greenar
+    (refinery/factory) to get, there's no liftic cache on that mission."
+  - Shattered and Wallis were then checked by playing them with rift lab, tower
+    and Mortar only: "No both Shattered and Wallis need refinery/factory to
+    collect greenar and convert to liftic."
+  - So Home, Not My Mars and Ruins Repurposed are the ONLY free-totem missions.
+    `test_totems_need_greenar` names that exception list, so a new totem mission
+    fails the suite until someone classifies it.
+
+- **Reclaim needs a Nullifier on every mission.** It is "clear the map", which
+  cannot finish while anything still produces creeper: "that's typically the
+  last thing you do in a level as you need to lock down all the enemies".
+  Encoded per-mission it had covered only We Were Never Alone, leaving nine of
+  eleven Reclaim checks asking for a weapon alone.
+
+- **Miner gates Not My Mars and Ruins Repurposed, SOFT.** Both are energy
+  problems caused by map geography, not income appetite. Soft because neither is
+  literally impossible - Not My Mars can be done by hovering the rift lab
+  between islands, which the designer rejected as logic, and Ruins is "doable,
+  but it's hard mode/out of logic". Logic requires the Miner so the generator
+  never counts on a hard-mode run; the tracker shows yellow because the player
+  CAN do it.
+
+### The mortar + nullifier baseline
+
+What a lone Mortar plus a Nullifier already clears, in the designer's words:
+
+  "Anything Somewhere in Spacetime and above will also need more firepower than
+   just the morter + nullifier to nullify stuff, and reclaim (including Ever
+   After). below that it's doable (as long as there isn't another requirement,
+   i.e. Archon, Shattered)."
+
+  "Serious will need more than just morter and nullifier to do the
+   nullify/reclaim. That's hard mode in that state, and i don't even know if its
+   possible."
+
+So, for Nullify and Reclaim specifically:
+
+| missions | mortar + nullifier | notes |
+|---|---|---|
+| 1 to 7, 9, 10, 13 | ENOUGH | subject to each mission's own requirements |
+| 8 Serious | NOT enough | "hard mode ... don't even know if its possible" |
+| 11 Shattered, 12 Archon | blocked by their own rules | greenar / nullifier+shield |
+| 14 to 20 | NOT enough | includes Ever After |
+
+"Below that it's doable" is about Nullify and Reclaim only. Totems on those
+missions still need the greenar chain, and a mission's own MISSION_EXTRA still
+applies - the baseline is not a claim that missions 1 to 13 are winnable with a
+mortar.
+
+### Open: what clears the wall
+
+NOT ENCODED, deliberately, because there is no data yet. Missions 8 and 14 to 20
+currently carry no firepower requirement, so logic still overstates what a lone
+mortar can do there.
+
+The designer's account of why it is hard to state:
+
+  "Miners help get resources, which does help, only on some missions does just
+   miner + factory help if there's unique buildings on the map that are weapons.
+   Terp can also help build natual pushing barracades, i kind of like that as an
+   option. Another weapon helps as well, but Sprayers need Factory and Bluite to
+   actually be weapons. Getting ERNs and bonus energy (not cap, and not ERN
+   bonus unless you also have the ERN Port and ERNs to use). It's a delecate
+   balance."
+
+And a single ERN was observed to matter, without being decisive:
+
+  "in this specific test I did get an early ERN (jsut one) and that did make
+   doing the Morter + nullifier only a little easier to do, not trivial by any
+   means, but it does show that those kinds of things can swing it possibly."
+
+The requirement format is AND-of-OR-groups, so "any ONE of these clears the
+wall" is directly expressible and "any TWO of these five" is not. The plan is
+therefore to find items that each INDEPENDENTLY clear it, and put them in one
+OR-group beside the Nullifier.
+
+Test protocol agreed 2026-09-03: one benchmark mission (Serious), one run per
+candidate, the harness granting the exact item set so only the play is manual.
+Candidates: Cannon (the designer's prime suspect - "Cannons can do most
+anything" from 2026-08-25 remains untested against this wall), Terp, Miner,
+Miner + Factory, and 2 ERNs / bonus energy.
+
+**Price of the ERN answer:** ERN and energy items are deliberately filler that
+gates nothing. If an ERN count clears the wall it must become progression, which
+changes item classification, the pool and the sphere structure. That cost is
+worth naming before the test rather than discovering it after.
+
+### Wall test results (Serious, benchmark mission)
+
+Run 1, the CONTROL - rift lab, tower, Mortar, Nullifier:
+
+  "Only Morters (i don't have enough power to use get to the single spore to use
+   the nullifier, the single spore isn't really the issue, it's the generation
+   ground). I can get just over 20 gen. but my static defence is using over
+   that. meaning i don't have enough gen to have a group of units to push out.
+   even erns wouldn't help here as it just make the morters shoot
+   faster/farther, not more efficiently (as far as I know)."
+
+VERDICT: not possible. And the reason is more useful than the verdict.
+
+The wall is an ENERGY BUDGET, not firepower. Serious offers just over 20
+generation because of how much ground can hold towers, and static defence spends
+more than that, so there is never a surplus to field a push. The objective
+itself - one spore - is not the obstacle.
+
+That reframes what can clear it. A candidate has to either RAISE GENERATION or
+LOWER THE COST OF HOLDING GROUND:
+
+- **Terp** makes buildable ground, which is the constrained resource named here.
+  On this diagnosis it looked like the strongest candidate, ahead of a second
+  weapon - see run 2, which settled the question before Terp was reached.
+- **Base generation items** add income directly. Their full set is +10 against a
+  budget of ~20, so roughly a 50 percent increase - large enough to matter, and
+  the reason the "is +5 energy good?" question cannot be answered without a
+  mission's budget in hand.
+- **Cannon** only helps if it holds the same line for less energy than a mortar.
+  That is a per-unit constant and IS measurable, unlike map-level energy.
+- **Miner** helps if it adds income independent of tower ground.
+- **ERNs are ruled out by mechanism**, not by feel: they change rate and range,
+  not efficiency, so they cannot create a surplus that does not exist. Run 6 was
+  dropped for this reason.
+
+Run 2 - the control set plus CANNON:
+
+  "yes with cannons i could nullify and eventually reclaim. they can defend the
+   slittle areas with less energy and do more consiste attacks to take over more
+   space. there's a possiblity that you can do it only with morters, but in
+   general i would say it outside of even possible logic (it's very hard mode)."
+
+VERDICT: cleared. And it clears the wall for exactly the reason the wall exists -
+a cannon holds the small chokes for LESS energy, which is what creates the
+surplus that mortars never leave. The extra pressure to take ground is a bonus
+on top, not the mechanism.
+
+This confirms the designer's standing position from 2026-08-25 ("Cannons can do
+most anything. Mortars: same but a little harder") and sharpens it: on a
+generation-starved map the difference is not "a little harder", it is the
+difference between having a surplus and not.
+
+CONSEQUENCE FOR LOGIC. OFFENSE is an OR-group, Cannon or Mortar, and that is
+wrong for this class of check: mortar-only here is "outside of even possible
+logic (it's very hard mode)". So Serious' Nullify and Reclaim need CANNON
+specifically, not either weapon. Whether Terp or Miner ALSO clears it decides
+whether the encoded group is ["Cannon"] alone or ["Cannon", "Terp", ...] - and
+that matters, because a group that is too narrow paints reachable checks red.
+Runs 3 to 5 exist to answer exactly that and must not be skipped now that run 2
+has a positive.
+
+Run 3 - the control set plus TERP, no cannon:
+
+  "Yes with terp it's doable, slow, but doable. you can close up the holes in
+   the base, and start building out safe spots and walls to conserve energy and
+   carve out more spots."
+
+VERDICT: cleared, slowly.
+
+Two independent clears now, and BOTH act on the energy budget rather than on
+damage: the cannon spends less to hold a choke, the terp both conserves (walls
+and sealed holes mean less line to defend) and produces (carved spots hold more
+towers). Nothing so far clears this wall by shooting harder, which is why
+"firepower" was the wrong name for it.
+
+So the group has at least two members, ["Cannon", "Terp"], and the earlier worry
+about a too-narrow group was justified: encoding run 2 alone would have painted
+every Terp-only route red.
+
+Run 4 - the control set plus MINER, no cannon and no terp:
+
+  "Yes with miners it's doable with morters, it's slower than with cannons, but
+   you get up to like 30, a little more generation which is enough overhea to
+   build a hit squad to push out. (cannons are just that strong in comparison)."
+
+VERDICT: cleared, slower than the cannon.
+
+This is the run that put a NUMBER on the wall. Serious yields just over 20
+generation from tower ground alone and static defence spends all of it; miners
+take it to about 30, and that ~+10 of headroom is what pays for a push squad.
+
+Two things follow.
+
+RUN 5 WAS DROPPED. Miner + Factory is a superset of a set that already clears,
+so it can only clear too - it cannot change the OR-group. The distinction the
+designer drew between them ("only on some missions does just miner + factory
+help if there's unique buildings on the map that are weapons") is about OTHER
+missions, and would need those missions to test.
+
+THE +10 IS THIS MAP'S NUMBER, NOT THE MINER'S. Corrected by the designer
+immediately after the run:
+
+  "remember that's just on this map, since you get that much RESO field
+   available to you right away. it won't always be +10 on other maps"
+
+So a miner is worth as much RESO field as the map hands you, early. It is not a
+flat +10, and Serious happens to be generous. That kills the tempting shortcut
+of treating "Miner" and "+10 generation" as interchangeable in logic: they are
+equivalent HERE and need not be anywhere else.
+
+What survives as a yardstick is narrower but still useful: on a mission whose
+budget is ~20 and whose defence eats all of it, about +10 of headroom bought a
+push squad. It says "+5 alone was probably not enough on Serious". It does not
+say what +5 does on any other map, and the Progressive Base Generation set's +10
+cap only matches Serious by coincidence.
+
+Testing the energy items at all is therefore only worth it if the designer would
+accept the price: they are deliberately filler that gates nothing, and any of
+them entering logic makes them progression and reshapes the pool.
+
+The OR-group after four runs: ["Cannon", "Terp", "Miner"]. Every member acts on
+the energy economy - spend less holding ground, or produce more of it. None of
+them clears the wall by shooting harder, so the requirement should be NAMED for
+the economy rather than for firepower when it is encoded.
+
+### Spot-check: Somewhere in Spacetime (m14), the late-mission wall
+
+  "with morters and nullifiers it is doable. i'd say medium/hard, so out of
+   logic, but not by much (yellow). There's no RESO so miners won't help here.
+   because the map already has natual choke points TERPs only help a little, but
+   probably not enough to move the needle. with only morters you definitly need
+   nullifiers to help, if you don't then it's not possible (completely out of
+   logic). Factories and sprayers would help (on top of morters and nullifiers).
+   just cannons and nullifiers would be doable (in logic), morters and
+   nullifiers, with snipers would move the needle to doable (the eggs, and blobs
+   and skimmers are annoying enough that killing ahead of time makes it a bit
+   easier, you don't need to build tower walls as defence). Some erns with
+   morters and nullifiers might work. I think 2-3. Actually there's 6 burried
+   ERNS on the map so TERPS would help with that and I would say that's doable
+   as well."
+
+This is a DIFFERENT wall from Serious, and the difference is the whole point of
+having two layers:
+
+- Serious with mortars only is "outside of even possible logic" -> HARD, red.
+- m14 with mortars and nullifiers is "doable ... medium/hard, so out of logic,
+  but not by much" -> SOFT, yellow. Possible; just not promised.
+
+And the members that clear it are NOT the same set:
+
+| item | Serious (m8) | Somewhere in Spacetime (m14) |
+|---|---|---|
+| Cannon | clears | clears ("in logic") |
+| Terp | clears | clears, but for a MAP-SPECIFIC reason - 6 buried ERNs to dig up. Its usual value is low here because the map already has natural chokes |
+| Miner | clears (+10 from RESO) | USELESS - "There's no RESO so miners won't help here" |
+| Sniper | not tested | clears - eggs, blobs and skimmers killed early mean no tower walls needed for defence |
+
+That is the predicted failure mode caught in the act: a shared
+["Cannon", "Terp", "Miner"] group would have told a m14 player holding a Miner
+that these checks were reachable. There is no RESO on that map. That is a
+soft-lock, and it is exactly why the group has to be per-mission.
+
+Nullifier is confirmed HARD here independently: without one "it's not possible
+(completely out of logic)", which the type-wide Reclaim/Nullify rule already
+covers.
+
+TWO CANDIDATES DELIBERATELY LEFT OUT of m14's group:
+
+- **Sprayer** ("Factories and sprayers would help"). Cannot be expressed
+  soundly. An OR-group is satisfied by any ONE member, so listing "Sprayer"
+  would claim a bare Sprayer suffices - and a sprayer needs a Factory and
+  bluite to be a weapon at all. _expand only adds a prerequisite when EVERY
+  member of the group shares it, which is correct and means it will not rescue
+  a mixed group. Encoding this needs a nested requirement the format does not
+  have.
+- **ERNs** ("might work. I think 2-3"). Hedged, and it carries the price of
+  turning filler into progression. Left for a deliberate decision rather than
+  smuggled in on a maybe.
+
+### The wall is a per-map generation THRESHOLD, and that changes the encoding
+
+  "and 30 gen is also what looks to be what we need to only work with morters on
+   that map as well. it'll be a different level on different maps"
+
+So Serious' wall is not "you need a cannon" or "you need a miner". It is "reach
+about 30 generation", and every clear so far is just a different route to it:
+
+    Cannon   lowers the DEMAND  - holds the same choke for less
+    Terp     both               - walls cut the line to defend, carving adds spots
+    Miner    raises the SUPPLY  - worth as much RESO field as the map offers early
+
+Logic cannot say "30 generation": it can only name items. So each mission's group
+is the set of items that reach THAT map's threshold, and the threshold moves.
+
+WHICH WAY TO ERR, AND WHY IT IS NOT SYMMETRIC. An OR-group is satisfied by any
+one member, so:
+
+- A group that is too NARROW understates: checks read red that a player could
+  actually take, and the generator places items later than it needs to. Safe,
+  merely conservative.
+- A group that is too BROAD is dangerous: a Miner in the group for a map with no
+  early RESO field makes logic call that check reachable when it is not, and
+  that is a SOFT-LOCK - exactly the failure the 2026-09-03 playthrough kept
+  hitting from the other direction.
+
+Tonight's evidence is from ONE map, so a single shared group across missions 8
+and 14 to 20 would be the broad, dangerous kind of guess.
+
+PROPOSED SHAPE, pending the mission 14 spot-check:
+
+- **Cannon is the safest shared member**, because it works on the demand side.
+  It needs no RESO field and no terpable terrain, so it travels between maps in
+  a way the supply-side items do not.
+- **Terp and Miner get added per mission**, only where a run has verified them,
+  since each depends on a map feature that may be absent.
+
+That keeps the failure mode on the conservative side, at the price of some
+checks reading red that a resourceful player could take.
+
+### Energy cannot be answered by measurement alone
+
+An earlier plan to settle the energy questions with sim probes was wrong, and
+the reason is worth keeping:
+
+  "each mission can require different energy demands. there's different usable
+   land for Towers to occupy and produce energy for you. different weapons
+   require different energy demands, enemies produce different amount of creep."
+
+Global constants are measurable (a weapon's draw, a tower's output, what an ERN
+does to reload). Whether the ceiling beats the pressure on a given map is not.
+
+### Fixing the fill, measured (2026-09-03)
+
+The late-mission logic review made the pool harder to fill: a 32-configuration
+sweep found failures in about 0.17 percent of seeds on the configurations that
+fail at all. The failure is structural, and worth stating precisely because two
+plausible fixes made it WORSE.
+
+WHY IT HAPPENS. Archipelago's fill places progression one item at a time into
+currently-reachable locations, greedily. Two starter missions give exactly two
+locations reachable with no items. And most of this world's progression items
+open nothing on their own - totems needed Refinery AND Factory on 14 missions,
+Chronat and Platform and Rocket Pad need that same chain, Sequence needs Sniper
+AND Miner AND a mover. Mission unlocks are the only reliable openers. So the
+fill has two slots and a pool of mostly duds: place two duds and the seed
+strands.
+
+MEASURED, six failure-prone configurations, hundreds of seeds each, always with
+a positive control:
+
+| change | 1 starter | 2 starters (default) |
+|---|---|---|
+| before | - | 0.167 percent |
+| engage bootstrap_opening for standard | - | 1.208 percent (SEVEN TIMES WORSE) |
+| a second/third early mission unlock | - | worse: 17 and 11 failures vs 0 |
+| starter_missions default 3 | - | 0.000 percent |
+| MERGE THE GREENAR PAIR | 0.25 percent | 0.014 percent (1 in 7200) |
+| merge + force one broad starter | 0.056 percent | 0.000 percent |
+
+WHAT WAS ADOPTED, and what was not:
+
+- **The merge.** Factory unlocks the greenar refinery too, so the biggest dud
+  class is gone. The designer's reason came first and the fill benefit second:
+  "there's litterlay no reason to have a refinery without the factory". The
+  refinery's NAME is retired rather than deleted, because item ids are
+  positional.
+- **starter_missions floor raised to 2.** One starter could not be made to
+  generate reliably even with the merge and a forced broad starter.
+- **NOT the default of 3.** It measured perfect and was declined: "I don't like
+  widening to 3 levels at the start."
+- **NOT the forced broad starter.** It bought nothing at two starters, and would
+  have cost the varied openings that random starters exist for.
+- **NOT the bootstrap for standard.** Actively harmful, and it had been written
+  up in items.py as "the known remedy" on the strength of helping casual - an
+  inference that was never measured on standard and turned out backwards.
+
+### Generation reliability: we place our own progression (2026-09-03)
+
+**The problem was never the rules.** Archipelago verifies every seed it writes -
+it computes a playthrough and refuses to output one it cannot prove beatable -
+so a `FillError` never ships a broken seed. It writes NO seed, and the human
+re-runs generation.
+
+But it happened about once in 18,000 solo seeds, and a randomizer whose seeds
+sometimes fail to build is bad design.
+
+WHY IT HAPPENED. `Fill.fill_restrictive` is greedy and its backtracking is
+hard-capped - each item may be swapped at most twice ("if swap_count > 1:
+continue") behind a three-entry state cache. It is not an exhaustive solver, so
+a SOLVABLE arrangement can defeat it. Every captured failure had the same shape:
+the opening failed to chain in the first few placements and it stopped with the
+world still empty (one had 231 of 236 locations unfilled, holding 15 mission
+unlocks).
+
+WHAT DID NOT WORK, all measured, all recorded in apworld/cw4/items.py:
+bootstrapping standard seeds (7x worse), pre-placing a guaranteed opener (8x),
+dropping the early weapon request (24x), extra early unlocks (worse), and
+ordering the fill's location list in EITHER direction (3x). Constraining the
+starter draw to include a mission a weapon can open was measured at "0 in
+12,600" and then RETRACTED - bucketing 9,000 seeds by starter category showed
+failures spread evenly, and two of four failing pairs contained a broad mission.
+
+WHAT WORKED. Two things, both about the problem rather than the search:
+
+1. **Merging the greenar pair** into one item, so the campaign's biggest
+   "opens nothing alone" class disappeared. 4x better, and a simplification the
+   designer wanted anyway.
+2. **Placing our own progression, with retries** - `items.place_own_progression`,
+   called from `World.pre_fill`. A world cannot catch or retry the MAIN fill, but
+   it can place its own items and retry, which is exactly what `oot` does for
+   songs (6 attempts) and `pokemon_emerald` for badges and HMs.
+
+MEASURED, on the real pipeline rather than through the unit tests:
+
+| | result |
+|---|---|
+| attempts needed, 8,000 seeds | 7611 x1, 364 x2, 24 x3, 1 x4, **0 exhausted 5** |
+| generation failures, with the fill | **0 in 16,000** |
+| generation failures, without | 1 in 4,000 (0.025 percent) |
+| unreachable locations / unbeatable | 0 and 0 in 1,500 |
+| multiworld, CW4 + ChecksFinder | 0 failures in 200, our fill correctly never ran |
+| CW4 progression in the other world | 4.0 items per seed - unchanged |
+
+Our single attempt is far WORSE than Archipelago's orchestrated fill (about 5
+percent against 0.025) because it skips the priority pass and
+`accessibility_corrections`. It wins only by being allowed to roll again. That
+is fine - and checked: 0 unreachable and 0 unbeatable seeds in 1,500.
+
+SOLO ONLY (`items.OWN_FILL_SOLO_ONLY`). A multiworld does not need it - measured
+0 failures in 200 - and applying it there would place all our progression
+locally, costing the cross-game placements the design values. The designer
+initially asked for it everywhere, then chose solo-only once it was clear the
+retry LOOP is free but the fill itself runs every time.
+
+TESTING NOTE. `CW4TestBase` switches this fill OFF by default, because access
+tests assert reachability by removing items from the POOL and a pre-placed item
+is not in the pool - 27 of them broke the moment it was added, and they would
+have kept passing while testing nothing. The fill is covered directly by
+`TestOwnProgressionFill`, and generation is measured by
+`tools/audit/realfillrate.py`, which runs the real pipeline. `tools/audit/
+fillrate.py` drives the unit tests and therefore does NOT exercise this - a
+20,000-seed sweep with it looked unchanged for exactly that reason.

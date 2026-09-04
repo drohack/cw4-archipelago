@@ -89,7 +89,7 @@ class TestEarlyWeaponMortar(bases.CW4TestBase):
     options = {"early_weapon": "mortar"}
 
     def test_mortar_is_forced_early(self) -> None:
-        early = self.multiworld.early_items[self.player]
+        early = self.multiworld.local_early_items[self.player]
         self.assertEqual(1, early.get("Mortar"))
         self.assertNotIn("Cannon", early)
 
@@ -105,7 +105,7 @@ class TestEarlyWeaponCannon(bases.CW4TestBase):
     options = {"early_weapon": "cannon"}
 
     def test_cannon_is_forced_early(self) -> None:
-        early = self.multiworld.early_items[self.player]
+        early = self.multiworld.local_early_items[self.player]
         self.assertEqual(1, early.get("Cannon"))
         self.assertNotIn("Mortar", early)
 
@@ -117,7 +117,7 @@ class TestEarlyWeaponRandom(bases.CW4TestBase):
         # "random" is Archipelago's own, for any Choice - the world defines only
         # mortar and cannon. Defining an option_random is actually forbidden
         # (Options.py asserts on it), which is why the default is the string.
-        early = self.multiworld.early_items[self.player]
+        early = self.multiworld.local_early_items[self.player]
         forced = [w for w in ("Cannon", "Mortar") if w in early]
         self.assertEqual(1, len(forced), f"expected one early weapon, got {forced}")
         self.assertEqual(forced[0], self.world.early_weapon)
@@ -130,7 +130,7 @@ class TestEarlyWeaponDefaultIsRandom(bases.CW4TestBase):
         # default = "random" is a string rather than a value, so it goes through
         # from_any -> from_text and could silently resolve to nothing if the
         # spelling were ever wrong. This is the test that would catch that.
-        early = self.multiworld.early_items[self.player]
+        early = self.multiworld.local_early_items[self.player]
         forced = [w for w in ("Cannon", "Mortar") if w in early]
         self.assertEqual(1, len(forced), f"expected one early weapon, got {forced}")
         self.assertIn(self.world.early_weapon, ("Cannon", "Mortar"))
@@ -143,17 +143,27 @@ class TestEarlyWeaponWithOneStarter(bases.CW4TestBase):
     what this class is for - that the opening gets widened before the general fill
     sees it - is asserted directly and needs no fill.
     """
-    options = {"early_weapon": "mortar", "starter_missions": 1}
+    # starter_missions 1 is no longer selectable - the floor became 2 on
+    # 2026-09-03 because one starter could not be made to generate reliably.
+    # The bootstrap still has exactly one live path: casual logic, whose
+    # threshold (3) is above the two-starter opening width (2).
+    options = {"early_weapon": "mortar", "logic_difficulty": "casual"}
     run_default_tests = False
 
-    def test_the_opening_starts_one_location_wide(self) -> None:
-        from ..items import opening_width
-        self.assertEqual(1, opening_width(self.world))
+    def test_the_opening_is_narrower_than_casual_wants(self) -> None:
+        from ..items import opening_width, bootstrap_threshold
+        self.assertEqual(2, opening_width(self.world))
+        self.assertLess(opening_width(self.world),
+                        bootstrap_threshold(self.world))
 
+    # LOCAL early items throughout: the Archipelago FAQ's remedy for a
+    # restrictive start is local_early_items, which is satisfied from this
+    # player's OWN early locations rather than possibly another player's world
+    # (Fill.py:426-470). Identical for a solo seed, correct for a multiworld.
     def test_no_early_items_are_requested_at_this_width(self) -> None:
         # Two requests into one slot is what broke 12 percent of these seeds.
         # At this width the bootstrap places instead, so nothing is requested.
-        self.assertEqual({}, dict(self.multiworld.early_items[self.player]))
+        self.assertEqual({}, dict(self.multiworld.local_early_items[self.player]))
 
     def test_the_bootstrap_widens_the_opening(self) -> None:
         from BaseClasses import CollectionState
@@ -205,7 +215,8 @@ class TestBootstrapStandsDownForOtherGames(bases.CW4TestBase):
     This test fakes the condition rather than building a real multiworld, which
     keeps it fast; the real two-game case is covered by measurement.
     """
-    options = {"starter_missions": 1}
+    # Casual rather than starter_missions 1, which is no longer selectable.
+    options = {"logic_difficulty": "casual"}
     run_default_tests = False
 
     def test_solo_needs_the_bootstrap(self) -> None:
@@ -234,7 +245,7 @@ class TestOpeningWidthAtTwoStarters(bases.CW4TestBase):
     def test_two_starters_can_afford_both_early_items(self) -> None:
         from ..items import opening_width
         self.assertGreaterEqual(opening_width(self.world), 2)
-        early = self.multiworld.early_items[self.player]
+        early = self.multiworld.local_early_items[self.player]
         self.assertEqual(1, early.get("Mortar"))
         self.assertTrue([k for k in early if k.startswith("Mission Unlock:")])
 
@@ -397,9 +408,38 @@ class TestCasualLogic(bases.CW4TestBase):
         # Mission 6 is the first with spores. Requiring anti-air there is what
         # makes Archipelago place one EARLIER in the spheres, rather than a seed
         # legally leaving it in the finale.
-        self.collect_all_but(["Sniper", "Missile Launcher"])
-        self.assertFalse(self.can_reach_location("We Were Never Alone - Nullify 1"))
-        self.assertFalse(self.can_reach_location("Founders - Cache 1"))
+        #
+        # BUILT FROM AN EXPLICIT STATE, not from collect_all_but.
+        #
+        # collect_all_but collects the ITEM POOL, but bootstrap_opening has
+        # already placed some items ON locations and removed them from the pool -
+        # and collecting sweeps reachable locations, so if the bootstrap happened
+        # to place a Sniper the state acquired anti-air and this assertion
+        # failed. That made the test seed-dependent: 1 run in 60 before the logic
+        # was tightened on 2026-09-03, and 6 in 60 after, because stricter rules
+        # give the bootstrap more productive items to choose from.
+        #
+        # Collecting the pool AND the bootstrap's placements, minus anti-air,
+        # with sweeping off, gives "everything this seed contains except anti-air"
+        # - which is the state the assertion is actually about, and is the same
+        # on every seed.
+        from BaseClasses import CollectionState
+        anti_air = {"Sniper", "Missile Launcher"}
+        state = CollectionState(self.multiworld)
+        for item in self.multiworld.itempool:
+            if item.name not in anti_air:
+                state.collect(item, prevent_sweep=True)
+        # Whatever pre_fill placed is part of the seed too, so it belongs in the
+        # state - otherwise the assertion could pass merely for want of a
+        # mission unlock the bootstrap had taken out of the pool.
+        for _loc, name in (getattr(self.world, "bootstrapped", None) or []):
+            if name not in anti_air:
+                state.collect(self.world.create_item(name), prevent_sweep=True)
+
+        for loc in ("We Were Never Alone - Nullify 1", "Founders - Cache 1"):
+            self.assertFalse(
+                self.multiworld.get_location(loc, self.player).can_reach(state),
+                f"{loc} was reachable with everything except anti-air")
 
     def test_either_anti_air_building_satisfies_it(self) -> None:
         from ..rules import mission_requirements
@@ -812,3 +852,64 @@ class TestNormalLogicBootstrapUnchanged(bases.CW4TestBase):
                          items.SAFE_OPENING_MIN)
         self.assertGreaterEqual(items.opening_width(self.world),
                                 items.bootstrap_threshold(self.world))
+
+
+class TestOwnProgressionFill(bases.CW4TestBase):
+    """World.pre_fill places this world's progression itself, and retries.
+
+    WHY IT EXISTS. Archipelago's main fill is greedy with hard-capped
+    backtracking - each item may be swapped at most twice - so it can give up on
+    a SOLVABLE arrangement. It did so on about 1 seed in 18,000, always the same
+    way: the opening failed to chain and it stopped with the world still empty.
+    A world cannot catch or retry the main fill, but it can place its own items
+    and retry, which is what oot and pokemon_emerald do for the same reason.
+
+    Measured over 8000 seeds: the first attempt failed on 389 of them and a
+    reshuffled retry recovered EVERY time (364 needed 2 attempts, 24 needed 3,
+    1 needed 4, none exhausted 5).
+    """
+    own_fill = True
+
+    def test_progression_is_placed_and_out_of_the_pool(self) -> None:
+        placed = getattr(self.world, "own_placements", [])
+        self.assertTrue(placed, "our own fill placed nothing")
+        names = {n for _loc, n in placed}
+        pool = [i.name for i in self.multiworld.itempool
+                if i.player == self.player and i.advancement]
+        for name in names:
+            self.assertNotIn(
+                name, pool,
+                f"{name} was placed but is still in the pool - it would be "
+                f"handed out twice")
+
+    def test_excluded_locations_never_get_progression(self) -> None:
+        # Skipping EXCLUDED is ours to do: distribute_items_restrictive
+        # partitions by progress type before filling, and calling
+        # fill_restrictive directly bypasses that. Getting this wrong would
+        # silently ignore a player's exclude_locations option.
+        from BaseClasses import LocationProgressType
+        for loc_name, _item in getattr(self.world, "own_placements", []):
+            loc = self.multiworld.get_location(loc_name, self.player)
+            self.assertNotEqual(LocationProgressType.EXCLUDED, loc.progress_type,
+                                f"{loc_name} is excluded and got progression")
+
+    def test_every_placement_is_ours(self) -> None:
+        for loc_name, _item in getattr(self.world, "own_placements", []):
+            loc = self.multiworld.get_location(loc_name, self.player)
+            self.assertEqual(self.player, loc.player)
+            self.assertEqual(self.player, loc.item.player)
+
+    def test_the_seed_is_still_beatable(self) -> None:
+        # The whole point is a seed that generates AND can be finished.
+        from Fill import distribute_items_restrictive
+        distribute_items_restrictive(self.multiworld)
+        self.assertTrue(self.multiworld.can_beat_game())
+
+
+class TestOwnFillCanBeSwitchedOff(bases.CW4TestBase):
+    """The off switch the access tests rely on has to actually switch it off,
+    or every access assertion in this suite silently stops testing anything."""
+    own_fill = False
+
+    def test_nothing_is_pre_placed(self) -> None:
+        self.assertEqual([], getattr(self.world, "own_placements", []))

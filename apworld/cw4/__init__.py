@@ -112,6 +112,11 @@ class CW4World(World):
     def pre_fill(self) -> None:
         if self.needs_bootstrap():
             self.bootstrapped = items.bootstrap_opening(self)
+        # Place our own progression, with retries. Archipelago's main fill is
+        # not ours to retry, and it gives up on a solvable arrangement about
+        # once in 18,000 seeds; oot and pokemon_emerald handle the same problem
+        # the same way. See items.place_own_progression.
+        self.own_placements = items.place_own_progression(self)
 
     def create_item(self, name: str) -> items.CW4Item:
         return items.create_item(self, name)
@@ -121,6 +126,30 @@ class CW4World(World):
 
     def fill_slot_data(self) -> Mapping[str, Any]:
         data = dict(rules.requirement_groups(rules.is_casual(self)))
+        # The PHYSICAL layer as well: what a player genuinely cannot proceed
+        # without, as opposed to what logic is willing to assume. It lets the
+        # in-game tracker paint red only where a check cannot be reached at all,
+        # and yellow where it is reachable but out of logic - a hard-mode run
+        # the generator must never count on. The two differ wherever a
+        # MISSION_SOFT entry applies (energy on Not My Mars and Ruins
+        # Repurposed) or casual logic has added anti-air.
+        data["strict_location_requirements"] = (
+            rules.requirement_groups(physical=True)["location_requirements"])
+        # Which objective SLOTS each mission requires in order to be won.
+        #
+        # The plugin needs this to close a real hole: Farsite was beaten in full
+        # and "Farsite - Mission Complete" was sent while "Farsite - Custom"
+        # never was, because the game reported IsMissionComplete() true while
+        # IsMissionObjectiveComplete(5) was still false in that same frame
+        # (observed in a real playthrough, seed 47803770604823003263).
+        #
+        # Completing a mission means completing the objectives it requires, so
+        # the plugin can send those checks on completion rather than depending
+        # on a per-objective query that can lag or never flip.
+        data["required_objectives"] = {
+            f"story{n}": sorted(locations.REQUIRED_OBJECTIVES[n])
+            for n in range(1, 21)
+        }
         data["starter_missions"] = [f"story{n}" for n in self.starter_missions]
         data["ern_per_item"] = 1
         data["missions_for_finale"] = self.options.missions_for_finale.value
