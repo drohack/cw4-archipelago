@@ -1,0 +1,109 @@
+name: Post-release version bump
+
+# Bump the version the moment a release is published.
+#
+# WHY THIS IS AUTOMATIC. A version has to identify exactly one code state, and
+# twice it did not: v0.1.1 shipped and main kept calling itself 0.1.1 for twelve
+# commits including an item rename, then v0.1.2 shipped and main sat four commits
+# past it. Both times a player could hold a mod and an apworld agreeing on a
+# version number and disagreeing about what the items were called.
+#
+# The CI `version` job now FAILS any push where main sits past a shipped tag
+# still claiming that tag's version, which makes the bump mandatory - so it
+# should not depend on anyone remembering. Publishing a release is the only
+# moment it is ever needed, so that is the trigger.
+#
+# No loop: a push made with GITHUB_TOKEN does not start another workflow run.
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  bump:
+    name: Bump to the next patch version
+    runs-on: ubuntu-latest
+    # A pre-release is not the shipped version, so it does not consume one.
+    if: github.event.release.prerelease == false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Work out the next version
+        id: next
+        run: |
+          set -euo pipefail
+          released="${GITHUB_REF_NAME#v}"
+          echo "released=$released"
+          case "$released" in
+            [0-9]*.[0-9]*.[0-9]*) ;;
+            *) echo "::error::release tag '$GITHUB_REF_NAME' is not vMAJOR.MINOR.PATCH"; exit 1 ;;
+          esac
+          major=${released%%.*}
+          rest=${released#*.}
+          minor=${rest%%.*}
+          patch=${rest#*.}
+          next="$major.$minor.$((patch + 1))"
+          echo "next=$next" >> "$GITHUB_OUTPUT"
+          echo "bumping to $next"
+
+      - name: Rewrite the three files
+        env:
+          NEXT: ${{ steps.next.outputs.next }}
+        run: |
+          set -euo pipefail
+          python3 - "$NEXT" <<'PY'
+          import io
+          import re
+          import sys
+
+          nxt = sys.argv[1]
+
+          # Every file is read and written as UTF-8 WITHOUT a BOM. The local
+          # bump script got this wrong once and put a U+FEFF at the head of
+          # archipelago.json, where it breaks json.load.
+          edits = [
+              ("src/CW4Archipelago/CW4Archipelago.csproj",
+               r"(<Version>)[^<]+(</Version>)", rf"\g<1>{nxt}\g<2>"),
+              ("src/CW4Archipelago/Plugin.cs",
+               r'(public const string Version = ")[^"]+(")', rf"\g<1>{nxt}\g<2>"),
+              ("apworld/cw4/archipelago.json",
+               r'("world_version"\s*:\s*")[^"]+(")', rf"\g<1>{nxt}\g<2>"),
+          ]
+          for path, pattern, repl in edits:
+              text = io.open(path, encoding="utf-8").read()
+              new, n = re.subn(pattern, repl, text, count=1)
+              if n != 1:
+                  sys.exit(f"{path}: expected exactly one version to rewrite, got {n}")
+              io.open(path, "w", encoding="utf-8", newline="").write(new)
+              print(f"{path} -> {nxt}")
+          PY
+
+      - name: Check they agree, then commit
+        env:
+          NEXT: ${{ steps.next.outputs.next }}
+        run: |
+          set -euo pipefail
+          csproj=$(sed -n 's/.*<Version>\(.*\)<\/Version>.*/\1/p' src/CW4Archipelago/CW4Archipelago.csproj | head -1)
+          plugin=$(sed -n 's/.*const string Version = "\(.*\)".*/\1/p' src/CW4Archipelago/Plugin.cs | head -1)
+          world=$(python3 -c "import json;print(json.load(open('apworld/cw4/archipelago.json'))['world_version'])")
+          if [ "$csproj" != "$NEXT" ] || [ "$plugin" != "$NEXT" ] || [ "$world" != "$NEXT" ]; then
+            echo "::error::rewrite disagreed - csproj $csproj, Plugin.cs $plugin, world $world, wanted $NEXT"
+            exit 1
+          fi
+          if git diff --quiet; then
+            echo "already at $NEXT, nothing to do"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/CW4Archipelago/CW4Archipelago.csproj \
+                  src/CW4Archipelago/Plugin.cs \
+                  apworld/cw4/archipelago.json
+          git commit -m "Bump to $NEXT after releasing ${GITHUB_REF_NAME}"
+          git push origin HEAD:main
