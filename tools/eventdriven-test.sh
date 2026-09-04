@@ -32,6 +32,14 @@ perf_field() { since | grep "DEBUG PERF:" | tail -1 | grep -o "$1=[0-9]*" | cut 
 echo "step 0/8: clean slate + known config"
 taskkill //IM CW4.exe //F >/dev/null 2>&1; sleep 2
 rm -f "$CMD"
+# Clear the AP slot cache too, or this is not hermetic. Since 2026-09-04 the mod
+# comes up on the LAST SLOT PLAYED when no server is reachable, and this battery
+# reaches no server - so whatever the previous battery left on disk became this
+# one's starting state. That is the feature working as intended; it just means a
+# harness whose assertions assume an empty state has to say so. It cost step 5 a
+# failure: with a real seed's 236 locations loaded, "Founders - Custom" is judged
+# on actual logic instead of being the only location the mod knows about.
+rm -rf "$HOME/Documents/My Games/creeperworld4/archipelago/slots"        "$HOME/Documents/My Games/creeperworld4/archipelago/last-session.json"
 mkdir -p "$CW4/BepInEx/config"
 cat > "$CW4/BepInEx/config/com.droha.cw4archipelago.cfg" <<CFGEOF
 [Connection]

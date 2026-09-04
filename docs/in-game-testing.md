@@ -148,6 +148,40 @@ game's own `AssignERN` and removes six drag-and-drops plus several minutes of ra
 from every iteration. If a test needs a human step, that step will be skipped and
 the test will rot.
 
+## A harness that reaches no server inherits the last slot played
+
+Since 2026-09-04 the mod comes up on the LAST SLOT PLAYED when no server is
+reachable (see
+[design/2026-09-04-offline-and-disconnects.md](design/2026-09-04-offline-and-disconnects.md)).
+A harness that writes `AutoConnect = false` and starts no server therefore does
+NOT start from an empty state - it starts from whatever the previous harness
+left in
+`Documents/My Games/creeperworld4/archipelago/slots/`.
+
+This is the feature working as designed. It just means "hermetic BepInEx config"
+is no longer enough to be hermetic. **Delete the slot cache in step 0:**
+
+```bash
+rm -rf "$HOME/Documents/My Games/creeperworld4/archipelago/slots"        "$HOME/Documents/My Games/creeperworld4/archipelago/last-session.json"
+```
+
+Deleting `slots/` alone is sufficient in practice - the pointer resolves through
+it, so a stale `last-session.json` finds nothing - but deleting both says what
+is meant.
+
+How it announced itself: `tools/eventdriven-test.sh` dropped from 22/22 to 21/22
+on the assertion "glyph GREEN once the gate opens". With a real seed's 236
+locations loaded from a previous battery's cache, `Founders - Custom` is judged
+on actual logic instead of being the only location the mod knows about, so its
+glyph is legitimately not green. The product was right and the harness was
+measuring a state it had not set up.
+
+`apbattery.sh`, `apbattery2.sh`, `msgbox.sh`, `msgfilter.sh` and
+`offline-test.sh` clear it. **The other harnesses that reach no server do not
+yet**, including `cache-handtest.sh`, `story15-handtest.sh`, `cmod-traptest.sh`
+and the `ern-*` measurement scripts. If one of those starts reporting an item or
+an unlock nobody granted, this is the first thing to check.
+
 ## Two ways a run silently corrupts itself
 
 - **Editing a script bash is executing.** Bash reads a script by byte offset, so
