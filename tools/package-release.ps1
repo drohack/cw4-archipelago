@@ -35,6 +35,24 @@ if ($version -ne $pluginVersion -or $version -ne $worldVersion) {
 }
 Write-Output "version $version (csproj, Plugin.cs and archipelago.json agree)"
 
+# AND IT HAS TO BE A NEW VERSION. The check above only proves the three files
+# agree with each OTHER; it says nothing about whether that version has already
+# shipped. On 2026-09-04 main sat four commits past v0.1.2 still calling itself
+# 0.1.2 - the same drift this script exists to prevent, one level up. If the tag
+# already exists, the version has shipped and packaging again would produce a
+# second, different "v$version".
+# Tags are created by `gh release create` on the REMOTE, and a clone that has
+# never fetched them sees nothing locally - which is exactly how this check
+# silently passed the first time it ran. Ask the remote, and fall back to local
+# tags when offline.
+$tagged = & git ls-remote --tags origin "refs/tags/v$version" 2>$null
+if (-not $tagged) { $tagged = & git tag --list "v$version" }
+if ($tagged) {
+    throw ("v$version is already tagged, so that version has shipped. Bump " +
+           "the csproj Version, Plugin.Version and archipelago.json " +
+           "world_version before packaging.")
+}
+
 dotnet build -c Release -v q $proj
 if ($LASTEXITCODE -ne 0) { throw "build failed" }
 

@@ -17,7 +17,7 @@ public class Plugin : BasePlugin
     /// A build and a seed could then both say "0.1.1" and disagree about what
     /// items are called. package-release.ps1 now refuses to build unless this,
     /// the csproj Version and world_version all match.</summary>
-    public const string Version = "0.1.2";
+    public const string Version = "0.1.3";
 
     public override void Load()
     {
