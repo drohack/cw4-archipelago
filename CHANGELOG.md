@@ -3,7 +3,7 @@
 Versions follow semantic versioning. The plugin and the apworld share one number,
 so a release is a matched pair - if you update one, update the other.
 
-## Unreleased
+## v0.1.6 - offline play, and disconnects that behave
 
 Disconnects, offline play, and what survives reconnecting. Four bugs, all of
 which lost or duplicated progress silently, and none of which any test could
