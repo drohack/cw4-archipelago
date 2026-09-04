@@ -88,6 +88,46 @@ public sealed class ApClient
         _dispatch = dispatch;
         _store = new SlotStore(storeRoot);
         WireInitialState();
+        LoadCachedSlot();
+    }
+
+    /// <summary>Start on the last slot played, before any server is reached.
+    ///
+    /// Without this the game came up with an empty state whenever the server was
+    /// unreachable, which means EVERY mission locked and nothing playable - even
+    /// with a complete cache of the slot sitting on disk. A host that is down for
+    /// ten minutes should not be a ten-minute ban from your own campaign.
+    ///
+    /// This is the same footing as a mid-session drop, which was always allowed:
+    /// you keep playing, checks queue, and the queue flushes on the next
+    /// connection. Archipelago requires that much - "the client must send those
+    /// location checks on connection so that they are not permanently lost"
+    /// (docs/adding games.md) - so progress is pushed, never reverted.
+    ///
+    /// Connecting to a DIFFERENT seed does not fold this progress in: the
+    /// reconcile keys on (seed, slot) and leaves the other seed's cache alone,
+    /// still owed the next time that seed is joined.</summary>
+    private void LoadCachedSlot()
+    {
+        try
+        {
+            var cached = _store.LoadLast();
+            if (cached == null)
+                return;
+            State = cached;
+            var owed = cached.PendingChecks.Count;
+            SetStatus(ConnectionStatus.Disconnected,
+                $"offline - playing cached slot {cached.Slot}"
+                + (owed > 0 ? $" ({owed} check(s) queued)" : ""));
+            _log.LogInfo(
+                $"AP OFFLINE: loaded cached slot='{cached.Slot}' seed='{cached.Seed}' " +
+                $"items={cached.ReceivedItems.Count} checked={cached.CheckedLocations.Count} pending={owed}");
+        }
+        catch (Exception e)
+        {
+            // Never let a bad cache stop the game from starting.
+            _log.LogWarning($"cached slot load failed, starting empty: {e.Message}");
+        }
     }
 
     private void Persist()
@@ -136,14 +176,31 @@ public sealed class ApClient
             }
             else
             {
-                // Any failure is retryable up to the cap: server-unreachable
-                // comes back here as a LoginFailure ("Connection timed out"),
-                // not an exception, and a bad slot/password simply exhausts the
-                // 3 tries and then stops with the error shown.
-                var errors = result is LoginFailure f ? string.Join("; ", f.Errors) : "unknown error";
+                // Two very different failures arrive down this one path, and now
+                // that the retry is unbounded they have to be told apart.
+                //
+                // A REFUSAL is the server answering: wrong slot name, wrong
+                // password, wrong game, incompatible version. Retrying cannot
+                // help - the answer will be the same in a minute - and the
+                // reference client does not auto-retry one either. Show it and
+                // stop, so a typo says so instead of spinning forever.
+                //
+                // Anything else is the transport: unreachable host, timeout, DNS.
+                // Those are exactly what the backoff exists for. A server that is
+                // down comes back here as a LoginFailure ("Connection timed
+                // out"), not an exception, which is why this is not a catch.
+                var failure = result as LoginFailure;
+                var errors = failure != null ? string.Join("; ", failure.Errors) : "unknown error";
+                var refused = failure?.ErrorCodes is { Length: > 0 };
                 _dispatch(() =>
                 {
-                    SetStatus(ConnectionStatus.Failed, $"login failed: {errors}");
+                    if (refused)
+                    {
+                        SetStatus(ConnectionStatus.Failed, $"login refused: {errors}");
+                        _log.LogWarning($"AP LOGIN REFUSED (not retrying): {errors}");
+                        return;
+                    }
+                    SetStatus(ConnectionStatus.Failed, $"cannot reach server: {errors}");
                     ScheduleReconnect();
                 });
             }
@@ -184,29 +241,13 @@ public sealed class ApClient
             .ToList();
         var received = session.Items.AllItemsReceived.Select(i => i.ItemName).ToList();
 
-        // Only the server's AllLocationsChecked is authoritative. Everything we
-        // still owe the server is our run's pending plus any cached pending -
-        // these must be (re)sent even though we display them as checked, so we
-        // must NOT fold them into the server-acknowledged set.
-        var serverChecked = new HashSet<string>(checkedNames);
-        var owed = new List<string>();
-        if (State.Slot == slot)
-            owed.AddRange(State.PendingChecks);
-        var cached = _store.Load(seed, slot);
-        if (cached != null)
-            owed.AddRange(cached.PendingChecks);
-        owed = owed.Distinct().Where(l => !serverChecked.Contains(l)).ToList();
-
-        var state = new SlotState { Seed = seed, Slot = slot, Hints = hints };
-        state.SetAllLocations(allLocations);
-        state.ApplyReceivedItems(received);
-        state.ReconcileChecked(serverChecked);
-        foreach (var loc in owed)
-        {
-            state.CheckedLocations.Add(loc);        // display it as checked
-            if (!state.PendingChecks.Contains(loc)) // and still owe it to the server
-                state.PendingChecks.Add(loc);
-        }
+        // Only the server's AllLocationsChecked is authoritative; what we still
+        // owe it, what goal we owe it, and how far the trap mark has advanced
+        // are ours to carry. That decision is pure logic and lives in Core,
+        // where it is tested - it was inline here and wrong three ways at once.
+        var state = SessionReconcile.OnConnected(
+            State, _store.Load(seed, slot),
+            seed, slot, hints, allLocations, received, checkedNames);
         State = state;
 
         session.Items.ItemReceived += OnItemReceived;
@@ -323,37 +364,55 @@ public sealed class ApClient
     {
         session_ItemsUnsubscribe();
         if (_manualDisconnect)
-        {
-            _manualDisconnect = false;
-            return;   // intentional disconnect already reported status
-        }
+            // Intentional disconnect; status was already reported. Deliberately
+            // does NOT clear the flag: the close event arrives more than once
+            // per disconnect, and clearing it here let the SECOND arrival fall
+            // through to "disconnected - will retry" and reconnect a few
+            // seconds after the player pressed DISCONNECT. Measured in
+            // tools/offline-test.sh, which caught it because a manual
+            // disconnect silently became a connection again mid-test.
+            //
+            // Only Connect() clears it, which is the same rule CommonClient uses
+            // for disconnected_intentionally: a deliberate disconnect stays
+            // deliberate until the player asks to connect again.
+            return;
         SetStatus(ConnectionStatus.Disconnected, "disconnected - will retry");
         ScheduleReconnect();
     }
 
-    // Auto-reconnect: up to 3 attempts (5s, 10s, 15s apart), then stop. Works
-    // in-game and at the menu. After giving up, the player can save, quit to
-    // the menu, and reconnect (returning to the menu re-arms a fresh budget).
-    // Reset on a successful connect and on a manual/menu connect.
-    private const int MaxRetries = 3;
+    // Auto-reconnect: keep trying, backing off 5, 10, 20, 40 then 60 seconds,
+    // and stop only on a deliberate disconnect. Works in-game and at the menu.
+    // The attempt counter resets on a successful connect and on a manual or
+    // menu connect, so the backoff starts short again after each real drop.
+    private const int MaxRetryDelaySeconds = 60;
     private int _retryCount;
     private bool _reconnecting;
 
+    /// <summary>Retry forever, with exponential backoff capped at a minute.
+    ///
+    /// This used to stop after three tries at 5, 10 and 15 seconds - so a host
+    /// restart that took two minutes left the player disconnected until they
+    /// noticed and pressed CONNECT. Archipelago's reference client
+    /// (CommonClient.py) retries indefinitely, doubling the delay each time and
+    /// stopping only on a deliberate disconnect; its hard requirement is simply
+    /// "reconnect if the connection is unstable and lost while playing".
+    ///
+    /// The cap is ours: pure doubling reaches an hour by attempt twelve, which is
+    /// indistinguishable from having given up. Sixty seconds keeps it quiet
+    /// without going to sleep. A manual disconnect stops it dead
+    /// (_manualDisconnect), and any manual or menu connect re-arms it.</summary>
     private void ScheduleReconnect()
     {
         if (_reconnecting) return;
-        if (_retryCount >= MaxRetries)
-        {
-            SetStatus(ConnectionStatus.Disconnected,
-                "reconnect failed after 3 tries - save and return to the menu to retry");
-            return;
-        }
+        if (_manualDisconnect) return;
         _reconnecting = true;
         _retryCount++;
         int attempt = _retryCount;
-        int delay = 5 * attempt;   // 5s, 10s, 15s
+        // 5, 10, 20, 40, then 60 for as long as it takes.
+        int delay = attempt >= 5 ? MaxRetryDelaySeconds
+            : Math.Min(MaxRetryDelaySeconds, 5 * (1 << (attempt - 1)));
         var host = _lastHost; var port = _lastPort; var slot = _lastSlot; var pass = _lastPass;
-        _log.LogInfo($"AP RECONNECT: attempt {attempt}/{MaxRetries} in {delay}s");
+        _log.LogInfo($"AP RECONNECT: attempt {attempt} in {delay}s");
         Task.Run(async () =>
         {
             await Task.Delay(delay * 1000);
@@ -434,7 +493,14 @@ public sealed class ApClient
         }
         else
         {
+            // Queued, exactly like a check made offline, and it is replayed by
+            // the reconcile on the next connect. Logged because it was silent
+            // here AND silently dropped on reconnect - so a player who beat the
+            // finale with the server down had no way to tell either had
+            // happened.
             State.GoalPending = true;
+            _log.LogInfo("AP GOAL QUEUED (offline) - will be sent on reconnect");
+            Persist();
         }
     }
 

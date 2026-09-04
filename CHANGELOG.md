@@ -3,6 +3,46 @@
 Versions follow semantic versioning. The plugin and the apworld share one number,
 so a release is a matched pair - if you update one, update the other.
 
+## Unreleased
+
+Disconnects, offline play, and what survives reconnecting. Four bugs, all of
+which lost or duplicated progress silently, and none of which any test could
+see - the decision they lived in sat in the plugin where nothing could reach it.
+It is now `SessionReconcile` in Core with nine tests, and `tools/offline-test.sh`
+covers the whole area in game (25 assertions).
+
+Written up with the Archipelago citations behind each rule in
+[docs/design/2026-09-04-offline-and-disconnects.md](docs/design/2026-09-04-offline-and-disconnects.md).
+
+- **Fixed: checks could cross from one multiworld into another.** The guard on
+  replaying queued checks compared the slot NAME only, with no seed. Location
+  names are identical across seeds, so a check earned in one multiworld was
+  accepted by the next one you joined under the same name as a genuine check
+  there. Archipelago's reference client keys a session on (seed, slot) for
+  exactly this reason.
+- **Fixed: beating the finale while disconnected never counted.** The goal was
+  queued and saved correctly, then discarded on the next connect and never
+  sent. It is now replayed, and it says so in the log when it queues.
+- **Fixed: every trap and boon fired again on every connect and every launch.**
+  Connecting re-delivers your whole received-items list, and the high-water
+  mark that stops it replaying was missing from the save file entirely. At the
+  default 50 percent trap share, one reconnect could mean dozens of traps.
+- **Fixed: DISCONNECT did not stay disconnected.** The mod reconnected a few
+  seconds later, because the socket-close event arrives more than once and only
+  the first was recognised as intentional.
+- **The game is playable with the server down.** It comes up on the last slot
+  you played, using its cache, and the missions you have unlocked are playable.
+  Checks queue and are sent when you next connect. Previously an unreachable
+  server meant every mission locked and nothing playable at all, with a
+  complete cache sitting on disk.
+- **Reconnect keeps trying.** It backs off 5, 10, 20, 40 then 60 seconds and
+  stops only when you disconnect deliberately, matching the reference client
+  (which is unbounded; the 60-second cap is ours). It used to give up after
+  three tries in 30 seconds, so a host restart left you offline until you
+  noticed.
+- **A wrong slot name or password is reported instead of retried.** Retrying
+  cannot fix an answer the server has already given.
+
 ## v0.1.5 - a smaller mod to install
 
 No gameplay changes. This is a structural release: the mod players install got

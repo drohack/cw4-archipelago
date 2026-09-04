@@ -157,9 +157,31 @@ first launch) and are also editable from the in-game panel:
 - `[Missions]` ShowSpan - show the SPAN Experiments button (off by default;
   the randomizer covers the 20 Farsite missions).
 
+## If the server goes away
+
+Short version: keep playing. Nothing you do offline is lost, and nothing is
+rolled back.
+
 Your received items and checked locations are cached per slot under
-`Documents/My Games/creeperworld4/archipelago/`, so a brief disconnect keeps
-your unlocks and re-sends any checks when the server returns.
+`Documents/My Games/creeperworld4/archipelago/`.
+
+- **The connection drops mid-game.** You keep playing. Checks you make are
+  queued, the status line says how many are waiting, and the mod keeps trying to
+  reconnect on its own - backing off 5, 10, 20, 40 then 60 seconds, for as long
+  as it takes. When it gets back in, the queue is sent. You can also reconnect
+  by hand from the main menu.
+- **You launch the game and the server is down.** The mod comes up on the slot
+  you played last, using the cache, and the missions you have unlocked are
+  playable. Same deal: checks queue and go out when you next connect.
+- **You join a different seed.** Progress does not carry across. Each
+  multiworld is cached separately by its seed, so the checks you owe seed A stay
+  owed to seed A and are sent the next time you connect to it - they are never
+  pushed into seed B. Your Creeper World 4 saves are swapped per slot too, so a
+  save from one seed never shows up in another.
+- **Rehosting the same multiworld on a new port** is the same seed, so just
+  change the port and connect. Everything is kept.
+- **A wrong slot name or password** is reported and not retried, since retrying
+  cannot help. Fix it in the panel and connect again.
 
 ## Troubleshooting
 

@@ -30,7 +30,9 @@ frequency, energy-item pacing and how early the casual logic tier lands are all
 still unproven in practice.
 
 Covered so far:
-- Connect / auto-connect / reconnect with a per-slot offline cache
+- Connect / auto-connect / reconnect with a per-slot offline cache, and
+  offline play from that cache when no server is reachable (see
+  [docs/design/2026-09-04-offline-and-disconnects.md](docs/design/2026-09-04-offline-and-disconnects.md))
 - Items applied live: unit unlocks, mission unlocks, progressive ERNs, energy
   storage and base generation, and six optional traps
 - **236 locations**: every cache, totem and nullify target is its own check

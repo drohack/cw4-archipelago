@@ -75,6 +75,17 @@ Four tiers, in ascending cost:
    - `tools/msgbox.sh` - the message box on its own: it builds and anchors to
      the minimap, ingests server item-receive/send lines and connection lines
      with AP colours, and its history survives a second mission boot.
+   - `tools/offline-test.sh` - disconnects and offline play: an unreachable
+     server is retried rather than given up on, a refusal is not, a deliberate
+     disconnect STAYS disconnected, a reconnect does not replay traps, a goal
+     reached offline is sent on reconnect, and the game comes up playable on
+     the cached slot with no server. Four bugs in this area were invisible to
+     every other test because they only show on the SECOND connection. It picks
+     its own free ports (38401-38500) rather than using 38281, and keeps a copy
+     of the log per phase under `.aptest/offline-logs/` - BepInEx truncates the
+     log on each of its four launches, and without those copies a late failure
+     cannot be diagnosed afterwards. See
+     [design/2026-09-04-offline-and-disconnects.md](design/2026-09-04-offline-and-disconnects.md).
 
 ## CW4 Dev Tools (separate plugin)
 

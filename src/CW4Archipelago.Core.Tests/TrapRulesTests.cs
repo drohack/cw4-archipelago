@@ -24,10 +24,16 @@ public class TrapRulesTests
     public void SevenTraps_Exist() => Assert.Equal(7, TrapRules.All.Count);
 
     [Fact]
-    public void TrapsAppliedMark_StartsAtZeroAndPersistsAcrossReconnect()
+    public void TrapsAppliedMark_IsNotClobberedByAnItemResync()
     {
-        // Reconnecting re-delivers the whole received list. Traps must fire
-        // once, so the mark is what stops a reconnect replaying every one.
+        // Narrow on purpose: all this shows is that replacing the received list
+        // leaves the mark alone. It was called
+        // "...PersistsAcrossReconnect" and read as proof of much more, while
+        // the field was absent from the store's DTO and the reconnect path
+        // built a fresh state that never carried it - so it reset to zero on
+        // every connect and every trap fired again.
+        // The reconnect and persistence claims are now tested where they
+        // actually happen: see SessionReconcileTests.
         var s = new SlotState();
         Assert.Equal(0, s.TrapsApplied);
         s.ApplyReceivedItems(new[] { "Spore Strike", "Cannon" });

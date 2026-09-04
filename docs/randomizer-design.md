@@ -428,6 +428,12 @@ handled in `Appliers/TrapApplier.cs`:
   event would replay every trap the player had ever been sent. Progress is a
   persisted high-water mark (`SlotState.TrapsApplied`) over that list instead, so
   it survives a reconnect and a restart.
+  **CORRECTION (2026-09-04): it did neither until this date.** The field was
+  missing from `SlotStore`'s DTO, and the connect path built a fresh state that
+  never carried it, so it reset to zero on every launch and every reconnect and
+  the whole list re-fired. Fixed, and now tested in `SessionReconcileTests`
+  rather than by a test that only checked the field in memory. See
+  [design/2026-09-04-offline-and-disconnects.md](design/2026-09-04-offline-and-disconnects.md).
 - A trap received at the menu has nothing to act on. Those queue and fire on the
   next mission, one per tick, so a backlog stings repeatedly rather than landing
   as a single unsurvivable wall.
