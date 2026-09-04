@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using CW4Archipelago.Core;
+using HarmonyLib;
 using UnityEngine.SceneManagement;
 
 namespace CW4Archipelago.Appliers;
@@ -42,6 +43,44 @@ public sealed class UnitGate
         ["sweeper"] = (b, v) => b.sweeperAvailable = v,
     };
 
+    /// <summary>Read side of <see cref="Setters"/>.
+    ///
+    /// Some missions GRANT a unit as part of their script - Farsite hands over
+    /// the Cannon. Writing the flag back to false every frame stops it being
+    /// built, but the game has already added its button to the build strip, and
+    /// nothing rebuilds the strip afterwards: the player sees a Cannon button
+    /// that does nothing, and switching panes does not clear it. Detecting the
+    /// grant is what lets us rebuild the strip once and drop the button.</summary>
+    private static readonly Dictionary<string, Func<BuildUnitManager, bool>> Getters = new()
+    {
+        ["riftlab"] = b => b.riftLabAvailable,
+        ["factory"] = b => b.factoryAvailable,
+        ["ernportal"] = b => b.ernPortalAvailable,
+        ["tower"] = b => b.towerAvailable,
+        ["pylon"] = b => b.pylonAvailable,
+        ["miner"] = b => b.minerAvailable,
+        ["greenarrefinery"] = b => b.greenarRefineryAvailable,
+        ["terp"] = b => b.terpAvailable,
+        ["porter"] = b => b.porterAvailable,
+        ["cannon"] = b => b.cannonAvailable,
+        ["mortar"] = b => b.mortarAvailable,
+        ["sprayer"] = b => b.sprayerAvailable,
+        ["sniper"] = b => b.sniperAvailable,
+        ["missilelauncher"] = b => b.missileLauncherAvailable,
+        ["nullifier"] = b => b.nullifierAvailable,
+        ["runway"] = b => b.runwayAvailable,
+        ["bomberpad"] = b => b.bomberPadAvailable,
+        ["acbomberpad"] = b => b.acBomberPadAvailable,
+        ["rocketpad"] = b => b.rocketPadAvailable,
+        ["platform"] = b => b.platformAvailable,
+        ["shield"] = b => b.shieldAvailable,
+        ["microrift"] = b => b.microRiftAvailable,
+        ["chronat"] = b => b.chronatAvailable,
+        ["airship"] = b => b.airshipAvailable,
+        ["bertha"] = b => b.berthaAvailable,
+        ["sweeper"] = b => b.sweeperAvailable,
+    };
+
     private IntPtr _lastGameSpace = IntPtr.Zero;
     private bool _paneHidden;
     private int _revealCountdown = -1;
@@ -49,8 +88,15 @@ public sealed class UnitGate
     private int _revealWait;
     private int _revealAttempts;
     private int _lastItemCount = -1;
+    private int _grantRefreshCooldown;
 
     private HashSet<string> Allowed => UnitRules.AllowedUnits(ModCore.Client.State);
+
+    /// <summary>Is this build-pane key one the gate knows how to control?
+    ///
+    /// UnitGrantPatch needs it to tell "a locked unit" from "a key this mod has
+    /// no opinion about", and only the first should ever be refused.</summary>
+    internal static bool IsModelledUnit(string key) => Setters.ContainsKey(key);
 
     public void OnSceneEnter(string scene)
     {
@@ -84,9 +130,36 @@ public sealed class UnitGate
         }
 
         var allowed = Allowed;
+        bool overrodeGrant = false;
         foreach (var kv in Setters)
-            kv.Value(bum, allowed.Contains(kv.Key));
+        {
+            bool want = allowed.Contains(kv.Key);
+            // A locked unit reading true means something else turned it on this
+            // frame - a mission script granting it. Note that BEFORE writing
+            // false, because after the write there is nothing left to see.
+            if (!want && Getters.TryGetValue(kv.Key, out var read))
+            {
+                bool live = false;
+                try { live = read(bum); } catch { }
+                if (live)
+                {
+                    overrodeGrant = true;
+                    ModCore.Log.LogInfo($"UNITGATE: the mission granted '{kv.Key}', which is not unlocked - refusing it and rebuilding the strip");
+                }
+            }
+            kv.Value(bum, want);
+        }
         ApplyLimits(bum);
+
+        // Rebuilding the strip is the only way to remove a button the game has
+        // already added. Throttled, because a mission that re-grants every
+        // frame would otherwise refresh every frame.
+        if (_grantRefreshCooldown > 0) _grantRefreshCooldown--;
+        if (overrodeGrant && _grantRefreshCooldown == 0)
+        {
+            RefreshPane();
+            _grantRefreshCooldown = 60;
+        }
 
         // Live unlock: when the received-item count changes mid-mission, rebuild
         // the pane so a newly allowed unit appears immediately.
@@ -205,6 +278,67 @@ public sealed class UnitGate
                 else if (++_revealAttempts < 5) { _revealPhase = 1; _revealWait = 10; }
                 else { ModCore.Log.LogError("REVEAL FAILED after 5 attempts"); _revealPhase = 0; }
                 break;
+        }
+    }
+}
+
+/// <summary>Refuse a grant at source instead of undoing it afterwards.
+///
+/// Some missions hand a unit over as part of their script - Farsite gives the
+/// Cannon, Not My Mars the Miner. Writing the availability flag back to false
+/// every frame stops the unit being BUILT, but by then the game has already
+/// added its button to the build strip and nothing takes it away again: the
+/// player gets a button that does nothing, and switching panes does not clear
+/// it. UnitGate could rebuild the strip to remove it, which works but is a
+/// repair of a state that should never have existed.
+///
+/// BuildUnitManager.SetAvailable(string, bool) is the string-keyed entry point,
+/// which is what a mission script goes through. Refusing there means the flag
+/// never turns true, so no button is ever created and there is nothing to
+/// rebuild.
+///
+/// Only ever refuses a grant (value true) of a unit this slot has not unlocked;
+/// a mission turning something OFF is always honoured, and so is any grant of a
+/// unit the player legitimately has. If this patch fails to apply, Plugin
+/// TryPatch logs it and UnitGate's per-frame enforcement still blocks the
+/// build - the button comes back, but the unit stays unbuildable.
+/// </summary>
+[HarmonyPatch(typeof(BuildUnitManager), nameof(BuildUnitManager.SetAvailable))]
+public static class UnitGrantPatch
+{
+    private static readonly HashSet<string> _unknownKeys = new();
+
+    [HarmonyPrefix]
+    public static bool Prefix(string __0, bool __1)
+    {
+        try
+        {
+            if (!__1 || string.IsNullOrEmpty(__0))
+                return true;                       // never block a revoke
+            var key = __0.ToLowerInvariant();
+            var allowed = UnitRules.AllowedUnits(ModCore.Client.State);
+            if (allowed.Contains(key))
+                return true;
+            // A key this mod does not model is passed THROUGH, not refused.
+            // Refusing anything unrecognised would make the mod the reason a
+            // mission could not hand over something the randomizer never had an
+            // opinion about - a far worse failure than a stray button, and one
+            // that could strand a mission. Logged once per key so an unmodelled
+            // grant is visible rather than silent.
+            if (!UnitGate.IsModelledUnit(key))
+            {
+                if (_unknownKeys.Add(key))
+                    ModCore.Log.LogWarning($"UNITGATE: mission granted '{key}', which this mod does not model - allowing it");
+                return true;
+            }
+            ModCore.Log.LogInfo($"UNITGATE: refused the mission's grant of '{key}' - not unlocked");
+            return false;                          // skip the original
+        }
+        catch (Exception e)
+        {
+            // A throwing prefix would take the game's own call down with it.
+            ModCore.Log.LogWarning($"UNITGATE: grant check failed: {e.Message}");
+            return true;
         }
     }
 }

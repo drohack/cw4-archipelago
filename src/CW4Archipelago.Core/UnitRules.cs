@@ -56,6 +56,29 @@ public static class UnitRules
         ["Sweeper"] = "sweeper",
     };
 
+    /// <summary>Units an item unlocks IN ADDITION to its own.
+    ///
+    /// A greenar refinery with no factory can collect greenar and then has
+    /// nowhere to put it - "there's litterlay no reason to have a refinery
+    /// without the factory" (designer, 2026-09-03). As two separate items they
+    /// were also the campaign's biggest generation hazard: totems on 14
+    /// missions need BOTH, as do Chronat, Platform and Rocket Pad, so a lone
+    /// one of the pair unlocked nothing at all and Archipelago's fill - which
+    /// places one item at a time and cannot see pairs - could strand a seed on
+    /// it.
+    ///
+    /// So Factory now unlocks the refinery too, and "Greenar Refinery" is
+    /// retired from the item pool. Its NAME must stay in the tables: item ids
+    /// are positional, so a removed name would shift every id after it and
+    /// break every existing seed. Retiring rather than deleting is the same
+    /// thing the Build Limit items did.
+    /// </summary>
+    public static readonly IReadOnlyDictionary<string, string[]> ItemAlsoUnlocks =
+        new Dictionary<string, string[]>
+        {
+            ["Factory"] = new[] { "greenarrefinery" },
+        };
+
     private const string LimitPrefix = "Build Limit +1 (";
 
     /// <summary>"Build Limit +1 (Tower)" -> "tower". Unit display names match ItemToUnit keys
@@ -85,8 +108,13 @@ public static class UnitRules
     {
         var set = new HashSet<string>(AlwaysAvailable);
         foreach (var item in state.ReceivedItems)
+        {
             if (ItemToUnit.TryGetValue(item, out var key))
                 set.Add(key);
+            if (ItemAlsoUnlocks.TryGetValue(item, out var extra))
+                foreach (var k in extra)
+                    set.Add(k);
+        }
         return set;
     }
 

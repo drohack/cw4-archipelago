@@ -134,6 +134,18 @@ public sealed class DebugChannel
         if (lower.StartsWith("showall:")) { ModCore.SetShowAll(line.Substring(8).Trim() == "on"); return; }
         if (lower == "canvas:dump") { CanvasDump(); return; }
         if (lower == "ui:input") { InputDump(); return; }
+        if (lower.StartsWith("grant:")) { Grant(line.Substring(6).Trim()); return; }
+        if (lower == "items:clear")
+        {
+            // Wall-testing needs item sets that SHRINK - "mortar + nullifier +
+            // terp" is not "the previous set plus terp". item: only ever adds,
+            // so without this every candidate run meant restarting the game.
+            var st = ModCore.Client.State;
+            int had = st.ReceivedItems.Count;
+            st.ApplyReceivedItems(new string[0]);
+            ModCore.Log.LogInfo($"DEBUG items:clear - dropped {had} received item(s)");
+            return;
+        }
         if (lower.StartsWith("ui:keys")) { _keyWatch = line.Substring(7).Trim() != "off"; 
             ModCore.Log.LogInfo($"KEYWATCH: {(_keyWatch ? "on" : "off")}"); return; }
         if (lower == "msgbox:dump")
@@ -604,6 +616,24 @@ public sealed class DebugChannel
     /// returns, which is not a documented order - so the panel can land on a
     /// canvas that renders but cannot be clicked.
     /// </summary>
+    /// <summary>Call BuildUnitManager.SetAvailable the way a mission script
+    /// does, so UnitGrantPatch can be tested without finding the story beat
+    /// that triggers a real grant. Farsite's cannon grant is driven by player
+    /// progress, and five minutes of sim with no player actions never reached
+    /// it.</summary>
+    private static void Grant(string key)
+    {
+        if (key.Length == 0) { ModCore.Log.LogWarning("usage: grant:<unit key>"); return; }
+        var bum = GameSpace.instance?.buildUnitManager;
+        if (bum == null) { ModCore.Log.LogWarning("grant: no buildUnitManager"); return; }
+        try
+        {
+            bum.SetAvailable(key, true);
+            ModCore.Log.LogInfo($"DEBUG grant: called SetAvailable('{key}', true)");
+        }
+        catch (Exception e) { ModCore.Log.LogWarning($"grant failed: {e.Message}"); }
+    }
+
     private static bool _keyWatch;
 
     /// <summary>Does a keystroke reach Unity at ALL?

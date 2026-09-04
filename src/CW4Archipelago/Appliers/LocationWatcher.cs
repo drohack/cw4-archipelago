@@ -82,6 +82,8 @@ public sealed class LocationWatcher
                 _objectiveDone = new bool[objs.Length];
             if (_sentUpTo == null || _sentUpTo.Length != objs.Length)
                 _sentUpTo = new int[objs.Length];
+            if (_queryFailed == null || _queryFailed.Length != objs.Length)
+                _queryFailed = new bool[objs.Length];
 
             for (int i = 0; i < objs.Length && i < MissionRules.ObjectiveTypes.Length; i++)
             {
@@ -114,6 +116,8 @@ public sealed class LocationWatcher
         if (mc && !_missionComplete)
         {
             _missionComplete = true;
+            DumpObjectiveSlots(world);
+            SendRequiredObjectives();
             if (_mission == MissionRules.FinalMission)
             {
                 // Logic gates the goal on a count of missions beaten, so apply
@@ -211,13 +215,105 @@ public sealed class LocationWatcher
         catch { return -1; }
     }
 
+    /// <summary>Winning a mission means its REQUIRED objectives are done, so
+    /// send their checks even if the per-objective query never said so.
+    ///
+    /// Farsite, in a real playthrough (seed 47803770604823003263): beaten in
+    /// full, "Farsite - Mission Complete" sent, "Farsite - Custom" never sent.
+    /// Both are read in the same Tick with the objective loop running FIRST, so
+    /// IsMissionObjectiveComplete(5) was still false in the frame where
+    /// IsMissionComplete() was true - the check could never have fired, and on
+    /// a mission whose only required objective IS that one, it is also the
+    /// mission's own check.
+    ///
+    /// Deliberately narrow: only slots the apworld lists as required for this
+    /// mission, and only once the game itself says the mission is won. It never
+    /// invents a check for an optional objective, which is why it reads the
+    /// required table rather than the `enabled` flag - Farsite reports Reclaim
+    /// enabled too, and has no Reclaim check at all.
+    ///
+    /// Logged as INFERRED, because this is a safety net over a query that
+    /// should have worked: if these lines appear, the direct path missed.</summary>
+    private void SendRequiredObjectives()
+    {
+        var state = ModCore.Client.State;
+        var slots = state.Hints.RequiredObjectivesFor(MissionRules.Specifier(_mission));
+        foreach (var i in slots)
+        {
+            if (i < 0 || i >= MissionRules.ObjectiveTypes.Length) continue;
+            if (_objectiveDone != null && i < _objectiveDone.Length && _objectiveDone[i])
+                continue;   // the direct path already sent it
+            var loc = MissionRules.ObjectiveLocation(_mission, i);
+            if (state.CheckedLocations.Contains(loc)) continue;
+            if (!MissionRules.IsLocation(state, loc)) continue;
+            if (_objectiveDone != null && i < _objectiveDone.Length)
+                _objectiveDone[i] = true;
+            ModCore.Log.LogInfo($"LocationWatcher: INFERRED '{loc}' from mission completion " +
+                $"(objective {i} {MissionRules.ObjectiveTypes[i]} never reported complete)");
+            SendCheck(loc);
+        }
+    }
+
+    private bool[]? _queryFailed;
+
+    /// <summary>What every objective slot reports the moment the mission is
+    /// won, next to whether its check actually went out.
+    ///
+    /// Farsite was beaten in full and its Custom check never arrived, which
+    /// leaves several indistinguishable causes: the slot may be outside
+    /// missionObjectives, its completion query may return false or throw, or
+    /// the location may not belong to this slot. One line at the moment of
+    /// victory separates them, and costs nothing on a normal run.</summary>
+    private void DumpObjectiveSlots(World world)
+    {
+        try
+        {
+            var slots = world.missionObjectives;
+            int n = slots == null ? -1 : slots.Length;
+            ModCore.Log.LogInfo($"OBJDUMP: mission {_mission} complete, {n} objective slot(s)");
+            if (slots == null) return;
+            var state = ModCore.Client.State;
+            for (int i = 0; i < slots.Length; i++)
+            {
+                bool done = false; string err = "";
+                try { done = world.IsMissionObjectiveComplete(i); }
+                catch (Exception e) { err = $" query threw: {e.Message}"; }
+                int count = -1;
+                try { count = slots[i].count; } catch { }
+                bool en = false;
+                try { en = slots[i].enabled; } catch { }
+                string kind = i < MissionRules.ObjectiveTypes.Length
+                    ? MissionRules.ObjectiveTypes[i] : "?";
+                string loc = i < MissionRules.ObjectiveTypes.Length
+                    ? MissionRules.ObjectiveLocation(_mission, i) : "";
+                bool isLoc = loc.Length > 0 && state.AllLocations.Contains(loc);
+                bool sent = loc.Length > 0 && state.CheckedLocations.Contains(loc);
+                ModCore.Log.LogInfo($"OBJDUMP:   {i} {kind}: enabled={en} count={count} " +
+                    $"done={done} isLocation={isLoc} checked={sent}{err}");
+            }
+        }
+        catch (Exception e) { ModCore.Log.LogWarning($"OBJDUMP failed: {e.Message}"); }
+    }
+
     /// <summary>Reclaim and Custom are not counts, so they send once when the
     /// objective completes.</summary>
     private void SendSingleObjective(World world, int index)
     {
         if (_objectiveDone == null) return;
         bool done = false;
-        try { done = world.IsMissionObjectiveComplete(index); } catch { }
+        try { done = world.IsMissionObjectiveComplete(index); }
+        catch (Exception e)
+        {
+            // This used to be a bare catch, which made a throwing query
+            // indistinguishable from an objective that is merely not finished -
+            // the check would simply never send, with nothing in the log.
+            // Logged once per objective per mission so it cannot spam.
+            if (_queryFailed != null && !_queryFailed[index])
+            {
+                _queryFailed[index] = true;
+                ModCore.Log.LogWarning($"LocationWatcher: IsMissionObjectiveComplete({index}) threw on mission {_mission}: {e.Message}");
+            }
+        }
         if (!done || _objectiveDone[index]) return;
         _objectiveDone[index] = true;
         SendCheck(MissionRules.ObjectiveLocation(_mission, index));
