@@ -36,6 +36,9 @@ if ($version -ne $pluginVersion -or $version -ne $worldVersion) {
 Write-Output "version $version (csproj, Plugin.cs and archipelago.json agree)"
 
 # THE WORKFLOW THIS IMPLIES: bump the version in the COMMIT AFTER a release.
+# tools/bump-version.ps1 does it - `.	oolsump-version.ps1 -Commit -Push`
+# straight after publishing. It refuses to bump from an inconsistent state or
+# onto a version that has already shipped.
 # CI enforces the same rule (the `version` job), so main sitting past a tag at a
 # shipped version is a red build rather than something noticed weeks later. The
 # invariant being protected is that a version identifies exactly one code state.
