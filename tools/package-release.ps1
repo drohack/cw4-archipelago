@@ -35,6 +35,11 @@ if ($version -ne $pluginVersion -or $version -ne $worldVersion) {
 }
 Write-Output "version $version (csproj, Plugin.cs and archipelago.json agree)"
 
+# THE WORKFLOW THIS IMPLIES: bump the version in the COMMIT AFTER a release.
+# CI enforces the same rule (the `version` job), so main sitting past a tag at a
+# shipped version is a red build rather than something noticed weeks later. The
+# invariant being protected is that a version identifies exactly one code state.
+#
 # AND IT HAS TO BE A NEW VERSION. The check above only proves the three files
 # agree with each OTHER; it says nothing about whether that version has already
 # shipped. On 2026-09-04 main sat four commits past v0.1.2 still calling itself

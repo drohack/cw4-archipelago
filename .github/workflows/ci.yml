@@ -19,6 +19,50 @@ on:
   workflow_dispatch:
 
 jobs:
+  version:
+    name: Version is consistent and unshipped
+    runs-on: ubuntu-latest
+    steps:
+      # Tags are needed to tell "this version has already shipped" from "this
+      # version is the next one". A shallow checkout has none of them.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - name: Check the version
+        run: |
+          set -euo pipefail
+          csproj=$(sed -n 's/.*<Version>\(.*\)<\/Version>.*/\1/p' \
+            src/CW4Archipelago/CW4Archipelago.csproj | head -1)
+          plugin=$(sed -n 's/.*const string Version = "\(.*\)".*/\1/p' \
+            src/CW4Archipelago/Plugin.cs | head -1)
+          world=$(python3 -c "import json;print(json.load(open('apworld/cw4/archipelago.json'))['world_version'])")
+          echo "csproj=$csproj plugin=$plugin world=$world"
+
+          # 1. The three places the version is written must agree. They are
+          #    separate files and drifted once already.
+          if [ "$csproj" != "$plugin" ] || [ "$csproj" != "$world" ]; then
+            echo "::error::version mismatch - csproj $csproj, Plugin.cs $plugin, archipelago.json $world"
+            exit 1
+          fi
+
+          # 2. And it must not be a version that has already SHIPPED. This is
+          #    the check package-release.ps1 gained on 2026-09-04 after main sat
+          #    four commits past v0.1.2 still calling itself 0.1.2. Doing it here
+          #    too moves detection from "whenever someone next packages" to the
+          #    push that causes it.
+          if git rev-parse "v$csproj" >/dev/null 2>&1; then
+            tagged=$(git rev-parse "v$csproj^{commit}")
+            head=$(git rev-parse HEAD)
+            if [ "$tagged" != "$head" ]; then
+              echo "::error::v$csproj is already tagged at $tagged but HEAD is $head - bump the version in all three files"
+              exit 1
+            fi
+            echo "v$csproj is the tagged release commit"
+          else
+            echo "v$csproj has not shipped yet"
+          fi
+
   core:
     name: Core rules and state (no game required)
     runs-on: ubuntu-latest
