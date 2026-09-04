@@ -31,10 +31,19 @@ public class Plugin : BasePlugin
         //
         // Every bug report and every log read during a playthrough now names the
         // exact commit it came from.
-        var build = typeof(Plugin).Assembly
+        // Just the short commit, not the whole "0.1.4+<40 hex>" the SDK stamps -
+        // that repeats the version and reads like noise. The version stays the
+        // version everywhere a player sees it; this is only in the log.
+        var info = typeof(Plugin).Assembly
             .GetCustomAttribute<System.Reflection.AssemblyInformationalVersionAttribute>()
-            ?.InformationalVersion ?? Version;
-        Log.LogInfo($"CW4 Archipelago v{Version} loading (build {build})");
+            ?.InformationalVersion;
+        var plus = info?.IndexOf('+') ?? -1;
+        var commit = plus > 0 && info!.Length > plus + 7
+            ? info.Substring(plus + 1, 7)
+            : "";
+        Log.LogInfo(commit.Length > 0
+            ? $"CW4 Archipelago v{Version} loading (commit {commit})"
+            : $"CW4 Archipelago v{Version} loading");
 
         var mcnet = typeof(Archipelago.MultiClient.Net.ArchipelagoSessionFactory).Assembly.GetName();
         Log.LogInfo($"Archipelago.MultiClient.Net {mcnet.Version} available");
