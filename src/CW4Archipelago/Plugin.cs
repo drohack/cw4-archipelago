@@ -1,4 +1,5 @@
 using System;
+using System.Reflection;
 using BepInEx;
 using BepInEx.Unity.IL2CPP;
 using HarmonyLib;
@@ -21,7 +22,19 @@ public class Plugin : BasePlugin
 
     public override void Load()
     {
-        Log.LogInfo($"CW4 Archipelago v{Version} loading");
+        // Log the BUILD, not just the version. The .NET SDK stamps
+        // AssemblyInformationalVersion as "<version>+<commit sha>", so this one
+        // line distinguishes the released v0.1.3 from a local build that also
+        // calls itself 0.1.3 - which is the one version hole the release guard
+        // and the CI check cannot close, because `dotnet build` deploys straight
+        // into the game folder and nothing stamps it as unofficial.
+        //
+        // Every bug report and every log read during a playthrough now names the
+        // exact commit it came from.
+        var build = typeof(Plugin).Assembly
+            .GetCustomAttribute<System.Reflection.AssemblyInformationalVersionAttribute>()
+            ?.InformationalVersion ?? Version;
+        Log.LogInfo($"CW4 Archipelago v{Version} loading (build {build})");
 
         var mcnet = typeof(Archipelago.MultiClient.Net.ArchipelagoSessionFactory).Assembly.GetName();
         Log.LogInfo($"Archipelago.MultiClient.Net {mcnet.Version} available");
