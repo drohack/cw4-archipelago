@@ -53,12 +53,44 @@ public class GlyphLocationTests
     {
         Assert.Equal(TrackerStatus.Done,
             TrackerRules.Aggregate(new[] { TrackerStatus.Done, TrackerStatus.Done }));
-        Assert.Equal(TrackerStatus.Locked,
+        // One reachable check beside an unreachable one is ORANGE, not red.
+        // Red used to win here, which hid the check that could be taken now.
+        Assert.Equal(TrackerStatus.Partial,
             TrackerRules.Aggregate(new[] { TrackerStatus.InLogic, TrackerStatus.Locked }));
+        // Red is for a mission with nothing left that can be reached.
+        Assert.Equal(TrackerStatus.Locked,
+            TrackerRules.Aggregate(new[] { TrackerStatus.Done, TrackerStatus.Locked }));
         Assert.Equal(TrackerStatus.InLogic,
             TrackerRules.Aggregate(new[] { TrackerStatus.Done, TrackerStatus.InLogic }));
         Assert.Equal(TrackerStatus.Partial,
             TrackerRules.Aggregate(new[] { TrackerStatus.InLogic, TrackerStatus.OutOfLogic }));
+    }
+
+    /// <summary>The Farsite icon alias is COSMETIC and must be invertible.
+    ///
+    /// Its Custom check is drawn as a totem because lighting the two totems is
+    /// what the mission actually asks. The colouring pass reads the marker's
+    /// index back, so if the inverse were wrong the icon would be coloured from
+    /// Farsite's totem locations - of which there are none - and would sit green
+    /// forever.</summary>
+    [Fact]
+    public void FarsiteCustomIsDrawnAsATotem_AndMapsBack()
+    {
+        Assert.Equal(1, MissionRules.DisplayObjective(1, 5));
+        Assert.Equal(5, MissionRules.LogicalObjective(1, 1));
+        // Round trip, which is the property the colouring pass depends on.
+        Assert.Equal(5, MissionRules.LogicalObjective(1, MissionRules.DisplayObjective(1, 5)));
+        // Farsite's other icon is untouched.
+        Assert.Equal(4, MissionRules.DisplayObjective(1, 4));
+        Assert.Equal(4, MissionRules.LogicalObjective(1, 4));
+        // No other mission aliases anything - a real totem stays a totem and a
+        // real custom stays a custom.
+        for (int m = 2; m <= 20; m++)
+            for (int i = 0; i < MissionRules.ObjectiveTypes.Length; i++)
+            {
+                Assert.Equal(i, MissionRules.DisplayObjective(m, i));
+                Assert.Equal(i, MissionRules.LogicalObjective(m, i));
+            }
     }
 
     /// <summary>Farsite is the mission the map gets wrong: the game draws a

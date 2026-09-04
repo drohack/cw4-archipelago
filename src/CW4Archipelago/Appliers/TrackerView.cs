@@ -224,7 +224,7 @@ public sealed class TrackerView
 
         // Already correct? Then touch nothing. This is the case on nineteen
         // planets, and it keeps the common path to a handful of field reads.
-        if (Matches(markers, want))
+        if (Matches(markers, want, mission))
             return;
 
         var live = new List<SpanNetworkPlanetObjective>();
@@ -253,7 +253,7 @@ public sealed class TrackerView
                 slot = made;
                 live.Add(made);
             }
-            Configure(slot, want[k], k);
+            Configure(slot, mission, want[k], k);
         }
         for (int k = want.Count; k < live.Count; k++)
         {
@@ -270,7 +270,7 @@ public sealed class TrackerView
 
     /// <summary>Whether the active markers are already exactly the wanted slots,
     /// in order. Cheap enough to run on every paint of every planet.</summary>
-    private static bool Matches(SpanNetworkPlanetObjective[] markers, List<int> want)
+    private static bool Matches(SpanNetworkPlanetObjective[] markers, List<int> want, int mission)
     {
         int seen = 0;
         foreach (var m in markers)
@@ -281,7 +281,7 @@ public sealed class TrackerView
             if (!active) continue;              // hidden surplus is fine
             int obj;
             try { obj = m.objective; } catch { return false; }
-            if (seen >= want.Count || obj != want[seen])
+            if (seen >= want.Count || obj != MissionRules.DisplayObjective(mission, want[seen]))
                 return false;
             seen++;
         }
@@ -290,10 +290,14 @@ public sealed class TrackerView
 
     /// <summary>Point one marker at an objective slot and put it where the game
     /// would have put it. Writing `objective` is what changes the icon.</summary>
-    private static void Configure(SpanNetworkPlanetObjective m, int objective, int ordinal)
+    private static void Configure(SpanNetworkPlanetObjective m, int mission, int objective, int ordinal)
     {
+        // Draw the ALIASED index - Farsite's Custom check is shown as a totem,
+        // because lighting its two totems is what the mission actually asks.
+        // ColorGlyphs inverts this when it reads the marker back.
+        int drawn = MissionRules.DisplayObjective(mission, objective);
         try { if (!m.gameObject.activeSelf) m.gameObject.SetActive(true); } catch { }
-        try { if (m.objective != objective) m.objective = objective; } catch { }
+        try { if (m.objective != drawn) m.objective = drawn; } catch { }
         try { m.transform.localPosition = new Vector3(GlyphSpacing * ordinal, 0f, 0f); } catch { }
     }
 
@@ -352,10 +356,14 @@ public sealed class TrackerView
         {
             if (!GameUtil.IsAlive(m))
                 continue;
-            int objIndex;
-            try { objIndex = m.objective; } catch { continue; }
-            if (objIndex < 0 || objIndex >= MissionRules.ObjectiveTypes.Length)
+            int drawnIndex;
+            try { drawnIndex = m.objective; } catch { continue; }
+            if (drawnIndex < 0 || drawnIndex >= MissionRules.ObjectiveTypes.Length)
                 continue;
+            // Undo the cosmetic alias: a totem icon on Farsite stands for its
+            // Custom check, and colouring it from Farsite's (nonexistent) totem
+            // locations would leave it permanently green.
+            int objIndex = MissionRules.LogicalObjective(mission, drawnIndex);
             // One marker stands for every instance of that objective, so
             // aggregate them. Asking for a single type-shaped name matched
             // nothing after locations became per-instance, which quietly

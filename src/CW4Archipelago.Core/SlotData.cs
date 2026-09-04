@@ -20,6 +20,25 @@ public sealed class SlotData
     [JsonPropertyName("location_requirements")]
     public Dictionary<string, List<List<string>>> LocationRequirements { get; set; } = new();
 
+    /// <summary>Requirements at the STRICT (non-casual) tier.
+    ///
+    /// Lets the tracker separate "cannot be reached" from "reachable, but this
+    /// logic tier does not promise it": casual logic adds anti-air the design
+    /// notes call optional, so a check gated only by that is yellow, while one
+    /// gated by a weapon or a factory is red. Identical to
+    /// <see cref="LocationRequirements"/> under standard logic.</summary>
+    [JsonPropertyName("strict_location_requirements")]
+    public Dictionary<string, List<List<string>>> StrictLocationRequirements { get; set; } = new();
+
+    /// <summary>Objective slots each mission must finish to be won.
+    ///
+    /// Lets a completion imply its required objectives' checks. Farsite was
+    /// beaten in full and sent "Mission Complete" while "Custom" never went
+    /// out, because the game reported the mission complete in the same frame
+    /// that IsMissionObjectiveComplete(5) still read false.</summary>
+    [JsonPropertyName("required_objectives")]
+    public Dictionary<string, List<int>> RequiredObjectives { get; set; } = new();
+
     [JsonPropertyName("ern_per_item")]
     public int ErnPerItem { get; set; } = 1;
 
@@ -96,6 +115,27 @@ public sealed class SlotData
 
     public IReadOnlyList<IReadOnlyList<string>> ForLocation(string location)
         => LocationRequirements.TryGetValue(location, out var g) ? g : NoGroups;
+
+    /// <summary>The strict-tier requirement for one location. A seed generated
+    /// before the strict table existed sends none, and then the tier table IS
+    /// the strict one - which is exactly right for a standard-logic seed and
+    /// errs toward calling an unreachable check red rather than yellow for a
+    /// casual one.</summary>
+    public IReadOnlyList<IReadOnlyList<string>> ForLocationStrict(string location)
+    {
+        var table = StrictLocationRequirements.Count > 0
+            ? StrictLocationRequirements
+            : LocationRequirements;
+        return table.TryGetValue(location, out var g) ? g : NoGroups;
+    }
+
+    /// <summary>The objective slots this mission needs to be won. Empty for a
+    /// seed generated before the table was sent, which simply means the
+    /// completion-implies-objectives path stays off for it.</summary>
+    public IReadOnlyList<int> RequiredObjectivesFor(string specifier)
+        => RequiredObjectives.TryGetValue(specifier, out var v) ? v : NoSlots;
+
+    private static readonly List<int> NoSlots = new();
 
     private static readonly List<List<string>> NoGroups = new();
 }

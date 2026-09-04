@@ -29,9 +29,17 @@ public static class TrackerRules
             return TrackerStatus.Done;
         if (!MissionRules.IsUnlocked(state, mission))
             return TrackerStatus.Locked;
-        bool inLogic = Satisfies(state, state.Hints.ForMission(MissionRules.Specifier(mission)))
-                       && Satisfies(state, state.Hints.ForLocation(location));
-        return inLogic ? TrackerStatus.InLogic : TrackerStatus.OutOfLogic;
+
+        // A location entry is COMPLETE - the apworld folds the mission's own
+        // requirements into it, except where a per-instance waiver deliberately
+        // drops them. This used to AND the mission's requirements back in,
+        // which defeated the waiver: Farsite's first cache is free, and the
+        // mission needs a weapon, so the free cache read as out of logic.
+        if (!Satisfies(state, state.Hints.ForLocationStrict(location)))
+            return TrackerStatus.Locked;                 // cannot be reached at all
+        if (!Satisfies(state, state.Hints.ForLocation(location)))
+            return TrackerStatus.OutOfLogic;             // reachable, not promised
+        return TrackerStatus.InLogic;
     }
 
     public static TrackerStatus MissionStatus(SlotState state, int mission)
@@ -60,10 +68,15 @@ public static class TrackerRules
             return TrackerStatus.InLogic;
         if (statuses.All(s => s == TrackerStatus.Done))
             return TrackerStatus.Done;
-        if (statuses.Any(s => s == TrackerStatus.Locked))
-            return TrackerStatus.Locked;
 
+        // Judge on what is LEFT to do. One unreachable check used to paint the
+        // whole mission red, which hid the fact that another check on it could
+        // be taken right now - the single most useful thing the map can say.
+        // A mission with both is Partial (orange); red is for a mission with
+        // nothing left that can be reached.
         var remaining = statuses.Where(s => s != TrackerStatus.Done).ToList();
+        if (remaining.All(s => s == TrackerStatus.Locked))
+            return TrackerStatus.Locked;
         if (remaining.All(s => s == TrackerStatus.InLogic))
             return TrackerStatus.InLogic;
         if (remaining.All(s => s == TrackerStatus.OutOfLogic))

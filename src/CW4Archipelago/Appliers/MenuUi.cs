@@ -21,6 +21,8 @@ public sealed class MenuUi
     private TMP_InputField? _pass;
     private TextMeshProUGUI? _status;
     private TextMeshProUGUI? _autoLabel;
+    private TextMeshProUGUI? _connectLabel;
+    private Image? _connectImage;
     private TMP_FontAsset? _font;
 
     public void Tick(string scene)
@@ -161,6 +163,17 @@ public sealed class MenuUi
                 _ => new Color(1f, 0.7f, 0.3f, 1f),
             };
         }
+        // The button follows the connection, including a state change this panel
+        // did not cause - an auto-connect at startup, or a dropped socket.
+        if (_connectLabel != null)
+        {
+            bool live = ModCore.Client.Status != ConnectionStatus.Disconnected;
+            _connectLabel.text = live ? "DISCONNECT" : "CONNECT";
+            if (_connectImage != null)
+                _connectImage.color = live
+                    ? new Color(0.45f, 0.16f, 0.16f, 1f)
+                    : new Color(0.1f, 0.5f, 0.2f, 1f);
+        }
         RefreshCompact();
     }
 
@@ -271,6 +284,8 @@ public sealed class MenuUi
 
         var btn = MakeButton("CONNECT", -184f, new Color(0.1f, 0.5f, 0.2f, 1f));
         btn.onClick.AddListener((UnityEngine.Events.UnityAction)OnConnectClicked);
+        _connectLabel = btn.GetComponentInChildren<TextMeshProUGUI>();
+        _connectImage = btn.GetComponent<Image>();
 
         var autoBtn = MakeButton("", -226f, new Color(0.06f, 0.2f, 0.32f, 1f));
         _autoLabel = autoBtn.GetComponentInChildren<TextMeshProUGUI>();
@@ -323,7 +338,24 @@ public sealed class MenuUi
         _compact.SetActive(false);
     }
 
+    /// <summary>CONNECT and DISCONNECT are the same button.
+    ///
+    /// There was no way to drop a connection from the UI at all: once connected
+    /// the only route to a different slot or server was editing the config file
+    /// or restarting the game.</summary>
     private void OnConnectClicked()
+    {
+        if (ModCore.Client.Status != ConnectionStatus.Disconnected)
+        {
+            ModCore.Log.LogInfo("MENU: disconnect requested");
+            ModCore.Client.Disconnect();
+            OnStateChanged();
+            return;
+        }
+        DoConnect();
+    }
+
+    private void DoConnect()
     {
         ModCore.Config.Host.Value = ParseHost(_server?.text ?? "");
         ModCore.Config.Port.Value = ParsePort(_server?.text ?? "");
