@@ -173,10 +173,46 @@ class TestAccess(CW4TestBase):
         self.assertIn("Founders - Victory", names)
 
     def test_prerequisites_are_expanded(self) -> None:
+        # A Platform needs the greenar chain to build, so a rule asking for one
+        # asks for the chain too. Since 2026-09-03 that chain is a single item:
+        # the Factory unlocks the refinery as well, so the expansion is one
+        # entry rather than two.
         from ..rules import objective_requirements
         groups = objective_requirements(19, 4)  # Founders - Collect
-        self.assertIn(["Greenar Refinery"], groups)
         self.assertIn(["Factory"], groups)
+        # The retired name must never reappear in a rule - it is no longer
+        # generated, so requiring it would be unsatisfiable.
+        self.assertNotIn(["Greenar Refinery"], groups)
+
+    def test_the_retired_refinery_gates_nothing_but_keeps_its_id(self) -> None:
+        # Retiring an item is only safe if its NAME survives: ids are positional
+        # and the client's table has to match across every yaml, so a removed
+        # name would renumber everything after it and break existing seeds.
+        from ..items import ITEM_NAME_TO_ID, RETIRED_ITEMS, UNIT_ITEMS
+        from ..rules import logic_item_names, requirement_groups
+        self.assertIn("Greenar Refinery", RETIRED_ITEMS)
+        self.assertIn("Greenar Refinery", ITEM_NAME_TO_ID)
+        self.assertIn("Greenar Refinery", UNIT_ITEMS)
+        # Its id sits where it always did, immediately after Factory's.
+        self.assertEqual(ITEM_NAME_TO_ID["Factory"] + 1,
+                         ITEM_NAME_TO_ID["Greenar Refinery"])
+        # And nothing requires it any more.
+        self.assertNotIn("Greenar Refinery", logic_item_names())
+        for casual in (False, True):
+            groups = requirement_groups(casual)
+            for table in (groups["mission_requirements"],
+                          groups["location_requirements"]):
+                for entry in table.values():
+                    for group in entry:
+                        self.assertNotIn("Greenar Refinery", group)
+
+    def test_a_retired_item_is_never_placed(self) -> None:
+        # The positive half: the pool must not contain it, or a player would
+        # receive an item that unlocks a building they already have.
+        from ..items import RETIRED_ITEMS
+        names = [i.name for i in self.multiworld.itempool]
+        for retired in RETIRED_ITEMS:
+            self.assertNotIn(retired, names)
 
     def test_alternatives_do_not_inherit_prerequisites(self) -> None:
         # "Porter or Platform" must not demand the platform's greenar chain.
@@ -251,14 +287,25 @@ class TestAccess(CW4TestBase):
                     only_check_listed=True,
                 )
 
-    def test_snipers_gate_only_the_compound(self) -> None:
-        # Your notes say snipers are nice-to-have everywhere except The
-        # Compound, whose saw blades "can only be killed with snipers".
+    def test_snipers_gate_only_where_stated(self) -> None:
+        # Snipers are nice-to-have almost everywhere, and a hard requirement on
+        # exactly two missions, each for a stated reason:
+        #
+        #   16 The Compound - saw blades "can only be killed with snipers. You
+        #      need snipers to get past them. no way to do any objectives
+        #      without."
+        #   18 Wallis - "You need snipers to actually do this level as a hard
+        #      requirement. (regardless of energy/weapons)" (2026-09-03).
+        #
+        # Wallis was added after the map review; before that this test asserted
+        # "only 16" and it is the reason that change could not slip in quietly.
         from ..rules import mission_requirements
+        MISSION_WIDE = {16, 18}
         for n in range(1, 21):
             groups = mission_requirements(n)
             has_sniper = any("Sniper" in g for g in groups)
-            self.assertEqual(has_sniper, n == 16, f"story{n} sniper requirement")
+            self.assertEqual(has_sniper, n in MISSION_WIDE,
+                             f"story{n} sniper requirement")
 
     def test_missile_launcher_is_never_required_on_standard(self) -> None:
         # Every mention in the worksheet is a negative: "possible without
@@ -271,25 +318,135 @@ class TestAccess(CW4TestBase):
                 for group in entry:
                     self.assertNotIn("Missile Launcher", group)
 
-    def test_miner_gates_nothing(self) -> None:
-        # Economy is deliberately outside logic. Tower of Darkness was the one
-        # mission where the worksheet suspected mining might be needed for energy
-        # ("not a lot of land for towers"), so it was played with EXACTLY its logic
-        # requirements granted and no Miner, no Pylon, no Platform, no Terp and no
-        # energy items at all. Designer's verdict, 2026-08-31:
+    def test_miner_appears_only_where_verified(self) -> None:
+        # Economy is NOT outside logic any more, and the exceptions are all
+        # traceable to a specific play or map review.
         #
-        #   "Yes very doable with no miners on Tower of Darkness. not a
-        #    requirement. the snipers are a little more important."
+        # The anchor still holds: Tower of Darkness was played on 2026-08-31
+        # with exactly its logic requirements and no Miner - "Yes very doable
+        # with no miners on Tower of Darkness. not a requirement." A later map
+        # review suggested miners were needed there after all, and the designer
+        # ruled that the controlled play wins (2026-09-03), so m15 stays clear.
         #
-        # So Miner stays a filler item that gates nothing. If a future change puts
-        # it into logic, this test is where the counter-evidence has to be argued.
+        # Where Miner IS in logic, and why:
+        #
+        #   3  Not My Mars       SOFT - islands, towers cannot carry the energy
+        #   4  Ruins Repurposed  SOFT - same energy problem, one notch easier
+        #   8  Serious           one of three OR alternatives past its wall
+        #   17 Sequence          instances 3+; the RESO is the only way to push
+        #   18 Wallis            all nullifies; ~20 gen without it
+        #   20 Ever After        HARD, mission-wide - "you need Miners, morters
+        #                        and cannons. hard requirement."
+        MISSIONS = {3, 4, 8, 17, 18, 20}
         from ..rules import requirement_groups
+        from ..locations import LOCATIONS_PER_MISSION
+        allowed_locs = set()
+        for m in MISSIONS:
+            allowed_locs |= set(LOCATIONS_PER_MISSION[m])
+        allowed_specs = {f"story{m}" for m in MISSIONS}
         for casual in (False, True):
             groups = requirement_groups(casual)
-            for table in (groups["mission_requirements"], groups["location_requirements"]):
-                for entry in table.values():
-                    for group in entry:
-                        self.assertNotIn("Miner", group)
+            for spec, entry in groups["mission_requirements"].items():
+                for group in entry:
+                    if "Miner" in group:
+                        self.assertIn(spec, allowed_specs)
+            for name, entry in groups["location_requirements"].items():
+                for group in entry:
+                    if "Miner" in group:
+                        self.assertIn(name, allowed_locs)
+
+    def test_energy_missions_need_a_miner_in_logic(self) -> None:
+        # The positive half: asserting Miner is absent elsewhere proves nothing
+        # if the rule failed to land at all.
+        from ..rules import mission_requirements, location_requirements
+        for mission, cache in ((3, "Not My Mars - Cache 1"),
+                               (4, "Ruins Repurposed - Cache 1")):
+            for casual in (False, True):
+                flat = [n for g in mission_requirements(mission, casual) for n in g]
+                self.assertIn("Miner", flat)
+                # A waived cache stays free, or the mission can no longer open a
+                # seed.
+                self.assertEqual([], location_requirements(cache, mission, casual))
+
+    def test_miner_is_physical_only_where_it_was_played(self) -> None:
+        # The soft layer's whole point: on Not My Mars and Ruins Repurposed
+        # logic asks for a Miner and PHYSICS DOES NOT, so those checks paint
+        # yellow rather than red. If a Miner requirement leaks into the physical
+        # layer there, the tracker starts calling a reachable check unreachable.
+        #
+        # Ever After, Sequence and Wallis are different: the designer stated
+        # those as hard requirements, so a Miner there is physical on purpose.
+        PHYSICAL_OK = {17, 18, 20}
+        SOFT_ONLY = {3, 4}
+        from ..rules import requirement_groups
+        from ..locations import LOCATIONS_PER_MISSION
+        soft_locs = set()
+        for m in SOFT_ONLY:
+            soft_locs |= set(LOCATIONS_PER_MISSION[m])
+        ok_locs = set()
+        for m in PHYSICAL_OK:
+            ok_locs |= set(LOCATIONS_PER_MISSION[m])
+        # A Miner as one option in an OR-group is an ALTERNATIVE, not a
+        # requirement - Serious offers (Cannon or Terp or Miner), and holding a
+        # cannon satisfies it. Only a group that is Miner ALONE means the player
+        # cannot proceed without one, so that is what this asserts on.
+        def required_alone(entry):
+            return any(g == ["Miner"] for g in entry)
+
+        for casual in (False, True):
+            groups = requirement_groups(casual, physical=True)
+            for spec, entry in groups["mission_requirements"].items():
+                if required_alone(entry):
+                    self.assertNotIn(spec, {f"story{m}" for m in SOFT_ONLY},
+                                     f"{spec}: soft Miner leaked into physics")
+            for name, entry in groups["location_requirements"].items():
+                if required_alone(entry):
+                    self.assertNotIn(name, soft_locs,
+                                     f"{name}: soft Miner leaked into physics")
+                    self.assertIn(name, ok_locs,
+                                  f"{name}: unexpected physical Miner")
+
+    def test_reclaim_always_needs_a_nullifier(self) -> None:
+        # Reclaim is "clear the map", and nothing clears while a source is still
+        # producing. Encoded per-mission it covered only We Were Never Alone,
+        # leaving nine of eleven Reclaim checks asking for a weapon alone -
+        # found when Hints' Reclaim was the last check logic thought a lone
+        # Mortar could take (designer, 2026-09-03).
+        #
+        # Required in BOTH layers: this is physics, not a logic preference, so a
+        # Reclaim check with no Nullifier is red rather than yellow.
+        from ..rules import location_requirements
+        from ..locations import LOCATIONS_PER_MISSION
+        seen = 0
+        for m in range(1, 21):
+            for name in LOCATIONS_PER_MISSION[m]:
+                if " - Reclaim" not in name:
+                    continue
+                seen += 1
+                for casual in (False, True):
+                    for physical in (False, True):
+                        reqs = location_requirements(name, m, casual, physical)
+                        self.assertTrue(
+                            any(g == ["Nullifier"] for g in reqs),
+                            f"{name} (casual={casual}, physical={physical}) "
+                            f"does not require a Nullifier: {reqs}")
+        # A loop that found no Reclaim checks would pass while asserting nothing.
+        self.assertEqual(11, seen, "expected 11 Reclaim checks")
+
+    def test_reclaim_does_not_hard_require_anti_air(self) -> None:
+        # The designer's call, 2026-09-03: Nullifier type-wide, but anti-air
+        # stays in the casual tier rather than becoming a hard requirement on
+        # spore missions. Pinned so it cannot drift in quietly.
+        from ..rules import location_requirements, DEFENSIVE
+        from ..locations import LOCATIONS_PER_MISSION
+        for m in range(1, 21):
+            for name in LOCATIONS_PER_MISSION[m]:
+                if " - Reclaim" not in name:
+                    continue
+                std = location_requirements(name, m, False)
+                for group in std:
+                    self.assertNotEqual(sorted(group), sorted(DEFENSIVE),
+                                        f"{name} hard-requires anti-air")
 
     def test_sniper_on_tower_of_darkness_is_casual_only(self) -> None:
         # The other half of the same verdict. First pass: snipers are "a little

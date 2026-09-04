@@ -58,7 +58,9 @@ OFFENSE = ["Cannon", "Mortar"]
 # Buildings that need the greenar chain before they can be built. Any rule that
 # requires one also requires the chain; expansion happens in _expand so it can
 # never be forgotten at a call site.
-GREENAR_CHAIN = ["Greenar Refinery", "Factory"]
+# The Factory item unlocks the greenar refinery too, so the "chain" is one item
+# now - see items.RETIRED_ITEMS for why the refinery's NAME still exists.
+GREENAR_CHAIN = ["Factory"]
 PREREQUISITES = {
     "Platform": GREENAR_CHAIN,
     "Chronat": GREENAR_CHAIN,
@@ -80,14 +82,62 @@ MISSION_EXTRA = {
     12: [["Nullifier"], ["Shield"]],
     # Not hedged. The Compound's saw blades delete buildings and die only to
     # snipers: "You need snipers to get past them. no way to do any objectives
-    # without." The ONLY mission where a sniper is in logic.
+    # without."
     16: [["Sniper"]],
+    # Wallis, the second standard-tier sniper mission, and stated as flatly:
+    # "You need snipers to actually do this level as a hard requirement.
+    #  (regardless of energy/weapons)".
+    18: [["Sniper"]],
+    # Ever After. The ONLY mission where logic demands BOTH weapons - two
+    # separate groups, so both must be held:
+    #   "you need Miners, morters and cannons. hard requirement. There's jsut too
+    #    much generation of creep on the map otherwise. and not enough space,
+    #    defendable area."
+    # Confirmed as literal rather than loose phrasing (designer, 2026-09-03).
+    20: [["Miner"], ["Cannon"], ["Mortar"]],
     # NOT here, and tested rather than assumed: story15. The worksheet suspected
     # mining might be needed for energy there, so it was played with only its
     # logic requirements and no Miner - "Yes very doable with no miners on Tower
-    # of Darkness. not a requirement." Economy stays outside logic, and
-    # test_miner_gates_nothing pins that.
+    # of Darkness. not a requirement." Economy stays outside logic everywhere
+    # except Not My Mars above, and test_miner_gates_only_not_my_mars pins that
+    # the exception stays exactly one mission wide.
 }
+
+# Requirements that LOGIC asserts but physics does not.
+#
+# Two different questions get asked of these rules, and they used to share one
+# answer. The generator asks "may I assume the player can do this?" and must not
+# assume a hard-mode run. The in-game tracker asks "can this be reached at all?"
+# and should paint an icon red only when the answer is no. A requirement that is
+# true for the first question and false for the second belongs HERE, so the
+# tracker can show it yellow: reachable, but not promised.
+#
+# Both entries are about energy rather than offense, and both were found by
+# playing a seed where only Mortar had arrived (designer, 2026-09-03).
+#
+# Not My Mars - the objectives sit on separate islands and towers cannot carry
+# energy across:
+#   "we should set Not My Mars to require Miners to be unlocked. you can't get
+#    energy from towers so this is basically impossible to beat."
+# Not literally impossible: the rift lab can be hovered between the islands to
+# walk the power over, and that is explicitly rejected as logic -
+#   "I'd have to use the cheese/hard mode strategy of hovering the rift lab
+#    between the islands to get the power across... which shouldn't be in logic."
+#
+# Ruins Repurposed - the same energy problem, judged one notch easier:
+#   "i just can't get enough ground to get enough energy to support the mortars
+#    to push through."
+#   "I think it is doable, but it's hard mode/out of logic."
+#
+# Economy is outside logic everywhere else: story15 was played with no Miner and
+# no energy items at all - "Yes very doable with no miners on Tower of Darkness.
+# not a requirement." test_miner_gates_only_the_energy_missions pins the
+# exception to these two.
+MISSION_SOFT = {
+    3: [["Miner"]],
+    4: [["Miner"]],
+}
+
 
 # Per-objective requirements, mission by mission, EXCLUDING whatever completing
 # the mission needs (added separately unless waived below). Every entry traces to
@@ -98,24 +148,78 @@ OBJECTIVE_OWN = {
     (2, "Nullify"): [["Nullifier"]],
 
     # We Know Nothing: "Refinery and Factory, to store liftic to give to totems."
-    (5, "Totems"): [["Greenar Refinery"], ["Factory"]],
+    (5, "Totems"): [["Factory"]],
 
     # We Were Never Alone. HEDGED: "I think nullifier is probably nessesary to
     # reclaim as there's just too much to keep it under raps".
     (6, "Reclaim"): [["Nullifier"]],
 
+    # Serious. The wall is an ENERGY BUDGET, not firepower: the map yields just
+    # over 20 generation from tower ground and static defence spends all of it,
+    # so there is never a surplus to push with. Measured by playing it four
+    # times, one item set per run (2026-09-03):
+    #
+    #   Cannon  clears - holds a choke for less energy, freeing the surplus
+    #   Terp    clears - walls cut the line to defend, carving adds tower spots
+    #   Miner   clears - about +10 generation from this map's early RESO field
+    #
+    # Mortars alone are "outside of even possible logic (it's very hard mode)",
+    # so this is HARD - red, not yellow. One OR-group: any of the three.
+    (8, "Nullify"): [["Cannon", "Terp", "Miner"]],
+    (8, "Reclaim"): [["Cannon", "Terp", "Miner"]],
+
+    # Founders. The nullify targets are on the enemy islands and the starting
+    # island cannot be left without platforms: "You will need Platforms to get
+    # from the safe starter island to get to the enemies (pylon will not work,
+    # and porter might, but would be very hard mode)." _expand adds the greenar
+    # chain a platform needs.
+    (19, "Nullify"): [["Platform"]],
+
+    # Sequence' reclaim means clearing everything, so it inherits the whole
+    # nullify stack including the darkness beacon - see OBJECTIVE_TIERS.
+    (17, "Reclaim"): [["Sniper"], ["Miner"], ["Pylon", "Porter", "Platform"],
+                      ["Chronat"]],
+
+    # Wallis' reclaim likewise needs the firepower its later nullifies need.
+    (18, "Reclaim"): [["Cannon"]],
+
     # Greenar-crystal missions: "requires refinery and factory to fill the
     # totems", repeated near-verbatim on each of these.
-    (7, "Totems"): [["Greenar Refinery"], ["Factory"]],
-    (8, "Totems"): [["Greenar Refinery"], ["Factory"]],
-    (9, "Totems"): [["Greenar Refinery"], ["Factory"]],
-    (10, "Totems"): [["Greenar Refinery"], ["Factory"]],
-    (12, "Totems"): [["Greenar Refinery"], ["Factory"]],
-    (13, "Totems"): [["Greenar Refinery"], ["Factory"]],
-    (14, "Totems"): [["Greenar Refinery"], ["Factory"]],
-    (15, "Totems"): [["Greenar Refinery"], ["Factory"]],
-    (16, "Totems"): [["Greenar Refinery"], ["Factory"]],
-    (20, "Totems"): [["Greenar Refinery"], ["Factory"]],
+    (7, "Totems"): [["Factory"]],
+    (8, "Totems"): [["Factory"]],
+    (9, "Totems"): [["Factory"]],
+    (10, "Totems"): [["Factory"]],
+    (12, "Totems"): [["Factory"]],
+    (13, "Totems"): [["Factory"]],
+    (14, "Totems"): [["Factory"]],
+    (15, "Totems"): [["Factory"]],
+    (16, "Totems"): [["Factory"]],
+    (20, "Totems"): [["Factory"]],
+
+    # Founders. Same rule, found by BEING SOFT-LOCKED by its absence: with the
+    # colours working, Founders' totems were the only green icon left on the map
+    # and could not be taken.
+    #
+    #   "the totems on founders are the only green icon on my map, but i can't
+    #    get them as they need greenar (refinery/factory) to get, there's no
+    #    liftic cache on that mission."
+    #
+    # The test that no totem check is reachable without the greenar chain unless
+    # its mission has loose liftic is what would have caught this before a
+    # player did (designer, 2026-09-03).
+    (19, "Totems"): [["Factory"]],
+
+    # Shattered and Wallis, the last two totem sets logic still called free.
+    # Checked by playing them with rift lab, tower and Mortar only:
+    #
+    #   "No both Shattered and Wallis need refinery/factory to collect greenar
+    #    and convert to liftic."
+    #
+    # That leaves Home, Not My Mars and Ruins Repurposed as the ONLY missions
+    # whose totems run on loose liftic, which is what test_totems_need_greenar
+    # now pins - the free case is the exception and has to be named.
+    (11, "Totems"): [["Factory"]],
+    (18, "Totems"): [["Factory"]],
 
     # Shattered: "To get to the Enemy (nullify) ... you either need porter, or
     # platform to cross space."
@@ -162,6 +266,61 @@ OBJECTIVE_OWN = {
 # ("No easy way to get the item at the start of this one. it starts under
 # creep"), Tower of Darkness ("No easy way to get item. need to fight back creep
 # to do it"), The Compound, Sequence, Wallis, Founders and Ever After.
+# Per-objective requirements that LOGIC asserts and PHYSICS does not.
+#
+# MISSION_SOFT says "this mission", which cannot express "this mission's Nullify
+# and Reclaim but not its caches". Somewhere in Spacetime needs exactly that:
+#
+#   "with morters and nullifiers it is doable. i'd say medium/hard, so out of
+#    logic, but not by much (yellow)."
+#
+# So the generator must not assume a mortar-only run there, while the map still
+# shows the checks as reachable-but-unpromised. The members are the routes that
+# make it comfortable on THAT map - Miner is deliberately absent, because
+# "There's no RESO so miners won't help here", and a Miner in this group would
+# tell a player the checks were reachable when they are not.
+OBJECTIVE_SOFT = {
+    (14, "Nullify"): [["Cannon", "Sniper", "Terp"]],
+    (14, "Reclaim"): [["Cannon", "Sniper", "Terp"]],
+}
+
+
+# Requirements that ESCALATE across the instances of one counted objective.
+#
+# Sound because instance locations are numbered by ACTIVATION ORDER - the game
+# cannot tell one nullify target from another, so "Nullify 3" is the third one
+# the player does, and its requirement is the third-easiest target's. A flat
+# per-mission rule would instead paint the two easy targets red until the whole
+# late-game kit had arrived.
+#
+# Each entry is (highest instance this tier covers, extra groups), lowest first.
+OBJECTIVE_TIERS = {
+    # Sequence, from the map review (2026-09-03):
+    #   "With nullifier, you can nullify 2 of the enemies (the 2 connected to
+    #    your island on the left hand side ... you can get 7 more nullifies if
+    #    you have sniper, plus miner access to get to the RESO (the reso needs
+    #    pylon or porter or platform to actually get to, you cannot get there
+    #    with just towers) ... The final 5 enemies are in darkness and need
+    #    light/beacon to even get to to nullify."
+    (17, "Nullify"): [
+        (2, []),
+        (9, [["Sniper"], ["Miner"], ["Pylon", "Porter", "Platform"]]),
+        (14, [["Sniper"], ["Miner"], ["Pylon", "Porter", "Platform"],
+              ["Chronat"]]),
+    ],
+    # Wallis:
+    #   "I tried with miners and morters, and you could probably get the first 2
+    #    nullifies with that, maybe even first 4. but after that you'll need some
+    #    more firepower, so i would say need cannons for after."
+    # The hedge is resolved the way the design doc says to resolve hedges -
+    # require rather than not - so the cheap tier stops at 4.
+    (18, "Nullify"): [
+        (4, [["Miner"]]),
+        (9, [["Miner"], ["Cannon"]]),
+    ],
+}
+
+
 WAIVES_MISSION_REQUIREMENTS = {
     (2, "Collect"), (3, "Collect"), (4, "Collect"), (5, "Collect"),
     (7, "Collect"), (10, "Collect"), (11, "Collect"), (12, "Collect"),
@@ -224,6 +383,29 @@ def _casual_defense(mission: int, casual: bool) -> list:
     return [list(DEFENSIVE)] if casual and mission >= CASUAL_DEFENSE_FROM else []
 
 
+def _simplify(groups: list) -> list:
+    """Drop OR-groups that a REQUIRED single item already satisfies.
+
+    Ever After requires both weapons, so its rules came out as
+    "(Cannon or Mortar) + Miner + Cannon + Mortar" - correct, since holding
+    Cannon satisfies the or-group, but three ways of saying the same thing. Any
+    group containing an item that is required on its own is redundant by
+    definition, so removing it cannot change what the rule accepts.
+
+    Kept separate from _expand because it is presentation and size, not meaning:
+    every entry travels to the client in slot_data and gets read by a human
+    reviewing the logic.
+    """
+    singles = {g[0] for g in groups if len(g) == 1}
+    out = []
+    for g in groups:
+        if len(g) > 1 and any(item in singles for item in g):
+            continue
+        if g not in out:
+            out.append(g)
+    return out
+
+
 def _expand(groups: list) -> list:
     """Add the prerequisites of any required building.
 
@@ -244,18 +426,26 @@ def _expand(groups: list) -> list:
         for name in shared or []:
             if [name] not in out:
                 out.append([name])
-    return out
+    return _simplify(out)
 
 
-def mission_requirements(mission: int, casual: bool = False) -> list:
+def mission_requirements(mission: int, casual: bool = False,
+                         physical: bool = False) -> list:
     """What COMPLETING this mission needs, before its objectives are considered.
 
     Not "what every location on the mission needs" - a waived cache needs none
     of it.
+
+    `physical` drops everything logic asserts but physics does not - the
+    MISSION_SOFT entries and the casual anti-air tier - leaving only what a
+    player genuinely cannot proceed without. That is the set the tracker needs
+    in order to tell red (unreachable) from yellow (reachable, out of logic).
     """
     groups = [list(OFFENSE)]
     groups += [list(g) for g in MISSION_EXTRA.get(mission, [])]
-    groups += _casual_defense(mission, casual)
+    if not physical:
+        groups += [list(g) for g in MISSION_SOFT.get(mission, [])]
+        groups += _casual_defense(mission, casual)
     return _expand(groups)
 
 
@@ -264,7 +454,8 @@ def objective_requirements(mission: int, slot: int, casual: bool = False) -> lis
     return requirements_for_kind(mission, OBJECTIVE_TYPES[slot], casual)
 
 
-def requirements_for_kind(mission: int, kind: str, casual: bool = False) -> list:
+def requirements_for_kind(mission: int, kind: str, casual: bool = False,
+                          physical: bool = False) -> list:
     """The COMPLETE requirement for every check of one objective type on one
     mission. Each instance of that type carries the same rule - the game cannot
     distinguish one totem from another, and neither can logic."""
@@ -280,24 +471,50 @@ def requirements_for_kind(mission: int, kind: str, casual: bool = False) -> list
     if kind == "Nullify":
         groups.append(["Nullifier"])
 
+    # Type-wide, for the same reason: Reclaim is "clear the map", which cannot
+    # be finished while anything is still producing creeper - so it inherits the
+    # Nullifier whether or not that mission's own notes mention one.
+    #
+    #   "that's typically the last thing you do in a level as you need to lock
+    #    down all the enemies, it's possible, but typically need a lot of
+    #    firepower."
+    #
+    # Encoded per-mission it covered only We Were Never Alone, leaving nine of
+    # the eleven Reclaim checks asking for nothing but a weapon - exactly the
+    # hole the Nullify rule above was written to close. Found when Hints' Reclaim
+    # read as the last check reachable with a lone Mortar and was not remotely
+    # doable (designer, 2026-09-03).
+    #
+    # Firepower beyond that is deliberately NOT modelled: there is no item for
+    # "more cannons", and anti-air stays in the casual tier where it already is
+    # (designer's call, same date) rather than becoming a hard requirement here.
+    # We Were Never Alone keeps its own hedged entry below; it dedupes.
+    if kind == "Reclaim":
+        groups.append(["Nullifier"])
+
     for group in OBJECTIVE_OWN.get((mission, kind), []):
         if list(group) not in groups:
             groups.append(list(group))
+    if not physical:
+        for group in OBJECTIVE_SOFT.get((mission, kind), []):
+            if list(group) not in groups:
+                groups.append(list(group))
     if (mission, kind) not in WAIVES_MISSION_REQUIREMENTS:
-        for group in mission_requirements(mission, casual):
+        for group in mission_requirements(mission, casual, physical):
             if group not in groups:
                 groups.append(group)
     return _expand(groups)
 
 
-def mission_complete_requirements(mission: int, casual: bool = False) -> list:
+def mission_complete_requirements(mission: int, casual: bool = False,
+                                  physical: bool = False) -> list:
     """Completing a mission means completing every REQUIRED objective on it.
 
     So this is the mission's own requirements plus each objective's own. A waived
     cache waives the weapon for ITS check only - the mission still cannot be
     finished without one, which is why mission_requirements seeds the list.
     """
-    groups = [list(g) for g in mission_requirements(mission, casual)]
+    groups = [list(g) for g in mission_requirements(mission, casual, physical)]
     for slot in REQUIRED_OBJECTIVES[mission]:
         kind = OBJECTIVE_TYPES[slot]
         for group in _expand([list(g) for g in OBJECTIVE_OWN.get((mission, kind), [])]):
@@ -306,13 +523,27 @@ def mission_complete_requirements(mission: int, casual: bool = False) -> list:
     return groups
 
 
+def _tier_for(tiers: list, index: int) -> list:
+    """The extra groups for instance `index`: the first tier that covers it.
+
+    Past the last tier the highest one applies - an extra instance appearing in
+    a future game update should inherit the hardest known requirement rather
+    than none at all.
+    """
+    for upto, extra in tiers:
+        if index <= upto:
+            return extra
+    return tiers[-1][1] if tiers else []
+
+
 def _instance_index(name: str) -> int | None:
     """The trailing instance number of a per-instance location name, or None."""
     tail = name.rsplit(" ", 1)[-1]
     return int(tail) if tail.isdigit() else None
 
 
-def location_requirements(name: str, mission: int, casual: bool = False) -> list:
+def location_requirements(name: str, mission: int, casual: bool = False,
+                          physical: bool = False) -> list:
     """The COMPLETE requirement for one location, by name.
 
     Instances of an objective type usually share their type's rule - the game
@@ -321,11 +552,20 @@ def location_requirements(name: str, mission: int, casual: bool = False) -> list
     Farsite's first cache is free and its second is not.
     """
     if name == mission_complete_location_name(mission):
-        return mission_complete_requirements(mission, casual)
+        return mission_complete_requirements(mission, casual, physical)
     kind = location_kind(name)
     if not kind:
         return []
     index = _instance_index(name)
+    tiers = OBJECTIVE_TIERS.get((mission, kind))
+    if index is not None and tiers is not None:
+        extra = _tier_for(tiers, index)
+        groups = [list(g) for g in requirements_for_kind(mission, kind, casual,
+                                                         physical)]
+        for group in extra:
+            if list(group) not in groups:
+                groups.append(list(group))
+        return _expand(groups)
     if index is not None and (mission, kind, index) in WAIVES_INSTANCE:
         # The instance's own requirements, without the mission's. Built the same
         # way requirements_for_kind does, minus the mission block.
@@ -336,17 +576,18 @@ def location_requirements(name: str, mission: int, casual: bool = False) -> list
             if list(group) not in groups:
                 groups.append(list(group))
         return _expand(groups)
-    return requirements_for_kind(mission, kind, casual)
+    return requirements_for_kind(mission, kind, casual, physical)
 
 
-def requirement_groups(casual: bool = False) -> dict:
+def requirement_groups(casual: bool = False, physical: bool = False) -> dict:
     """The exact structure exported to slot_data. See the module docstring for
     the contract: location entries are complete and must not be combined."""
-    missions = {f"story{n}": mission_requirements(n, casual) for n in range(1, 21)}
+    missions = {f"story{n}": mission_requirements(n, casual, physical)
+                for n in range(1, 21)}
     locations = {}
     for n in range(1, 21):
         for name in LOCATIONS_PER_MISSION[n]:
-            reqs = location_requirements(name, n, casual)
+            reqs = location_requirements(name, n, casual, physical)
             if reqs:
                 locations[name] = reqs
     return {"mission_requirements": missions, "location_requirements": locations}

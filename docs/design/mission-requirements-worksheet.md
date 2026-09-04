@@ -442,3 +442,80 @@ booted on a fresh profile reports the same starting set.
 
 So the minimum-to-win set has to come from playing. Everything else is in place
 around it.
+
+---
+
+## Late-mission wall review (designer, 2026-09-03)
+
+Verbatim, from checking the maps against these notes with every mission and unit
+unlocked. These supersede the "helped but not needed" readings where they
+conflict.
+
+### 17. Sequence
+
+  "with just morter you can get the single item, but it's medium/hard mode
+   (yellow). With nullifier, you can nullify 2 of the enemies (the 2 connected to
+   your island on the left hand side. Snipers would make those doable. To push
+   further you'll need more firepower. you can get 7 more nullifies if you have
+   sniper, plus miner access to get to the RESO (the reso needs pylon or porter
+   or platform to actually get to, you cannot get there with just towers).
+   cannons can also help with morter. same with the 2nd item if you have the same
+   firepower as the other 7 nullifies you can get to that item. there is an out
+   of logic (yellow) if you just have morter, and platform, and cannon to get to
+   it, but snipers would make it doable. The final 5 enemies are in darkness and
+   need light/beacon to even get to to nullify. (this includes reclaiming)."
+
+Structure - the requirement ESCALATES across the nullify instances:
+
+| instances | needs |
+|---|---|
+| first 2 (left, connected to your island) | Nullifier; Sniper makes them comfortable |
+| next 7 | Sniper + Miner + (Pylon or Porter or Platform) to reach the RESO at all |
+| final 5 | + Chronat - they are in darkness. Reclaim inherits this |
+
+Cache 1: mortar alone, medium/hard - SOFT. Cache 2: buried (Terp) and behind the
+enemies, so it carries the same firepower as the 7.
+
+### 18. Wallis
+
+  "not possible with just morter and nullifier. with cannons it should be doable.
+   there is some RESO near the rift lab. You need snipers to actually do this
+   level as a hard requirement. (regardless of energy/weapons). I tried with
+   miners and morters, and you could probably get the first 2 nullifies with
+   that, maybe even first 4. but after that you'll need some more firepower, so i
+   would say need cannons for after. A factory would help as the wallis wepons
+   give a bit of that firepower, but it shoots randomly, can't focus it. so not
+   good for pushing, but good for defence. With miners and starting area covered
+   by morters i think i had about 20 gen. i would need like 40 to just do
+   morters. i could get that with miners, and a certain amount of starting ERNs
+   (they can go in miners to boost them). but I don't know what that number is.
+   there's space for 9 miners so you might be able to math that out."
+
+- **Sniper is HARD here**, independent of energy - the second mission after The
+  Compound where a sniper is in the standard tier.
+- Escalates too: first 2 to 4 nullifies on miners + mortars, Cannon beyond that.
+- Wallis' own map weapons (via Factory) are defence, not push: "it shoots
+  randomly, can't focus it".
+- **ERNs boost MINERS**, which is a generation route, not just a rate/range
+  tweak. That is a different mechanism from the one ruled out on Serious, and it
+  is the one open ERN question worth costing: 20 gen now, ~40 needed for a
+  mortar-only run, 9 miner spots available.
+
+### 20. Ever After
+
+  "you need Miners, morters and cannons. hard requirement. There's jsut too much
+   generation of creep on the map otherwise. and not enough space, defendable
+   area."
+
+Hard: Miner AND a cannon. Totems already carry the greenar chain.
+
+### 19. Founders
+
+  "And I think you have all the infomation you need for Founders."
+
+So its rules come from the existing notes: the item is in darkness (Chronat),
+buried (Terp), and behind enemy lines needing Platforms; the Custom objective
+needs the 4 obelisk reactors and the neutron reactor nullified. The gap in the
+encoded logic is that **Nullify on 19 currently asks only for a weapon and a
+nullifier**, while the notes say Platforms are needed to leave the starting
+island at all.
