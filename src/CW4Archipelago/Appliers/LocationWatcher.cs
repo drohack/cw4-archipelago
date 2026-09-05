@@ -34,7 +34,6 @@ public sealed class LocationWatcher
     private int _mission;
     private bool[]? _objectiveDone;
     private int[]? _sentUpTo;
-    private int _nullifiableAtStart = -1;
     private int _lastNullifiableSeen = -999;
 
     /// <summary>Set by the game-event patches to scan on the next tick.</summary>
@@ -69,7 +68,6 @@ public sealed class LocationWatcher
             _mission = ResolveMission(gs);
             _objectiveDone = null;
             _sentUpTo = null;
-            _nullifiableAtStart = -1;
             _lastNullifiableSeen = -999;
             _missionComplete = false;
             ModCore.Log.LogInfo($"LocationWatcher: mission {_mission} ('{SpecifierOf(_mission)}')");
@@ -108,9 +106,21 @@ public sealed class LocationWatcher
         {
             Poke = false;
             _countdown = SafetyInterval;
-            SendCounted(0, NullifiedCount(gs));
-            SendCounted(1, TotemsCompleteCount(gs));
-            SendCounted(4, CachesCollectedCount(gs));
+            // Two sources, and the higher wins. The live sets give PARTIAL
+            // progress; the game's own completion query is the only thing that
+            // is right when a set cannot be counted.
+            //
+            // Measured on a resumed save (We Were Never Alone, 2026-09-05):
+            // every one of the nine nullify targets was destroyed and the game
+            // reported the objective complete, while all nine were still sitting
+            // in GameSpace.nullifiableUnits. The set does NOT shrink on a
+            // reload, so a rule that counts what is left can never notice - the
+            // player got none of the nine checks. research-findings.md said
+            // progress "is measured by that set shrinking"; that holds during
+            // live play and not across a load.
+            SendCounted(0, Math.Max(NullifiedCount(gs), AllIfObjectiveDone(world, 0)));
+            SendCounted(1, Math.Max(TotemsCompleteCount(gs), AllIfObjectiveDone(world, 1)));
+            SendCounted(4, Math.Max(CachesCollectedCount(gs), AllIfObjectiveDone(world, 4)));
         }
 
         bool mc = false;
@@ -201,25 +211,61 @@ public sealed class LocationWatcher
         catch { return -1; }
     }
 
-    /// <summary>Nullified so far. The set only shrinks, so progress is the drop
-    /// from its size at mission start - captured on the first tick of the
-    /// mission, before the player can have nullified anything.</summary>
+    /// <summary>Every instance of an objective the GAME says is complete, or 0.
+    ///
+    /// The completion query is the one signal that survives a reload. Gated on
+    /// this slot actually having locations for the objective, so a mission that
+    /// reports a disabled objective as done cannot invent checks - and
+    /// deliberately NOT gated on MissionObjectiveData.enabled, which is
+    /// unreliable: Farsite's Collect slot reads enabled=False with two
+    /// collectable caches on the map (research-findings.md).</summary>
+    private int AllIfObjectiveDone(World world, int index)
+    {
+        try
+        {
+            if (!world.IsMissionObjectiveComplete(index))
+                return 0;
+            return MissionRules
+                .LocationsForObjective(ModCore.Client.State, _mission, index).Count;
+        }
+        catch { return 0; }
+    }
+
+    /// <summary>Nullify targets destroyed, measured from ABSOLUTE state.
+    ///
+    /// This used to be the drop from the count at mission start, which is right
+    /// only when the mission is started fresh. Resuming a save in which the
+    /// targets were already destroyed meant the first tick saw an empty set, so
+    /// the "start" was recorded as zero and progress stayed zero for the rest of
+    /// the mission - a player who nullified all nine on We Were Never Alone,
+    /// saved and came back received none of the nine checks. The rule now lives
+    /// in NullifyRules where it is tested; see NullifyRulesTests.</summary>
     private int NullifiedCount(GameSpace gs)
     {
         try
         {
-            int remaining = 0;
-            foreach (var u in gs.nullifiableUnits) if (u != null) remaining++;
-            if (_nullifiableAtStart < 0)
-                _nullifiableAtStart = remaining;
-            if (remaining != _lastNullifiableSeen)
+            // Count the SUPPRESSED targets. The set itself never shrinks and the
+            // units are never destroyed, so anything that counts what is left
+            // reports zero forever - see NullifyRules for the measurements.
+            int total = 0, suppressed = 0;
+            foreach (var u in gs.nullifiableUnits)
             {
-                _lastNullifiableSeen = remaining;
-                ModCore.Log.LogInfo(
-                    $"NULLIF: remaining={remaining} atStart={_nullifiableAtStart} " +
-                    $"progress={_nullifiableAtStart - remaining}");
+                if (!GameUtil.IsAlive(u)) continue;
+                total++;
+                try { if (u.IsSuppressed()) suppressed++; } catch { }
             }
-            return _nullifiableAtStart - remaining;
+
+            int locations = MissionRules
+                .LocationsForObjective(ModCore.Client.State, _mission, 0).Count;
+            int done = NullifyRules.Completed(suppressed, locations);
+
+            if (suppressed != _lastNullifiableSeen)
+            {
+                _lastNullifiableSeen = suppressed;
+                ModCore.Log.LogInfo(
+                    $"NULLIF: suppressed={suppressed}/{total} locations={locations} done={done}");
+            }
+            return done;
         }
         catch { return -1; }
     }

@@ -174,6 +174,9 @@ public sealed class DebugChannel
         if (lower == "units") { UnitsDump(); return; }
         if (lower == "story:open") { StoryOpen(); return; }
         if (lower.StartsWith("clickplanet:")) { ClickPlanet(line.Substring(12).Trim()); return; }
+        if (lower.StartsWith("loadsave:")) { LoadSave(line.Substring(9).Trim()); return; }
+        if (lower == "obj:dump") { ObjDump(); return; }
+        if (lower == "null:dump") { NullDump(); return; }
         if (lower.StartsWith("toast:")) { ModCore.EnqueueToast(line.Substring(6).Trim()); return; }
         if (lower.StartsWith("limit:")) { LimitDump(line.Substring(6).Trim()); return; }
         if (lower == "ern:status") { ErnStatus(); return; }
@@ -1012,6 +1015,112 @@ public sealed class DebugChannel
 
     // Invoke a planet's click handler to test the locked-click block. Reports
     // whether a mission popup is showing afterwards.
+    /// <summary>Load a SAVED mission, the way the level-select load box does.
+    ///
+    /// Needed because two bugs now have hidden specifically in the RESUMED case
+    /// and `boot:` cannot reach it - it always starts a mission fresh. The
+    /// nullify counter measured progress as a drop from the count at mission
+    /// start, which is zero forever on a save whose targets are already
+    /// destroyed; nothing that only ever starts missions could have found it.
+    ///
+    /// Drives MissionPanelLoadBoxRow.OnLoad, the same entry point the UI uses
+    /// and the one MissionGate already patches, so the gate applies here too.
+    /// Open the mission's panel first with clickplanet:.</summary>
+    /// <summary>The game's own verdict on every objective, on demand.
+    ///
+    /// The mod only dumps this at the moment a mission completes, which is no
+    /// use for a mission being INSPECTED - and the question "did the player
+    /// really nullify these, or does the set just not shrink" can only be
+    /// settled by asking the game rather than by counting units.</summary>
+    /// <summary>Per-unit state for every nullify target.
+    ///
+    /// Nullifying does not remove the unit from GameSpace.nullifiableUnits and
+    /// does not destroy it - measured, both counts stay flat - so SOMETHING on
+    /// the unit itself has to say it is done. Dump the candidates on a save
+    /// where everything is nullified and on a fresh start, and the flag that
+    /// differs is the answer.</summary>
+    private static void NullDump()
+    {
+        var gs = GameSpace.instance;
+        if (gs == null) { ModCore.Log.LogWarning("null:dump: no game"); return; }
+        int i = 0;
+        foreach (var u in gs.nullifiableUnits)
+        {
+            if (u == null) continue;
+            string name = "?"; bool dead = false, en = false, canNull = false, supp = false;
+            float hp = -1f;
+            try { name = u.GetDataName() ?? "?"; } catch { }
+            try { dead = u._dead; } catch { }
+            try { en = u._enabled; } catch { }
+            try { canNull = u.CAN_NULLIFY; } catch { }
+            try { supp = u.IsSuppressed(); } catch { }
+            try { hp = u.health; } catch { }
+            ModCore.Log.LogInfo(
+                $"DEBUG NULLUNIT {i++}: name='{name}' dead={dead} enabled={en} " +
+                $"canNullify={canNull} suppressed={supp} health={hp:0.0} alive={GameUtil.IsAlive(u)}");
+        }
+        ModCore.Log.LogInfo($"DEBUG NULLUNIT: {i} unit(s) in nullifiableUnits");
+    }
+
+    private static void ObjDump()
+    {
+        var gs = GameSpace.instance;
+        var world = gs?.world;
+        if (world == null) { ModCore.Log.LogWarning("obj:dump: no world"); return; }
+        var slots = world.missionObjectives;
+        ModCore.Log.LogInfo($"DEBUG OBJ: {(slots == null ? -1 : slots.Length)} slot(s)");
+        if (slots != null)
+            for (int i = 0; i < slots.Length; i++)
+            {
+                bool done = false; string err = "";
+                try { done = world.IsMissionObjectiveComplete(i); }
+                catch (Exception e) { err = " threw: " + e.Message; }
+                bool en = false; int cnt = -1;
+                try { en = slots[i].enabled; } catch { }
+                try { cnt = slots[i].count; } catch { }
+                ModCore.Log.LogInfo($"DEBUG OBJ:   {i}: enabled={en} count={cnt} done={done}{err}");
+            }
+        int nul = 0;
+        try { foreach (var u in gs!.nullifiableUnits) if (u != null) nul++; } catch { }
+        ModCore.Log.LogInfo($"DEBUG OBJ: nullifiableUnits={nul}");
+    }
+
+    private static void LoadSave(string arg)
+    {
+        // FindObjectsOfTypeAll, not FindObjectsOfType: the load rows exist but
+        // are inactive until their panel is shown, and the active-only search
+        // found nothing even with the popup open. Same reason GlyphDump and
+        // CloseAda use it.
+        var rows = UnityEngine.Resources.FindObjectsOfTypeAll<MissionPanelLoadBoxRow>();
+        if (rows == null || rows.Length == 0)
+        {
+            ModCore.Log.LogWarning("loadsave: no load rows exist - open the mission panel first (clickplanet:storyN)");
+            return;
+        }
+        foreach (var r0 in rows)
+        {
+            string s0 = "";
+            try { s0 = r0.missionPanelLoadBox?.specifier ?? ""; } catch { }
+            ModCore.Log.LogInfo($"DEBUG loadsave: row spec='{s0}' active={r0.gameObject.activeInHierarchy}");
+        }
+        int idx = 0;
+        bool byIndex = int.TryParse(arg, out idx);
+        foreach (var r in rows)
+        {
+            if (!GameUtil.IsAlive(r)) continue;
+            string spec = "";
+            try { spec = r.missionPanelLoadBox?.specifier ?? ""; } catch { }
+            bool match = byIndex || arg.Length == 0
+                || spec.Equals(arg, StringComparison.OrdinalIgnoreCase);
+            if (!match) continue;
+            ModCore.Log.LogInfo($"DEBUG loadsave: invoking OnLoad for '{spec}'");
+            try { r.OnLoad(); }
+            catch (Exception e) { ModCore.Log.LogWarning($"loadsave failed: {e.Message}"); }
+            return;
+        }
+        ModCore.Log.LogWarning($"loadsave: no load row matching '{arg}' among {rows.Length}");
+    }
+
     private static void ClickPlanet(string arg)
     {
         if (!CW4Archipelago.Core.MissionRules.TryParseSpecifier(arg, out var mission))

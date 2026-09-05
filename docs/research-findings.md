@@ -566,6 +566,31 @@ beam is up rather than once on success. So nullify PROGRESS is the one counted
 objective with no event, and `LocationWatcher` finds it by polling
 `nullifiableUnits` about once a second.
 
+**CORRECTION (2026-09-05): a nullified structure is marked by
+`UnitManager.IsSuppressed()`, and `nullifiableUnits` NEVER shrinks.** The
+sentence above and the one in the CAN_NULLIFY section - "progress is measured by
+that set shrinking" - were both wrong, and they cost two failed fixes before
+anyone measured it. What was measured, on We Were Never Alone:
+
+| | all 9 nullified (loaded save) | fresh start |
+|---|---|---|
+| `nullifiableUnits.Count` | 9 | 9 |
+| units alive in the scene | 9 | 9 |
+| `IsSuppressed()` | **true** on all 9 | **false** on all 9 |
+| `dead` / `_enabled` / `CAN_NULLIFY` / `health` | identical | identical |
+| `IsMissionObjectiveComplete(0)` | true | false |
+
+Nullifying neither removes the unit from the set nor destroys it, so ANY rule
+that counts what is left reports zero forever - which is why no nullify check
+had ever been sent by the poll, on a fresh mission or a resumed one. Count the
+SUPPRESSED units instead (`NullifyRules`), and keep
+`IsMissionObjectiveComplete` as a second source, since it is the only signal
+that survives a reload.
+
+Reproduce it with the debug plugin: `null:dump` prints per-unit state for every
+nullify target, and `loadsave:<storyN>` reaches the resumed case that `boot:`
+cannot.
+
 One more measured oddity from the same work, also cited by `LocationWatcher` and
 also missing here: **`MissionObjectiveData.enabled` and `count` are unreliable.**
 Farsite's Collect slot reads `enabled=False` with `count=0` while two collectable
