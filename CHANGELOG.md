@@ -3,6 +3,44 @@
 Versions follow semantic versioning. The plugin and the apworld share one number,
 so a release is a matched pair - if you update one, update the other.
 
+## v0.1.7 - checks that actually arrive
+
+Six fixes, all found by playing. Two of them were losing checks silently, which
+is the worst way for a randomizer to be wrong: nothing errors, you just quietly
+do not get your items.
+
+- **Nullify checks never worked.** Not on a fresh mission, not on a loaded save,
+  not in any version. Every nullify target you destroyed should have been a
+  check and none of them were. The mod watched the game's list of nullifiable
+  structures and waited for it to shrink; that list never shrinks, and a
+  nullified structure is not destroyed - it is marked SUPPRESSED and stays
+  exactly where it was. Progress is counted from that mark now. If you have
+  nullified targets in an existing save, loading it sends the checks you are
+  owed.
+- **Fixed: completing a mission did not send its counted checks.** If the live
+  count missed something, a safety net was meant to send every required
+  objective on completion - but it looked up the wrong name for nullify, totems
+  and caches ("Home - Nullify" instead of "Home - Nullify 1"), so it silently
+  skipped all three and only ever worked for Reclaim and Custom.
+- **Fixed: granted ERNs spawned inside the terrain.** They were placed beside
+  the rift lab at the LAB's height rather than the ground's, so anywhere the
+  ground rises they ended up buried.
+- **Fixed: the connect button said DISCONNECT while it was failing to connect**,
+  offering to end something that had never started. It now reads CONNECT, CANCEL
+  while connecting or retrying, and DISCONNECT only when actually connected -
+  and CANCEL stops the retries, which previously you could only escape by
+  quitting the game.
+- **Fixed: pressing CONNECT could do nothing at all.** A retry attempt already
+  in flight made the button ignore the click for up to 40 seconds. It never
+  ignores it now, and a slow attempt can no longer reconnect you after you
+  pressed DISCONNECT.
+- The objective dump in the log reported no locations for every counted
+  objective, which was the same wrong-name bug making the diagnostic lie in the
+  exact case it exists to explain.
+
+Nothing about generation changed, and no item or location names changed, so a
+v0.1.6 seed keeps working.
+
 ## v0.1.6 - offline play, and disconnects that behave
 
 Disconnects, offline play, and what survives reconnecting. Four bugs, all of
