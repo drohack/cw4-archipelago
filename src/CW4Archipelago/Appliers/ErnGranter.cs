@@ -47,7 +47,13 @@ public sealed class ErnGranter
         if (cb == null || !GameUtil.IsAlive(cb))
             return;   // wait for the rift lab
 
-        var pos = cb.transform.position + new Vector3(4f + 3f * (target - _granted), 0f, 6f);
+        // Sit the ERN on the GROUND beside the lab, not at the lab's own height.
+        // Offsetting X and Z while keeping the lab's Y buries the unit wherever
+        // the terrain beside the lab is higher - reported from a playthrough on
+        // v0.1.6 ("the ERN spawned in the ground again"), and invisible on the
+        // flat ground most test missions start on.
+        var pos = GameUtil.OnGroundNear(
+            cb.transform.position, 4f + 3f * (target - _granted), 6f);
         try
         {
             var u = UnitManager.CreateUnitAtPosition("ern", pos);

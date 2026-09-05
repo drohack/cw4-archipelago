@@ -167,12 +167,21 @@ public sealed class MenuUi
         // did not cause - an auto-connect at startup, or a dropped socket.
         if (_connectLabel != null)
         {
-            bool live = ModCore.Client.Status != ConnectionStatus.Disconnected;
-            _connectLabel.text = live ? "DISCONNECT" : "CONNECT";
+            // THREE states, not two. This was `Status != Disconnected`, so a
+            // failed or retrying connection read "DISCONNECT" - the button
+            // offered to end something that had never started, which is exactly
+            // what a player reported. While an attempt is running or retrying
+            // the honest word is CANCEL, and pressing it stops the retries.
+            var st = ModCore.Client.Status;
+            bool connected = st == ConnectionStatus.Connected;
+            bool busy = st == ConnectionStatus.Connecting || st == ConnectionStatus.Failed;
+            _connectLabel.text = connected ? "DISCONNECT" : busy ? "CANCEL" : "CONNECT";
             if (_connectImage != null)
-                _connectImage.color = live
+                _connectImage.color = connected
                     ? new Color(0.45f, 0.16f, 0.16f, 1f)
-                    : new Color(0.1f, 0.5f, 0.2f, 1f);
+                    : busy
+                        ? new Color(0.45f, 0.35f, 0.12f, 1f)
+                        : new Color(0.1f, 0.5f, 0.2f, 1f);
         }
         RefreshCompact();
     }
@@ -345,9 +354,19 @@ public sealed class MenuUi
     /// or restarting the game.</summary>
     private void OnConnectClicked()
     {
-        if (ModCore.Client.Status != ConnectionStatus.Disconnected)
+        var st = ModCore.Client.Status;
+        if (st == ConnectionStatus.Connected)
         {
             ModCore.Log.LogInfo("MENU: disconnect requested");
+            ModCore.Client.Disconnect();
+            OnStateChanged();
+            return;
+        }
+        if (st == ConnectionStatus.Connecting || st == ConnectionStatus.Failed)
+        {
+            // Cancel: stop the attempt AND the backoff behind it. Without this
+            // the only way out of a retry loop was to quit the game.
+            ModCore.Log.LogInfo("MENU: connect attempt cancelled");
             ModCore.Client.Disconnect();
             OnStateChanged();
             return;

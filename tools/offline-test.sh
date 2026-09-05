@@ -39,6 +39,38 @@ SLOT="DrohaCW4"
 PORT=""
 DEAD_PORT=""
 
+
+# --- restore the player's environment on exit ---------------------------------
+# A harness overwrites the BepInEx config (hermetic settings) and clears the AP
+# slot cache (so the offline-start feature cannot inherit a previous battery's
+# slot). Both belong to whoever plays this install next. Leaving a test config
+# behind pointed a real session at a dead localhost port with a test slot name,
+# which reads in game as "connecting... timed out... disconnected" and no items.
+STORE_DIR="$HOME/Documents/My Games/creeperworld4/archipelago"
+CFG_BAK=""; STORE_BAK=""
+save_env() {
+  if [ -f "$CFG" ]; then CFG_BAK="$(mktemp)"; cp "$CFG" "$CFG_BAK"; fi
+  if [ -d "$STORE_DIR/slots" ] || [ -f "$STORE_DIR/last-session.json" ]; then
+    STORE_BAK="$(mktemp -d)"
+    [ -d "$STORE_DIR/slots" ] && cp -r "$STORE_DIR/slots" "$STORE_BAK/slots"
+    [ -f "$STORE_DIR/last-session.json" ] && cp "$STORE_DIR/last-session.json" "$STORE_BAK/"
+  fi
+}
+restore_env() {
+  if [ -n "$CFG_BAK" ] && [ -f "$CFG_BAK" ]; then
+    cp "$CFG_BAK" "$CFG"; rm -f "$CFG_BAK"
+  fi
+  rm -rf "$STORE_DIR/slots"; rm -f "$STORE_DIR/last-session.json"
+  if [ -n "$STORE_BAK" ] && [ -d "$STORE_BAK" ]; then
+    [ -d "$STORE_BAK/slots" ] && cp -r "$STORE_BAK/slots" "$STORE_DIR/slots"
+    [ -f "$STORE_BAK/last-session.json" ] && cp "$STORE_BAK/last-session.json" "$STORE_DIR/"
+    rm -rf "$STORE_BAK"
+  fi
+  echo "  (config and slot cache restored)"
+}
+save_env
+trap restore_env EXIT
+
 PASS=0; FAIL=0
 verdict() { if [ "$1" = 0 ]; then PASS=$((PASS+1)); echo "  PASS  $2";
             else FAIL=$((FAIL+1)); echo "  FAIL  $2"; fi; }

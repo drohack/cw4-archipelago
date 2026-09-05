@@ -910,6 +910,32 @@ public sealed class DebugChannel
         int ernUnits = -1;
         try { var e = UnityEngine.Object.FindObjectsOfType<ERN>(); ernUnits = e == null ? 0 : e.Length; } catch { }
         ModCore.Log.LogInfo($"DEBUG ERN: availableCount={avail} ernUnits={ernUnits}");
+
+        // Each ERN's height against the GROUND under it. A player reported ERNs
+        // spawning inside the terrain, and "it exists" was all this command
+        // could say - which is how the same bug came back. dy below zero means
+        // the unit is buried.
+        try
+        {
+            var erns = UnityEngine.Object.FindObjectsOfType<ERN>();
+            if (erns != null)
+                foreach (var e in erns)
+                {
+                    if (!GameUtil.IsAlive(e)) continue;
+                    var pos = e.transform.position;
+                    float ground = float.NaN;
+                    try
+                    {
+                        ground = UnitManager.GetMinHeight(
+                            new UnityEngine.Vector3(pos.x, 0f, pos.z), 0f, 0, false, false, false);
+                    }
+                    catch { }
+                    ModCore.Log.LogInfo(
+                        $"DEBUG ERNPOS: pos=({pos.x:0.00},{pos.y:0.00},{pos.z:0.00}) " +
+                        $"ground={ground:0.00} dy={(pos.y - ground):0.00}");
+                }
+        }
+        catch (Exception e) { ModCore.Log.LogWarning($"ERNPOS failed: {e.Message}"); }
     }
 
     /// <summary>Set the finale's mission-count gate without a server, so the

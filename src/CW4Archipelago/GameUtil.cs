@@ -196,4 +196,31 @@ public static class GameUtil
             if (pn != null)
                 pn.gameObject.SetActive(pn.Pointer == targetPtr);
     }
+
+    /// <summary>The surface height at a map position.
+    ///
+    /// CW4 terrain has height, so a world position is only meaningful once its
+    /// Y comes from the ground UNDER it. Taking Y from some other unit puts the
+    /// new one underground wherever the terrain rises - which is exactly how
+    /// granted ERNs ended up buried, reported from a playthrough on v0.1.6.
+    ///
+    /// Same call the trap effects use for their own placement
+    /// (TrapEffects.CellToWorld). Returns the fallback if the game refuses.</summary>
+    public static float GroundHeight(float x, float z, float fallback = 0f)
+    {
+        try
+        {
+            return UnitManager.GetMinHeight(
+                new UnityEngine.Vector3(x, 0f, z), 0f, 0, false, false, false);
+        }
+        catch { return fallback; }
+    }
+
+    /// <summary>A position beside <paramref name="origin"/>, sitting ON the
+    /// ground rather than at the origin's own height.</summary>
+    public static UnityEngine.Vector3 OnGroundNear(UnityEngine.Vector3 origin, float dx, float dz)
+    {
+        float x = origin.x + dx, z = origin.z + dz;
+        return new UnityEngine.Vector3(x, GroundHeight(x, z, origin.y), z);
+    }
 }

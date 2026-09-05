@@ -35,6 +35,7 @@ public sealed class LocationWatcher
     private bool[]? _objectiveDone;
     private int[]? _sentUpTo;
     private int _nullifiableAtStart = -1;
+    private int _lastNullifiableSeen = -999;
 
     /// <summary>Set by the game-event patches to scan on the next tick.</summary>
     internal static volatile bool Poke;
@@ -69,6 +70,7 @@ public sealed class LocationWatcher
             _objectiveDone = null;
             _sentUpTo = null;
             _nullifiableAtStart = -1;
+            _lastNullifiableSeen = -999;
             _missionComplete = false;
             ModCore.Log.LogInfo($"LocationWatcher: mission {_mission} ('{SpecifierOf(_mission)}')");
         }
@@ -210,6 +212,13 @@ public sealed class LocationWatcher
             foreach (var u in gs.nullifiableUnits) if (u != null) remaining++;
             if (_nullifiableAtStart < 0)
                 _nullifiableAtStart = remaining;
+            if (remaining != _lastNullifiableSeen)
+            {
+                _lastNullifiableSeen = remaining;
+                ModCore.Log.LogInfo(
+                    $"NULLIF: remaining={remaining} atStart={_nullifiableAtStart} " +
+                    $"progress={_nullifiableAtStart - remaining}");
+            }
             return _nullifiableAtStart - remaining;
         }
         catch { return -1; }
@@ -243,14 +252,31 @@ public sealed class LocationWatcher
             if (i < 0 || i >= MissionRules.ObjectiveTypes.Length) continue;
             if (_objectiveDone != null && i < _objectiveDone.Length && _objectiveDone[i])
                 continue;   // the direct path already sent it
-            var loc = MissionRules.ObjectiveLocation(_mission, i);
-            if (state.CheckedLocations.Contains(loc)) continue;
-            if (!MissionRules.IsLocation(state, loc)) continue;
-            if (_objectiveDone != null && i < _objectiveDone.Length)
+
+            // COUNTED objectives (nullify, totems, collect) are one location per
+            // INSTANCE - "Home - Nullify 1", not "Home - Nullify". This used to
+            // build the single-check name for every objective, so IsLocation
+            // rejected it and the loop skipped on: the safety net existed but
+            // could only ever fire for Reclaim and Custom, the two that are
+            // genuinely single checks. Winning the mission means every REQUIRED
+            // objective is done, so every instance of one is owed.
+            var owed = MissionRules.IsCounted(i)
+                ? MissionRules.LocationsForObjective(state, _mission, i)
+                : new System.Collections.Generic.List<string>
+                    { MissionRules.ObjectiveLocation(_mission, i) };
+
+            bool sentAny = false;
+            foreach (var loc in owed)
+            {
+                if (state.CheckedLocations.Contains(loc)) continue;
+                if (!MissionRules.IsLocation(state, loc)) continue;
+                sentAny = true;
+                ModCore.Log.LogInfo($"LocationWatcher: INFERRED '{loc}' from mission completion " +
+                    $"(objective {i} {MissionRules.ObjectiveTypes[i]} never reported complete)");
+                SendCheck(loc);
+            }
+            if (sentAny && _objectiveDone != null && i < _objectiveDone.Length)
                 _objectiveDone[i] = true;
-            ModCore.Log.LogInfo($"LocationWatcher: INFERRED '{loc}' from mission completion " +
-                $"(objective {i} {MissionRules.ObjectiveTypes[i]} never reported complete)");
-            SendCheck(loc);
         }
     }
 
@@ -284,12 +310,25 @@ public sealed class LocationWatcher
                 try { en = slots[i].enabled; } catch { }
                 string kind = i < MissionRules.ObjectiveTypes.Length
                     ? MissionRules.ObjectiveTypes[i] : "?";
-                string loc = i < MissionRules.ObjectiveTypes.Length
-                    ? MissionRules.ObjectiveLocation(_mission, i) : "";
-                bool isLoc = loc.Length > 0 && state.AllLocations.Contains(loc);
-                bool sent = loc.Length > 0 && state.CheckedLocations.Contains(loc);
+                // Counted objectives are one location per INSTANCE. Asking
+                // AllLocations for the single-check name reported isLocation=False
+                // for every nullify, totem and collect objective in the game -
+                // a diagnostic that lied in exactly the case it exists to explain.
+                var locs = i < MissionRules.ObjectiveTypes.Length
+                    ? (MissionRules.IsCounted(i)
+                        ? MissionRules.LocationsForObjective(state, _mission, i)
+                        : new System.Collections.Generic.List<string>
+                            { MissionRules.ObjectiveLocation(_mission, i) })
+                    : new System.Collections.Generic.List<string>();
+                int isLoc = 0, sent = 0;
+                foreach (var l in locs)
+                {
+                    if (!state.AllLocations.Contains(l)) continue;
+                    isLoc++;
+                    if (state.CheckedLocations.Contains(l)) sent++;
+                }
                 ModCore.Log.LogInfo($"OBJDUMP:   {i} {kind}: enabled={en} count={count} " +
-                    $"done={done} isLocation={isLoc} checked={sent}{err}");
+                    $"done={done} locations={isLoc} checked={sent}/{isLoc}{err}");
             }
         }
         catch (Exception e) { ModCore.Log.LogWarning($"OBJDUMP failed: {e.Message}"); }

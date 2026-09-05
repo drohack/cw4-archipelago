@@ -148,6 +148,29 @@ game's own `AssignERN` and removes six drag-and-drops plus several minutes of ra
 from every iteration. If a test needs a human step, that step will be skipped and
 the test will rot.
 
+## Put the player's environment back when the harness exits
+
+A harness overwrites `BepInEx/config/com.droha.cw4archipelago.cfg` to get
+hermetic settings, and several clear the AP slot cache. Both belong to whoever
+plays this install next, and neither used to be restored.
+
+What that cost, on 2026-09-05: a battery left `Host = localhost`,
+`Port = 38401`, `Slot = DrohaCW4`, `AutoConnect = true` behind. The player
+launched into a real session, the mod dutifully auto-connected to a dead local
+port, and the message box filled with "connecting... timed out... disconnected"
+while no items arrived - until they noticed and retyped their own server. The
+mod was working perfectly; the test rig had repointed it.
+
+`tools/offline-test.sh`, `tools/objective-backfill-test.sh` and
+`tools/playtest-repro.sh` now snapshot the config and the slot cache in step 0
+and restore both from an EXIT trap, so an interrupted run restores too. Copy
+that block into any new harness that writes either.
+
+The same rule covers a subtler one: a harness that deletes `slots/` is deleting
+a player's offline cache. It is recoverable - the server is authoritative for
+checked locations - but there is no reason to destroy it when moving it aside
+costs two lines.
+
 ## A harness that reaches no server inherits the last slot played
 
 Since 2026-09-04 the mod comes up on the LAST SLOT PLAYED when no server is

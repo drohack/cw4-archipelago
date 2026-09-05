@@ -145,21 +145,36 @@ public sealed class ApClient
     // never run concurrently and race the pending-check state.
     private volatile bool _connectInFlight;
 
+    /// <summary>Connect, superseding anything already in flight.
+    ///
+    /// This used to return early when an attempt was in flight or the status was
+    /// Connecting, which silently DID NOTHING. With the bounded three-try retry
+    /// that was rare; once the retry became unbounded there is nearly always an
+    /// attempt running or pending, each taking about 40 seconds to time out, so
+    /// pressing CONNECT usually landed in that window and looked dead. A button
+    /// that ignores a click is worse than one that fails.
+    ///
+    /// Every attempt carries a generation. Bumping it makes the in-flight one
+    /// stale, so when it finally returns it cannot set a status, schedule a
+    /// retry, or install a session behind a newer request or a deliberate
+    /// disconnect.</summary>
     public void Connect(string host, int port, string slot, string password)
     {
-        if (_connectInFlight || Status == ConnectionStatus.Connecting)
-            return;
         _lastHost = host; _lastPort = port; _lastSlot = slot; _lastPass = password;
         _manualDisconnect = false;
         _retryCount = 0;   // a manual/menu connect re-arms the retry budget
+        int gen = ++_connectGen;
         SetStatus(ConnectionStatus.Connecting, $"connecting to {host}:{port} as {slot}...");
-        Task.Run(() => ConnectBlocking(host, port, slot, password));
+        Task.Run(() => ConnectBlocking(gen, host, port, slot, password));
     }
 
-    private void ConnectBlocking(string host, int port, string slot, string password)
+    /// <summary>Bumped by every connect and every disconnect. An attempt whose
+    /// generation is stale must have no effect.</summary>
+    private int _connectGen;
+    private bool IsStale(int gen) => gen != _connectGen;
+
+    private void ConnectBlocking(int gen, string host, int port, string slot, string password)
     {
-        if (_connectInFlight)
-            return;
         _connectInFlight = true;
         try
         {
@@ -172,7 +187,19 @@ public sealed class ApClient
 
             if (result is LoginSuccessful success)
             {
-                _dispatch(() => OnLoginSuccess(session, slot, success));
+                _dispatch(() =>
+                {
+                    if (IsStale(gen))
+                    {
+                        // A newer request or a disconnect happened while this was
+                        // negotiating. Close it rather than installing a session
+                        // nobody asked for any more.
+                        _log.LogInfo("AP: discarding a superseded connection");
+                        try { session.Socket.DisconnectAsync(); } catch { }
+                        return;
+                    }
+                    OnLoginSuccess(session, slot, success);
+                });
             }
             else
             {
@@ -194,6 +221,7 @@ public sealed class ApClient
                 var refused = failure?.ErrorCodes is { Length: > 0 };
                 _dispatch(() =>
                 {
+                    if (IsStale(gen)) return;
                     if (refused)
                     {
                         SetStatus(ConnectionStatus.Failed, $"login refused: {errors}");
@@ -209,6 +237,7 @@ public sealed class ApClient
         {
             _dispatch(() =>
             {
+                if (IsStale(gen)) return;
                 SetStatus(ConnectionStatus.Failed, $"connect error: {e.Message}");
                 ScheduleReconnect();
             });
@@ -412,13 +441,16 @@ public sealed class ApClient
         int delay = attempt >= 5 ? MaxRetryDelaySeconds
             : Math.Min(MaxRetryDelaySeconds, 5 * (1 << (attempt - 1)));
         var host = _lastHost; var port = _lastPort; var slot = _lastSlot; var pass = _lastPass;
+        int gen = _connectGen;
         _log.LogInfo($"AP RECONNECT: attempt {attempt} in {delay}s");
         Task.Run(async () =>
         {
             await Task.Delay(delay * 1000);
             _reconnecting = false;
+            // A manual connect or a disconnect during the wait wins.
+            if (IsStale(gen) || _manualDisconnect) return;
             if (Status != ConnectionStatus.Connected)
-                ConnectBlocking(host, port, slot, pass);
+                ConnectBlocking(gen, host, port, slot, pass);
         });
     }
 
@@ -545,6 +577,7 @@ public sealed class ApClient
     public void Disconnect()
     {
         _manualDisconnect = true;   // suppress auto-reconnect for an intentional disconnect
+        _connectGen++;              // and cancel any attempt still negotiating
         session_ItemsUnsubscribe();
         try { _session?.Socket.DisconnectAsync(); } catch { }
         _session = null;
