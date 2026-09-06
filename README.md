@@ -81,6 +81,85 @@ Launch the game and use the Archipelago panel on the main menu: server
 address and port, slot name, password. Mission availability follows your
 received items.
 
+## The other two plugins (build them yourself)
+
+The repo holds three BepInEx plugins. Only the randomizer is in a release; the
+other two are built locally, and neither shares code with the randomizer - run
+any combination of them, or none.
+
+| Plugin | What it does | Ships? |
+|---|---|---|
+| `CW4Archipelago` | the randomizer | yes, in releases |
+| `CW4DevTools` | cheats and survey tools for looking at a mission | no - build it |
+| `CW4Archipelago.Debug` | file-command channel for driving the game from scripts | no, by design |
+
+### Why you have to build them
+
+They compile against the IL2CPP interop assemblies that BepInEx generates from
+YOUR copy of the game. Those are derived from Creeper World 4 itself, so they
+cannot be committed here or shipped - which is also why CI cannot build any
+plugin in this repo.
+
+### Building
+
+1. Install the [.NET SDK](https://dotnet.microsoft.com/download) (net6.0 target;
+   any SDK 6 or newer works).
+2. Do steps 1 and 2 of the player install above: BepInEx into the game folder,
+   then launch the game once so the interop assemblies exist.
+3. Copy `src/GameDir.props.example` to `src/GameDir.props` and point it at your
+   game folder.
+4. **The game must be CLOSED** - the build deploys straight into
+   `BepInEx/plugins/` and cannot overwrite a loaded DLL.
+
+```
+dotnet build src/CW4DevTools              # cheats and survey tools
+dotnet build src/CW4Archipelago.Debug     # scripted-testing channel
+```
+
+Each deploys to its own folder (`BepInEx/plugins/CW4DevTools`,
+`BepInEx/plugins/CW4ApDebug`). Add `-p:SkipDeploy=true` to compile without
+installing. To remove one, delete its folder - renaming it does not work,
+BepInEx scans subfolders recursively, so move it out of `plugins/` entirely.
+
+### Using CW4DevTools
+
+Cheats are hotkeys held with a modifier (Left Ctrl by default) and are also
+config entries in `BepInEx/config/com.droha.cw4devtools.cfg`, editable while the
+game runs. An on-screen strip lists what is active, so a mission played with
+cheats cannot be mistaken for a vanilla one.
+
+| Key | Does |
+|---|---|
+| Ctrl+F5 | instant build, no cost |
+| Ctrl+F6 | every building available, ignoring the campaign unlock schedule |
+| Ctrl+F7 | infinite energy, ammo and wares |
+| Ctrl+F8 | your units cannot be destroyed |
+| Ctrl+F9 | freeze creeper - it stops flowing, so a map can be inspected |
+| Ctrl+F10 | cycle forced game speed: off, 2, 4, 8, 16 |
+| Ctrl+F11 | reveal the whole map on fog missions |
+| Ctrl+End | mark every mission objective complete, to leave a mission early |
+| Ctrl+Home | dump the game's unit-name registry to the log |
+
+It is a research and debugging aid, not a companion to the randomizer: it will
+happily hand you buildings the randomizer has locked.
+
+### Using CW4Archipelago.Debug
+
+Its presence IS the switch - there is no config flag. Installed, it watches
+`BepInEx/cw4ap-commands.txt` and runs one command per write, logging results to
+`BepInEx/LogOutput.log`. That is how the `tools/*.sh` batteries drive the game
+unattended:
+
+```
+echo "boot:story2"     > "$CW4/BepInEx/cw4ap-commands.txt"
+echo "item:Cannon"     > "$CW4/BepInEx/cw4ap-commands.txt"
+echo "glyphs:dump Home" > "$CW4/BepInEx/cw4ap-commands.txt"
+```
+
+Commands cover connecting, granting items, sending checks, booting missions,
+loading saves, and dumping tracker, objective, unit and UI state. See
+[docs/developing.md](docs/developing.md) for the full list.
+
 ## Repository layout
 
 - `src/CW4Archipelago/` - the BepInEx mod (ships in releases)
@@ -89,6 +168,8 @@ received items.
 - `src/CW4Archipelago.Core.Tests/` - those unit tests
 - `src/CW4DevTools/` - a separate cheat and survey plugin used to research the
   game. Deliberately not part of the randomizer, and installed separately
+- `src/CW4Archipelago.Debug/` - the file-command test channel and measurement
+  probes, as their own plugin so no release contains them
 - `apworld/cw4/` - the Archipelago world (Python)
 - `docs/` - design and research documentation
 - `tools/` - test batteries, probes and release packaging
