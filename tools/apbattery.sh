@@ -4,6 +4,17 @@
 # BepInEx config), and asserts connect / live items / unit gate / location
 # checks / tracker colors / mission gating from LogOutput.log.
 set -u
+
+# --- pick our own port, and never kill anyone else's server -------------------
+# This used to be a fixed 38281 with a "kill whatever is listening on it"
+# cleanup, which takes out an unrelated project's Archipelago server and then
+# races it for the bind. Choose a free port instead, remember the PID we start,
+# and kill only that.
+listening() { netstat -ano | grep "LISTENING" | grep -q ":$1 "; }
+find_free_port() { local p; for p in $(seq "$1" "$2"); do
+                     listening "$p" || { echo "$p"; return 0; }; done; return 1; }
+AP_PORT="$(find_free_port 38301 38380)"
+if [ -z "$AP_PORT" ]; then echo "ABORT: no free port in 38301-38380"; exit 1; fi
 CW4="${CW4_DIR:-G:/Games/Steam/steamapps/common/Creeper World 4}"
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 AP="$REPO/Archipelago"
@@ -26,12 +37,14 @@ wait_since() { for i in $(seq 1 "$2"); do since | grep -q "$1" && return 0; slee
 if [ -z "$MULTIDATA" ] || [ ! -f "$MULTIDATA" ]; then echo "[apbattery] FATAL: no multidata"; exit 1; fi
 echo "[apbattery] multidata: $MULTIDATA"
 
-# Kill whatever owns port 38281 (robust: the process holding the server socket).
-kill_servers() {
-  for pid in $(netstat -ano 2>/dev/null | grep -E ':38281[[:space:]]' | grep -i listening | awk '{print $NF}' | sort -u); do
-    taskkill //PID "$pid" //F >/dev/null 2>&1
-  done
-}
+# Kill ONLY the server this battery started, on the port it chose. This used to
+# kill whatever owned a fixed 38281, which takes out an unrelated project's
+# Archipelago server and then races it for the bind - apbattery2 failed its
+# connect step that way and cascaded nine assertions off it.
+kill_servers() { [ -n "${SRV_PID:-}" ] && kill "$SRV_PID" 2>/dev/null
+                 for pid in $(netstat -ano 2>/dev/null | grep "LISTENING" \
+                   | grep ":$AP_PORT " | awk '{print $NF}' | sort -u); do
+                   taskkill //PID "$pid" //F >/dev/null 2>&1; done; }
 
 # Hermetic setup: no leftover game/server, no stale slot cache, own config.
 echo "[apbattery] step 0: clean slate (kill game/servers, clear cache, write config)"
@@ -42,7 +55,7 @@ mkdir -p "$CW4/BepInEx/config"
 cat > "$CW4/BepInEx/config/com.droha.cw4archipelago.cfg" <<CFGEOF
 [Connection]
 Host = localhost
-Port = 38281
+Port = $AP_PORT
 Slot = $SLOT
 Password =
 AutoConnect = true
@@ -55,9 +68,9 @@ DebugCommands = true
 CFGEOF
 sleep 2
 
-echo "[apbattery] step 1/10: starting local AP server on :38281"
+echo "[apbattery] step 1/10: starting local AP server on :$AP_PORT"
 rm -f "$SRV_IN"; : > "$SRV_IN"
-tail -n +1 -f "$SRV_IN" | ( cd "$AP" && SKIP_REQUIREMENTS_UPDATE=1 python MultiServer.py "$MULTIDATA" --port 38281 --disable_save > "$SRV_LOG" 2>&1 ) &
+tail -n +1 -f "$SRV_IN" | ( cd "$AP" && SKIP_REQUIREMENTS_UPDATE=1 python MultiServer.py "$MULTIDATA" --port "$AP_PORT" --disable_save > "$SRV_LOG" 2>&1 ) &
 SRV_PIPE=$!
 sleep 8
 grep -q "Hosting game at" "$SRV_LOG"; verdict $? "server up"
