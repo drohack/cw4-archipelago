@@ -5,11 +5,17 @@ functionality" - they are the closest thing Archipelago has to a spec compliance
 check. Nothing in this repo ran them until 2026-09-04, when a single manual run
 immediately found a real violation.
 
-Scoped with AP_TEST_WORLDS, which Archipelago provides for exactly this: it
-limits auto-loading to the named worlds (plus the `generic` and `apquest`
-fixtures, which are not themselves under test). That turns 340 tests over 91
-worlds in 97 seconds into 217 tests in under a second, and removes the chance of
-another world's failure breaking our build.
+Scoped with AP_TEST_WORLDS where that exists: it limits auto-loading to the
+named worlds (plus the `generic` and `apquest` fixtures, which are not
+themselves under test), turning 340 tests over 91 worlds into 217 in under a
+second.
+
+**It does not exist in 0.6.7**, our declared minimum and what CI pins, so
+setting it there does nothing at all - silently. The first CI run of this
+script failed because of that: unscoped, it picked up
+`test_no_failed_world_loads`, another world in the checkout failing to import,
+and called it our spec violation. So the mode is DETECTED rather than assumed,
+and when scoping is unavailable only failures naming our game count.
 
 We have one KNOWN violation, in EXPECTED below. It is allowed, but an allow-list
 that quietly outlives its bug is rot - so an expected failure that STOPS failing
@@ -19,6 +25,7 @@ Usage, from inside an Archipelago checkout with the world synced in:
     python ../tools/generic-suite.py
 Exit 0 clean, 1 on any unexpected result.
 """
+import io
 import os
 import re
 import subprocess
@@ -39,9 +46,25 @@ EXPECTED = {
 }
 
 
+def scoping_supported() -> bool:
+    """Does this Archipelago honour AP_TEST_WORLDS?
+
+    Asked of the source rather than assumed, because setting an unsupported
+    environment variable fails silently - the suite simply runs everything, and
+    then someone else's broken world looks like our bug.
+    """
+    try:
+        with io.open(os.path.join("worlds", "__init__.py"), encoding="utf-8") as fh:
+            return "AP_TEST_WORLDS" in fh.read()
+    except OSError:
+        return False
+
+
 def main() -> int:
+    scoped = scoping_supported()
     env = dict(os.environ)
-    env["AP_TEST_WORLDS"] = WORLD
+    if scoped:
+        env["AP_TEST_WORLDS"] = WORLD
     env.setdefault("SKIP_REQUIREMENTS_UPDATE", "1")
 
     proc = subprocess.run(
@@ -57,6 +80,11 @@ def main() -> int:
         return 1
 
     headers = re.findall(r"^(?:FAIL|ERROR): (.+)$", output, re.M)
+    if not scoped:
+        # Everything ran, so a failure is only ours if it says so. A failure
+        # with no game in its parameters belongs to the checkout, not to us.
+        headers = [h for h in headers if GAME in h]
+
     failed = {}
     for h in headers:
         m = re.match(r"(\w+)", h)
@@ -66,8 +94,10 @@ def main() -> int:
     unexpected = sorted(n for n in failed if n not in EXPECTED)
     stale = sorted(n for n in EXPECTED if n not in failed)
 
-    print(f"generic suite ({GAME} only): {ran.group(1)} tests, "
-          f"{len(headers)} failure line(s)")
+    mode = ("scoped to %s via AP_TEST_WORLDS" % WORLD if scoped
+            else "unscoped (no AP_TEST_WORLDS here) - counting only failures naming %s" % GAME)
+    print(f"generic suite [{mode}]: {ran.group(1)} tests, "
+          f"{len(headers)} failure line(s) attributable to us")
     for lines in failed.values():
         for h in lines:
             print("  " + h)

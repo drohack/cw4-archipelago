@@ -55,6 +55,21 @@ Four tiers, in ascending cost:
    Pure C# logic - slot state, rules, tracker colors, persistence.
 2. **apworld tests** (in the Archipelago clone): `tools/ap-sync.ps1` then
    `python -m unittest discover -s worlds/cw4/test -t .` from the clone.
+
+   **Keep the clone at `minimum_ap_version`, not on main.** It tracked main for
+   a long time, which meant every local test ran against 0.6.8 while CI and every
+   player ran 0.6.7 - so a local pass did not mean a CI pass, and we could have
+   shipped something that only worked on an unreleased Archipelago. Two symptoms
+   surfaced before the cause did: the shipped yaml carried a core option's 0.6.8
+   comment text, and a CI-only failure appeared because `AP_TEST_WORLDS` exists
+   on main and not in 0.6.7.
+
+   ```
+   git -C Archipelago checkout 0.6.7      # whatever archipelago.json declares
+   ```
+
+   To try something against main deliberately, add a worktree for it rather than
+   moving the clone: `git -C Archipelago worktree add ../.aptest/ap-main main`.
 2b. **Archipelago's generic world tests** - its own spec compliance check, run
    on every world. From the clone: `python ../tools/generic-suite.py`. Scoped to
    our world with `AP_TEST_WORLDS`, so it is 217 tests in under a second instead
