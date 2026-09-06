@@ -55,6 +55,15 @@ Four tiers, in ascending cost:
    Pure C# logic - slot state, rules, tracker colors, persistence.
 2. **apworld tests** (in the Archipelago clone): `tools/ap-sync.ps1` then
    `python -m unittest discover -s worlds/cw4/test -t .` from the clone.
+2b. **Archipelago's generic world tests** - its own spec compliance check, run
+   on every world. From the clone: `python ../tools/generic-suite.py`. Scoped to
+   our world with `AP_TEST_WORLDS`, so it is 217 tests in under a second instead
+   of 340 across 91 worlds, and another world's failure cannot fail our build.
+   Nothing ran these until 2026-09-04, and the first run found a real violation
+   (we modify the itempool during `pre_fill`). The script carries that one as a
+   documented expected failure and fails if a NEW violation appears **or if the
+   known one stops failing** - an allow-list that outlives its bug is rot. Also
+   in CI.
 3. **The audit** (in the Archipelago clone): `python ../tools/audit/audit.py`.
    Not in CI, because it generates real seeds and takes minutes, but it is what
    answers "what does a seed actually contain" and "does every configuration

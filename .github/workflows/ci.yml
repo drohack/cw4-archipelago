@@ -119,6 +119,21 @@ jobs:
           SKIP_REQUIREMENTS_UPDATE: '1'
         run: python -m unittest discover -s worlds/cw4/test -t .
 
+      # Archipelago's OWN generic world tests - the closest thing to a spec
+      # compliance check, and the thing that found we were modifying the
+      # itempool during pre_fill. Nothing ran them here until 2026-09-06.
+      #
+      # AP_TEST_WORLDS (handled inside the script) scopes them to our world, so
+      # this is 217 tests in under a second rather than 340 across 91 worlds -
+      # and another world's failure cannot break our build. The script carries
+      # the one known, documented violation as an expected failure, and fails if
+      # a NEW one appears or if the known one silently stops failing.
+      - name: Archipelago generic world tests
+        working-directory: Archipelago
+        env:
+          SKIP_REQUIREMENTS_UPDATE: '1'
+        run: python ../tools/generic-suite.py
+
       # A generated seed is the check the unit tests cannot make: it exercises
       # fill, which is where an item/location count mismatch or an unreachable
       # location actually surfaces.
