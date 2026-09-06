@@ -68,17 +68,29 @@ Four tiers, in ascending cost:
    git -C Archipelago checkout 0.6.7      # whatever archipelago.json declares
    ```
 
-   To try something against main deliberately, add a worktree for it rather than
-   moving the clone: `git -C Archipelago worktree add ../.aptest/ap-main main`.
+   Every Archipelago tree on this machine should report that version -
+   `git -C Archipelago worktree list` shows them all. Do not leave one on main:
+   a tree at a version we do not support is only useful for answering "is this
+   already fixed upstream", and it is worth deleting again afterwards.
 2b. **Archipelago's generic world tests** - its own spec compliance check, run
-   on every world. From the clone: `python ../tools/generic-suite.py`. Scoped to
-   our world with `AP_TEST_WORLDS`, so it is 217 tests in under a second instead
-   of 340 across 91 worlds, and another world's failure cannot fail our build.
-   Nothing ran these until 2026-09-04, and the first run found a real violation
-   (we modify the itempool during `pre_fill`). The script carries that one as a
+   on every world. From the clone: `python ../tools/generic-suite.py`. Nothing
+   ran these until 2026-09-04, and the first run found a real violation (we
+   modify the itempool during `pre_fill`). The script carries that one as a
    documented expected failure and fails if a NEW violation appears **or if the
    known one stops failing** - an allow-list that outlives its bug is rot. Also
    in CI.
+
+   **On 0.6.7 this runs all 322 tests across all 91 worlds and takes about three
+   and a half minutes**, because `AP_TEST_WORLDS` - which would load only our
+   world - does not exist until after 0.6.7. Nothing is skipped; the script
+   simply ignores failure lines that do not name our game. The one-second
+   figure only ever applied to a main-branch tree, and we do not keep one.
+
+   That filtering has a blind spot worth knowing: a generic test that fails
+   without naming a game is dropped. In CI that is `test_no_failed_world_loads`,
+   which fires for an unrelated world that will not import there. If OUR world
+   ever failed to load it would fail that same nameless test - but it would also
+   take all 225 world tests with it, so it cannot pass unnoticed.
 3. **The audit** (in the Archipelago clone): `python ../tools/audit/audit.py`.
    Not in CI, because it generates real seeds and takes minutes, but it is what
    answers "what does a seed actually contain" and "does every configuration

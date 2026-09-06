@@ -123,11 +123,11 @@ jobs:
       # compliance check, and the thing that found we were modifying the
       # itempool during pre_fill. Nothing ran them here until 2026-09-06.
       #
-      # AP_TEST_WORLDS (handled inside the script) scopes them to our world, so
-      # this is 217 tests in under a second rather than 340 across 91 worlds -
-      # and another world's failure cannot break our build. The script carries
-      # the one known, documented violation as an expected failure, and fails if
-      # a NEW one appears or if the known one silently stops failing.
+      # About three and a half minutes: AP_TEST_WORLDS, which would load only our
+      # world, does not exist in 0.6.7, so all 91 worlds run and the script
+      # ignores failure lines that do not name our game. It carries the one
+      # known, documented violation as an expected failure, and fails if a NEW
+      # one appears or if the known one silently stops failing.
       - name: Archipelago generic world tests
         working-directory: Archipelago
         env:

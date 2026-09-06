@@ -5,17 +5,22 @@ functionality" - they are the closest thing Archipelago has to a spec compliance
 check. Nothing in this repo ran them until 2026-09-04, when a single manual run
 immediately found a real violation.
 
-Scoped with AP_TEST_WORLDS where that exists: it limits auto-loading to the
-named worlds (plus the `generic` and `apquest` fixtures, which are not
-themselves under test), turning 340 tests over 91 worlds into 217 in under a
-second.
+AP_TEST_WORLDS would limit auto-loading to our world alone, but **it does not
+exist in 0.6.7** - our declared minimum, what CI pins, and what the dev clone is
+checked out at. It arrived after that release. Setting it on 0.6.7 does nothing
+at all, silently, which is how this script's first CI run failed: unscoped, it
+picked up `test_no_failed_world_loads` - another world in the checkout failing
+to import - and reported it as our spec violation.
 
-**It does not exist in 0.6.7**, our declared minimum and what CI pins, so
-setting it there does nothing at all - silently. The first CI run of this
-script failed because of that: unscoped, it picked up
-`test_no_failed_world_loads`, another world in the checkout failing to import,
-and called it our spec violation. So the mode is DETECTED rather than assumed,
-and when scoping is unavailable only failures naming our game count.
+So the mode is DETECTED from worlds/__init__.py rather than assumed:
+
+* UNSCOPED (0.6.7, and therefore CI): all 91 worlds load, all 322 tests run,
+  about three and a half minutes. Nothing is skipped - the script ignores
+  failure lines that do not name our game. That drops nameless failures such as
+  test_no_failed_world_loads; if OUR world were the one failing to import it
+  would also take all 225 world tests with it, so it cannot pass unnoticed.
+* SCOPED (a tree new enough to have the flag): 217 tests in under a second. We
+  do not keep such a tree, so this path is for the day the minimum moves up.
 
 We have one KNOWN violation, in EXPECTED below. It is allowed, but an allow-list
 that quietly outlives its bug is rot - so an expected failure that STOPS failing
