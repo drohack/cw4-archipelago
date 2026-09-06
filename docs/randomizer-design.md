@@ -1,5 +1,12 @@
 # CW4 Archipelago Randomizer Design
 
+**For the CURRENT logic as a table - what every mission and every check
+requires, and what is placed early - read
+[randomizer-logic.md](randomizer-logic.md).** It is generated from `rules.py` by
+`tools/audit/logictable.py`, so it cannot drift. This document is the design
+narrative behind those rules: the reasoning, the corrections, and one section
+kept deliberately as the approach that was discarded.
+
 Status: IMPLEMENTED and current as of 2026-08-31. This top half describes what the
 randomizer actually does; the dated sections further down are the trail of how it
 got here, kept because the reasoning behind several decisions is the only record

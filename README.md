@@ -176,6 +176,8 @@ loading saves, and dumping tracker, objective, unit and UI state. See
 
 Contributing and building: [docs/developing.md](docs/developing.md).
 Randomizer design: [docs/randomizer-design.md](docs/randomizer-design.md).
+What each mission and check requires:
+[docs/randomizer-logic.md](docs/randomizer-logic.md) (generated from the rules).
 
 ## License
 
