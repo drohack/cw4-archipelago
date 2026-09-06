@@ -119,21 +119,6 @@ jobs:
           SKIP_REQUIREMENTS_UPDATE: '1'
         run: python -m unittest discover -s worlds/cw4/test -t .
 
-      # Archipelago's OWN generic world tests - the closest thing to a spec
-      # compliance check, and the thing that found we were modifying the
-      # itempool during pre_fill. Nothing ran them here until 2026-09-06.
-      #
-      # About three and a half minutes: AP_TEST_WORLDS, which would load only our
-      # world, does not exist in 0.6.7, so all 91 worlds run and the script
-      # ignores failure lines that do not name our game. It carries the one
-      # known, documented violation as an expected failure, and fails if a NEW
-      # one appears or if the known one silently stops failing.
-      - name: Archipelago generic world tests
-        working-directory: Archipelago
-        env:
-          SKIP_REQUIREMENTS_UPDATE: '1'
-        run: python ../tools/generic-suite.py
-
       # A generated seed is the check the unit tests cannot make: it exercises
       # fill, which is where an item/location count mismatch or an unreachable
       # location actually surfaces.
@@ -159,6 +144,76 @@ jobs:
         with:
           name: cw4-apworld
           path: cw4.apworld
+
+  compliance:
+    name: Archipelago world compliance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # Archipelago's OWN generic world tests: the closest thing it has to a
+      # spec compliance check, run on every world. Nothing here ran them until
+      # 2026-09-06, and the first run found a real violation.
+      - name: Check out Archipelago
+        uses: actions/checkout@v4
+        with:
+          repository: ArchipelagoMW/Archipelago
+          ref: 0.6.7
+          path: Archipelago
+
+      - name: Install Archipelago requirements
+        working-directory: Archipelago
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Sync the world into the checkout
+        run: cp -r apworld/cw4 Archipelago/worlds/cw4
+
+      # AP_TEST_WORLDS would load only our world, but it does not exist in
+      # 0.6.7. Deleting the others from THIS checkout is the equivalent, and it
+      # is why the compliance run has a job to itself: the deletion happens in a
+      # throwaway tree and cannot leak into generation or the fill sweep, which
+      # need the real world list. Pruning in place beside those steps would be a
+      # footgun.
+      #
+      # Measured for this world: 322 tests in 239s becomes 208 in about one
+      # second, and the 114 lost tests were other people's games. Ours keep
+      # test_fill, test_ids, test_reachability and test_world_manifest.
+      #
+      # Keep generic and apquest - they are the suite's fixture worlds, named in
+      # worlds/__init__._SUITE_FIXTURE_WORLDS upstream. The _* case spares
+      # _bizhawk and _sc2common, which some worlds import.
+      #
+      # Do NOT swap this for `unittest -k "Creeper World 4"`. It looks identical
+      # and is a trap: only the manifest tests generate a class per world, so -k
+      # matches 3 tests of 322 and silently skips test_fill, test_ids and
+      # test_reachability, which loop over worlds inside the test body.
+      - name: Keep only the worlds the suite needs
+        working-directory: Archipelago/worlds
+        run: |
+          for d in */; do
+            name="${d%/}"
+            case "$name" in
+              cw4|generic|apquest|_*) continue ;;
+            esac
+            rm -rf "$name"
+          done
+          echo "worlds kept: $(ls -d */ | tr -d '/' | tr '\n' ' ')"
+
+      # The script notices the checkout is pruned and stops attributing failures
+      # by game name, so a NAMELESS failure - test_no_failed_world_loads, say -
+      # counts as ours, which is the point of pruning. It carries the one known,
+      # documented violation as an expected failure, and fails if a new one
+      # appears or if the known one silently stops failing.
+      - name: World compliance tests
+        working-directory: Archipelago
+        env:
+          SKIP_REQUIREMENTS_UPDATE: '1'
+        run: python ../tools/generic-suite.py
 
   ascii:
     name: ASCII only

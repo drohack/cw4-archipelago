@@ -12,15 +12,27 @@ at all, silently, which is how this script's first CI run failed: unscoped, it
 picked up `test_no_failed_world_loads` - another world in the checkout failing
 to import - and reported it as our spec violation.
 
-So the mode is DETECTED from worlds/__init__.py rather than assumed:
+The way to get scoping on 0.6.7 is to DELETE the other worlds from a throwaway
+checkout, which is what CI does. Measured for this world: 322 tests in 239s
+becomes 208 tests in about one second, and the 114 lost tests were other
+people's games - ours keep test_fill, test_ids, test_reachability and
+test_world_manifest.
 
-* UNSCOPED (0.6.7, and therefore CI): all 91 worlds load, all 322 tests run,
-  about three and a half minutes. Nothing is skipped - the script ignores
-  failure lines that do not name our game. That drops nameless failures such as
-  test_no_failed_world_loads; if OUR world were the one failing to import it
-  would also take all 225 world tests with it, so it cannot pass unnoticed.
-* SCOPED (a tree new enough to have the flag): 217 tests in under a second. We
-  do not keep such a tree, so this path is for the day the minimum moves up.
+Do NOT reach for `unittest -k "Creeper World 4"` instead. It looks equivalent
+and is a trap: only the manifest tests generate a class per world, so -k matches
+3 tests of 322 and silently skips test_fill, test_ids and test_reachability,
+which loop over worlds inside the test body.
+
+So the mode is DETECTED rather than assumed:
+
+* PRUNED (CI): only our world and the suite's fixtures are present, so EVERY
+  failure is ours - including nameless ones like test_no_failed_world_loads,
+  which is precisely the case an unpruned run has to throw away.
+* UNPRUNED, no scoping flag (a full 0.6.7 tree): all 91 worlds run and only
+  failure lines naming our game count. A nameless failure is dropped here, so
+  prefer a pruned run when it matters.
+* SCOPED via AP_TEST_WORLDS (a tree newer than 0.6.7): kept for the day the
+  minimum moves up.
 
 We have one KNOWN violation, in EXPECTED below. It is allowed, but an allow-list
 that quietly outlives its bug is rot - so an expected failure that STOPS failing
@@ -51,6 +63,29 @@ EXPECTED = {
 }
 
 
+# The suite's own fixture worlds, plus the shared underscore packages some
+# worlds import. 0.6.8 names the first two in worlds/__init__._SUITE_FIXTURE_WORLDS.
+FIXTURE_WORLDS = {"generic", "apquest"}
+
+
+def checkout_is_pruned() -> bool:
+    """Is this checkout down to our world and the fixtures?
+
+    If so, nothing else can fail, so failures need no attribution - and the
+    nameless ones an unpruned run must discard become meaningful.
+    """
+    try:
+        present = {
+            name for name in os.listdir("worlds")
+            if os.path.isdir(os.path.join("worlds", name))
+            and not name.startswith(("_", "."))
+            and name != "__pycache__"
+        }
+    except OSError:
+        return False
+    return bool(present) and present <= (FIXTURE_WORLDS | {WORLD})
+
+
 def scoping_supported() -> bool:
     """Does this Archipelago honour AP_TEST_WORLDS?
 
@@ -66,9 +101,10 @@ def scoping_supported() -> bool:
 
 
 def main() -> int:
-    scoped = scoping_supported()
+    pruned = checkout_is_pruned()
+    scoped = pruned or scoping_supported()
     env = dict(os.environ)
-    if scoped:
+    if scoped and not pruned:
         env["AP_TEST_WORLDS"] = WORLD
     env.setdefault("SKIP_REQUIREMENTS_UPDATE", "1")
 
@@ -99,8 +135,13 @@ def main() -> int:
     unexpected = sorted(n for n in failed if n not in EXPECTED)
     stale = sorted(n for n in EXPECTED if n not in failed)
 
-    mode = ("scoped to %s via AP_TEST_WORLDS" % WORLD if scoped
-            else "unscoped (no AP_TEST_WORLDS here) - counting only failures naming %s" % GAME)
+    if pruned:
+        mode = "pruned checkout - every failure is ours"
+    elif scoped:
+        mode = "scoped to %s via AP_TEST_WORLDS" % WORLD
+    else:
+        mode = ("unpruned, no AP_TEST_WORLDS - counting only failures naming %s"
+                % GAME)
     print(f"generic suite [{mode}]: {ran.group(1)} tests, "
           f"{len(headers)} failure line(s) attributable to us")
     for lines in failed.values():
