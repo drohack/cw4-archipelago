@@ -68,13 +68,13 @@ waiver deliberately drops them (a free first cache, say).
 | Check | Standard | Casual |
 |---|---|---|
 | Cache 1 | - | same |
-| Totem 1 | Platform or Porter or Pylon + Cannon or Mortar + Miner | same |
-| Totem 2 | Platform or Porter or Pylon + Cannon or Mortar + Miner | same |
-| Totem 3 | Platform or Porter or Pylon + Cannon or Mortar + Miner | same |
-| Totem 4 | Platform or Porter or Pylon + Cannon or Mortar + Miner | same |
-| Nullify 1 | Nullifier + Platform or Porter or Pylon + Cannon or Mortar + Miner | same |
-| Nullify 2 | Nullifier + Platform or Porter or Pylon + Cannon or Mortar + Miner | same |
-| Mission Complete | Cannon or Mortar + Miner + Platform or Porter or Pylon | same |
+| Totem 1 | Platform or Porter or Pylon + Cannon or Mortar + Miner + Factory or Porter or Pylon | same |
+| Totem 2 | Platform or Porter or Pylon + Cannon or Mortar + Miner + Factory or Porter or Pylon | same |
+| Totem 3 | Platform or Porter or Pylon + Cannon or Mortar + Miner + Factory or Porter or Pylon | same |
+| Totem 4 | Platform or Porter or Pylon + Cannon or Mortar + Miner + Factory or Porter or Pylon | same |
+| Nullify 1 | Nullifier + Platform or Porter or Pylon + Cannon or Mortar + Miner + Factory or Porter or Pylon | same |
+| Nullify 2 | Nullifier + Platform or Porter or Pylon + Cannon or Mortar + Miner + Factory or Porter or Pylon | same |
+| Mission Complete | Cannon or Mortar + Miner + Platform or Porter or Pylon + Factory or Porter or Pylon | same |
 
 ### 4. Ruins Repurposed
 
@@ -192,11 +192,11 @@ waiver deliberately drops them (a free first cache, say).
 | Totem 1 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
 | Totem 2 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
 | Totem 3 | Factory + Cannon or Mortar + Platform or Porter | Factory + Cannon or Mortar + Missile Launcher or Sniper + Platform or Porter |
-| Nullify 1 | Nullifier + Platform or Porter + Cannon or Mortar | Nullifier + Platform or Porter + Cannon or Mortar + Missile Launcher or Sniper |
-| Nullify 2 | Nullifier + Platform or Porter + Cannon or Mortar | Nullifier + Platform or Porter + Cannon or Mortar + Missile Launcher or Sniper |
-| Nullify 3 | Nullifier + Platform or Porter + Cannon or Mortar | Nullifier + Platform or Porter + Cannon or Mortar + Missile Launcher or Sniper |
-| Nullify 4 | Nullifier + Platform or Porter + Cannon or Mortar | Nullifier + Platform or Porter + Cannon or Mortar + Missile Launcher or Sniper |
-| Mission Complete | Cannon or Mortar + Nullifier + Platform or Porter | Cannon or Mortar + Missile Launcher or Sniper + Nullifier + Platform or Porter |
+| Nullify 1 | Nullifier + Platform or Porter + Cannon or Mortar + Factory or Porter | Nullifier + Platform or Porter + Cannon or Mortar + Missile Launcher or Sniper + Factory or Porter |
+| Nullify 2 | Nullifier + Platform or Porter + Cannon or Mortar + Factory or Porter | Nullifier + Platform or Porter + Cannon or Mortar + Missile Launcher or Sniper + Factory or Porter |
+| Nullify 3 | Nullifier + Platform or Porter + Cannon or Mortar + Factory or Porter | Nullifier + Platform or Porter + Cannon or Mortar + Missile Launcher or Sniper + Factory or Porter |
+| Nullify 4 | Nullifier + Platform or Porter + Cannon or Mortar + Factory or Porter | Nullifier + Platform or Porter + Cannon or Mortar + Missile Launcher or Sniper + Factory or Porter |
+| Mission Complete | Cannon or Mortar + Nullifier + Platform or Porter + Factory or Porter | Cannon or Mortar + Missile Launcher or Sniper + Nullifier + Platform or Porter + Factory or Porter |
 
 ### 12. Archon
 
@@ -304,13 +304,13 @@ waiver deliberately drops them (a free first cache, say).
 | Cache 2 | Terp + Cannon or Mortar | Terp + Cannon or Mortar + Missile Launcher or Sniper |
 | Nullify 1 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
 | Nullify 2 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
-| Nullify 3 | Nullifier + Cannon or Mortar + Sniper + Miner + Platform or Porter or Pylon | same |
-| Nullify 4 | Nullifier + Cannon or Mortar + Sniper + Miner + Platform or Porter or Pylon | same |
-| Nullify 5 | Nullifier + Cannon or Mortar + Sniper + Miner + Platform or Porter or Pylon | same |
-| Nullify 6 | Nullifier + Cannon or Mortar + Sniper + Miner + Platform or Porter or Pylon | same |
-| Nullify 7 | Nullifier + Cannon or Mortar + Sniper + Miner + Platform or Porter or Pylon | same |
-| Nullify 8 | Nullifier + Cannon or Mortar + Sniper + Miner + Platform or Porter or Pylon | same |
-| Nullify 9 | Nullifier + Cannon or Mortar + Sniper + Miner + Platform or Porter or Pylon | same |
+| Nullify 3 | Nullifier + Cannon or Mortar + Sniper + Miner + Platform or Porter or Pylon + Factory or Porter or Pylon | same |
+| Nullify 4 | Nullifier + Cannon or Mortar + Sniper + Miner + Platform or Porter or Pylon + Factory or Porter or Pylon | same |
+| Nullify 5 | Nullifier + Cannon or Mortar + Sniper + Miner + Platform or Porter or Pylon + Factory or Porter or Pylon | same |
+| Nullify 6 | Nullifier + Cannon or Mortar + Sniper + Miner + Platform or Porter or Pylon + Factory or Porter or Pylon | same |
+| Nullify 7 | Nullifier + Cannon or Mortar + Sniper + Miner + Platform or Porter or Pylon + Factory or Porter or Pylon | same |
+| Nullify 8 | Nullifier + Cannon or Mortar + Sniper + Miner + Platform or Porter or Pylon + Factory or Porter or Pylon | same |
+| Nullify 9 | Nullifier + Cannon or Mortar + Sniper + Miner + Platform or Porter or Pylon + Factory or Porter or Pylon | same |
 | Nullify 10 | Nullifier + Cannon or Mortar + Sniper + Miner + Platform or Porter or Pylon + Chronat + Factory | same |
 | Nullify 11 | Nullifier + Cannon or Mortar + Sniper + Miner + Platform or Porter or Pylon + Chronat + Factory | same |
 | Nullify 12 | Nullifier + Cannon or Mortar + Sniper + Miner + Platform or Porter or Pylon + Chronat + Factory | same |

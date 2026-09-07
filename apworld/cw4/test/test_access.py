@@ -533,3 +533,68 @@ class TestMovementRequirements(CW4TestBase):
                     f"{mover} should open the third totem",
                 )
                 self.remove_by_name([mover])
+
+
+class TestLifticPrerequisites(CW4TestBase):
+    """Platforms and beacons run on liftic, so neither can be built before the
+    refinery and factory exist (one item now - the Factory unlocks the refinery).
+
+    The interesting case is a MIXED or-group. `Pylon or Porter or Platform` used
+    to demand the chain from nobody, because expansion only fired when every
+    option shared the prerequisite - so a lone Platform read as satisfied with no
+    Factory. It is now expressed as two clauses:
+
+        Pylon or Porter or Platform
+        Pylon or Porter or Factory
+    """
+
+    def test_a_lone_platform_is_not_enough_without_the_factory(self) -> None:
+        self.collect_all_but(["Pylon", "Porter", "Factory"])
+        # Platform is held (collect_all_but grants it), Factory is not.
+        self.assertFalse(
+            self.can_reach_location("Not My Mars - Totem 1"),
+            "a Platform with no Factory cannot be built, so this is not reachable",
+        )
+
+    def test_a_platform_with_the_factory_is_enough(self) -> None:
+        self.collect_all_but(["Pylon", "Porter"])
+        self.assertTrue(
+            self.can_reach_location("Not My Mars - Totem 1"),
+            "Platform plus Factory should open it",
+        )
+
+    def test_a_pylon_routes_around_the_chain_entirely(self) -> None:
+        # The point of the clause form: an option that needs no liftic must not
+        # be made to pay for one that does.
+        self.collect_all_but(["Porter", "Platform", "Factory"])
+        self.assertTrue(
+            self.can_reach_location("Not My Mars - Totem 1"),
+            "a Pylon needs no liftic, so no Factory should be required",
+        )
+
+    def test_a_porter_routes_around_it_too(self) -> None:
+        self.collect_all_but(["Pylon", "Platform", "Factory"])
+        self.assertTrue(
+            self.can_reach_location("Not My Mars - Totem 1"),
+            "a Porter needs no liftic either",
+        )
+
+    def test_shattered_nullify_platform_still_needs_the_factory(self) -> None:
+        # Same shape on a different mission, and one where the totems require a
+        # Factory outright while the nullifies did not - so this would have
+        # slipped through a test that only looked at Not My Mars.
+        self.collect_all_but(["Porter", "Factory"])
+        self.assertFalse(
+            self.can_reach_location("Shattered - Nullify 1"),
+            "crossing space by Platform needs the liftic chain",
+        )
+
+    def test_a_sole_platform_requirement_demands_the_chain_outright(self) -> None:
+        # Founders' nullify is Platform with no alternative - "pylon will not
+        # work, and porter might, but would be very hard mode" - so here the
+        # clause collapses to requiring the Factory unconditionally.
+        self.collect_all_but(["Factory"])
+        self.assertFalse(
+            self.can_reach_location("Founders - Nullify 1"),
+            "the only route is a Platform, so the Factory is not optional",
+        )

@@ -443,22 +443,50 @@ def _expand(groups: list) -> list:
     """Add the prerequisites of any required building.
 
     A rule asking for a Platform is really asking for a Platform AND the greenar
-    chain that builds one. Only expands when EVERY option in a group shares the
-    prerequisite - otherwise "Porter or Platform" would wrongly demand the chain
-    that only the platform needs.
+    chain that builds one - platforms and beacons run on liftic, so neither can
+    be built before the refinery and factory exist (one item now, see
+    GREENAR_CHAIN).
+
+    THE HARD CASE IS A MIXED GROUP. This used to expand only when EVERY option
+    shared the prerequisite, on the reasoning that "Porter or Platform" must not
+    demand the chain only the platform needs. True, but the conclusion was
+    wrong: it demanded the chain from NOBODY, so holding a lone Platform read as
+    satisfied with no factory in sight. Not My Mars and Shattered both shipped
+    that way.
+
+    The fix is a clause, not a choice. For prerequisite P needed by subset S of
+    group G, "G, and P if you are relying on S" is exactly:
+
+        G  AND  ((G - S) OR P)
+
+    which is still the AND-of-ORs shape the rest of the logic speaks:
+
+        Pylon or Porter or Platform          <- the original group
+        Pylon or Porter or Factory           <- pay for the platform, or route around it
+
+    Hold a Pylon and both clauses pass with no factory. Hold only a Platform and
+    the second clause stops you until the Factory arrives. Hold both and it is
+    satisfied. When S is the whole group this reduces to the old behaviour - the
+    left side is empty, so the clause is just [P].
     """
     out = [list(g) for g in groups]
     for group in groups:
-        shared = None
+        # Every prerequisite anything in this group needs, in a stable order.
+        needed: list = []
         for name in group:
-            needs = PREREQUISITES.get(name)
-            if needs is None:
-                shared = None
-                break
-            shared = list(needs) if shared is None else [n for n in shared if n in needs]
-        for name in shared or []:
-            if [name] not in out:
-                out.append([name])
+            for req in PREREQUISITES.get(name, ()):  # type: ignore[arg-type]
+                if req not in needed:
+                    needed.append(req)
+        for req in needed:
+            # The options that do NOT need it are the ways to route around it.
+            alternatives = [n for n in group
+                            if req not in PREREQUISITES.get(n, ())]
+            clause = alternatives + [req]
+            # An option that IS the prerequisite makes the clause vacuous.
+            if req in group:
+                continue
+            if clause not in out:
+                out.append(clause)
     return _simplify(out)
 
 
