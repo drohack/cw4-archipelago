@@ -68,13 +68,13 @@ waiver deliberately drops them (a free first cache, say).
 | Check | Standard | Casual |
 |---|---|---|
 | Cache 1 | - | same |
-| Totem 1 | Cannon or Mortar + Miner | same |
-| Totem 2 | Cannon or Mortar + Miner | same |
-| Totem 3 | Cannon or Mortar + Miner | same |
-| Totem 4 | Cannon or Mortar + Miner | same |
-| Nullify 1 | Nullifier + Cannon or Mortar + Miner | same |
-| Nullify 2 | Nullifier + Cannon or Mortar + Miner | same |
-| Mission Complete | Cannon or Mortar + Miner | same |
+| Totem 1 | Platform or Porter or Pylon + Cannon or Mortar + Miner | same |
+| Totem 2 | Platform or Porter or Pylon + Cannon or Mortar + Miner | same |
+| Totem 3 | Platform or Porter or Pylon + Cannon or Mortar + Miner | same |
+| Totem 4 | Platform or Porter or Pylon + Cannon or Mortar + Miner | same |
+| Nullify 1 | Nullifier + Platform or Porter or Pylon + Cannon or Mortar + Miner | same |
+| Nullify 2 | Nullifier + Platform or Porter or Pylon + Cannon or Mortar + Miner | same |
+| Mission Complete | Cannon or Mortar + Miner + Platform or Porter or Pylon | same |
 
 ### 4. Ruins Repurposed
 
@@ -191,7 +191,7 @@ waiver deliberately drops them (a free first cache, say).
 | Cache 1 | - | same |
 | Totem 1 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
 | Totem 2 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
-| Totem 3 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 3 | Factory + Cannon or Mortar + Platform or Porter | Factory + Cannon or Mortar + Missile Launcher or Sniper + Platform or Porter |
 | Nullify 1 | Nullifier + Platform or Porter + Cannon or Mortar | Nullifier + Platform or Porter + Cannon or Mortar + Missile Launcher or Sniper |
 | Nullify 2 | Nullifier + Platform or Porter + Cannon or Mortar | Nullifier + Platform or Porter + Cannon or Mortar + Missile Launcher or Sniper |
 | Nullify 3 | Nullifier + Platform or Porter + Cannon or Mortar | Nullifier + Platform or Porter + Cannon or Mortar + Missile Launcher or Sniper |

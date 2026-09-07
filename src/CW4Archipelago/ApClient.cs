@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
 using Archipelago.MultiClient.Net;
@@ -283,6 +284,14 @@ public sealed class ApClient
         session.MessageLog.OnMessageReceived += OnServerMessage;
         session.Socket.SocketClosed += _ => _dispatch(() => OnSocketClosed());
 
+        // Checks this client did not make. An admin `/send_location`, a
+        // `!collect`, or another client on the same slot all mark locations
+        // server-side, and none of it reached SlotState - so the map kept
+        // showing them as available until a reconnect rebuilt state from
+        // AllLocationsChecked. Reported from play: "/send_location, the level
+        // select map icons don't get updated".
+        session.Locations.CheckedLocationsUpdated += OnServerChecked;
+
         _retryCount = 0;   // healthy connection re-arms the retry budget
         SetStatus(ConnectionStatus.Connected, $"connected as {slot} (seed {seed})");
         _log.LogInfo($"AP CONNECTED slot='{slot}' seed='{seed}' locations={allLocations.Count} received={received.Count}");
@@ -297,6 +306,37 @@ public sealed class ApClient
 
         FlushPending();
         Persist();
+    }
+
+    /// <summary>Locations the SERVER says are checked, which this client may
+    /// never have touched.
+    ///
+    /// Fires on the socket thread, so the work is marshalled like every other
+    /// callback here. ReconcileChecked does the rest: it folds them into the
+    /// checked set, drops any that were queued for sending, and raises
+    /// LocationsChanged, which becomes StateChanged and then a tracker
+    /// invalidate - so nothing else has to know about this path.</summary>
+    private void OnServerChecked(ReadOnlyCollection<long> newCheckedLocations)
+    {
+        if (newCheckedLocations == null || newCheckedLocations.Count == 0)
+            return;
+        var names = new List<string>();
+        foreach (var id in newCheckedLocations)
+        {
+            string? name = null;
+            try { name = _session?.Locations.GetLocationNameFromId(id, Game); } catch { }
+            if (!string.IsNullOrEmpty(name))
+                names.Add(name!);
+        }
+        if (names.Count == 0)
+            return;
+        _dispatch(() =>
+        {
+            if (!State.ReconcileChecked(names))
+                return;                 // already knew about all of them
+            _log.LogInfo($"AP SERVER CHECKED: {string.Join(", ", names)}");
+            Persist();
+        });
     }
 
     private void OnItemReceived(ReceivedItemsHelper helper)
@@ -457,6 +497,7 @@ public sealed class ApClient
     private void session_ItemsUnsubscribe()
     {
         try { if (_session != null) _session.Items.ItemReceived -= OnItemReceived; } catch { }
+        try { if (_session != null) _session.Locations.CheckedLocationsUpdated -= OnServerChecked; } catch { }
     }
 
     /// <summary>Send checks for the named locations (and queue any that fail).</summary>

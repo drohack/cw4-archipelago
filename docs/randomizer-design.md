@@ -448,6 +448,25 @@ handled in `Appliers/TrapApplier.cs`:
 Trap names are pinned by tests on both sides. The mod dispatches on the exact
 strings, so a rename would otherwise stop traps firing silently rather than fail.
 
+**OPEN, from play (2026-09-07): Unit Stun is far harsher than the other five.**
+The designer's words: "Stun traps are by far way worse than any other trap. It's
+fine for now, but just note that down." Not a bug and not scheduled - recorded
+so whoever tunes trap weights next has the observation instead of rediscovering
+it, and so the imbalance is a known state rather than an oversight.
+
+Why it plausibly lands harder than the rest: the other five take something away
+for a while and let you play around the loss - ammo, energy, a wave of spores you
+can shoot down. Stun removes your ability to ACT, across "204 player unit(s)
+stunned for each unit's own STUN_TIME (avg 300 ticks ~10s)" in one measured
+firing, so nothing responds while the creeper keeps flowing. That is closer to a
+pause with the enemy still moving than to a setback.
+
+If it needs addressing, the cheapest lever is `trap_weight_unit_stun`, which
+already exists and needs no code - it is 100 like the others, so lowering it
+weights the pool away from stuns without removing them. A behavioural change
+(stunning a fraction of units, or capping the duration) would be a code change
+in `TrapEffects` and would want its own measurement.
+
 ### Energy items
 
 `Progressive Energy Storage` and `Progressive Base Generation`, both applied to the rift

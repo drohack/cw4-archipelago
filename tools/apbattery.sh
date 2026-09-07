@@ -141,6 +141,34 @@ wait_since "AP ITEM RECEIVED: Mortar" 20; verdict $? "received Mortar in mission
 send "units"; sleep 2
 since | grep -q "allowed=\[.*mortar.*\]"; verdict $? "mortar now allowed live"
 
+# A location checked by anything OTHER than this client - an admin
+# /send_location, a !collect, another client on the same slot. The mod ignored
+# all of it: nothing subscribed to Locations.CheckedLocationsUpdated, so the
+# level-select icon stayed green until a reconnect rebuilt state from
+# AllLocationsChecked. Reported from play on v0.1.7.
+#
+# Only reachable with a real server, which is why it was missed - the offline
+# harness cannot produce a check it did not make.
+echo "[apbattery] step 8b/10: a check made SERVER-side repaints the map"
+mark
+send "story:open"; sleep 3
+# Not My Mars is locked in this seed, so its icon is red and its checks are
+# untouched - picking an unlocked mission's location risks asserting against
+# something already checked earlier in this run.
+srv "/send_location $SLOT Not My Mars - Cache 1"
+if wait_since "AP SERVER CHECKED: Not My Mars - Cache 1" 25; then
+  verdict 0 "the server-side check reached the client"
+  # And the map must repaint without a reconnect. The tracker logs a line per
+  # planet on each pass, so asking it to rescan proves the state moved.
+  mark
+  send "tracker:dump"; sleep 3
+  since | grep -q "story3 'Not My Mars'"; verdict $? "the tracker re-evaluated the planet"
+else
+  verdict 1 "the server-side check reached the client"
+  verdict 1 "the tracker re-evaluated the planet"
+  since | grep -E "AP SERVER CHECKED|Locations" | tail -3 | sed 's/^/        /'
+fi
+
 echo "[apbattery] step 9/10: check made while disconnected reaches the server"
 mark
 # Use a real, still-unchecked location from another unlocked mission (Home),

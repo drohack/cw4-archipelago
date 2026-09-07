@@ -175,6 +175,27 @@ OBJECTIVE_OWN = {
     # chain a platform needs.
     (19, "Nullify"): [["Platform"]],
 
+    # Not My Mars. Both of its optional objectives need a way to move things
+    # around the map, which a tower and a weapon do not provide. From the
+    # worksheet: "You can do this with platforms instead of pylons. and you
+    # might be able to do it with porters instead of either as well. confirmed
+    # you can move the liftic to the totems via porter." The liftic has to reach
+    # the totems and the enemies have to be reachable at all.
+    #
+    # Reported from play on v0.1.7: both read GREEN while holding none of the
+    # three. The base game unlocks pylons on this mission, so vanilla never
+    # exposes the requirement - the randomizer withholds them and does.
+    #
+    # The rift-lab shuffle the worksheet also mentions ("moving the rift lab
+    # back and forth and cheat the connection while it's flying") is explicitly
+    # a "hard mode move", so it stays out of logic.
+    #
+    # _expand adds nothing here, correctly: it only contributes a prerequisite
+    # every option in the group shares, and Pylon and Porter have none, so this
+    # will not demand the greenar chain that only Platform needs.
+    (3, "Nullify"): [["Pylon", "Porter", "Platform"]],
+    (3, "Totems"): [["Pylon", "Porter", "Platform"]],
+
     # Sequence' reclaim means clearing everything, so it inherits the whole
     # nullify stack including the darkness beacon - see OBJECTIVE_TIERS.
     (17, "Reclaim"): [["Sniper"], ["Miner"], ["Pylon", "Porter", "Platform"],
@@ -317,6 +338,18 @@ OBJECTIVE_TIERS = {
     (18, "Nullify"): [
         (4, [["Miner"]]),
         (9, [["Miner"], ["Cannon"]]),
+    ],
+    # Shattered. From the worksheet: "You can get 2 of the 3 totems with a
+    # refinery (greenar crystal), and factory. To get to the Enemy (nullify),
+    # and the 3rd totem you either need porter, or platform to cross space."
+    #
+    # Its Nullify entry already carried Platform-or-Porter; the totems were
+    # missed, and the third read GREEN without either - reported from play on
+    # v0.1.7. A flat per-objective rule would be wrong in the other direction,
+    # painting the two reachable totems red until a mover arrives.
+    (11, "Totems"): [
+        (2, []),
+        (3, [["Porter", "Platform"]]),
     ],
 }
 

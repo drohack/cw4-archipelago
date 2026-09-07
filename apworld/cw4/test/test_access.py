@@ -469,3 +469,67 @@ class TestAccess(CW4TestBase):
         from BaseClasses import ItemClassification
         for name in ("Sniper", "Missile Launcher"):
             self.assertTrue(classification(name) & ItemClassification.progression)
+
+
+class TestMovementRequirements(CW4TestBase):
+    """Two objectives that read GREEN in play while holding no way to move
+    things around the map. Both were recorded in the worksheet and never
+    implemented, so these pin them.
+
+    Each test collects everything EXCEPT the movers, so the mover is the only
+    missing piece. Asserting from an empty inventory would pass for the wrong
+    reason - Not My Mars also needs a weapon, a Miner and a Nullifier, any of
+    which would make the location unreachable on its own.
+    """
+
+    MOVERS = ["Pylon", "Porter", "Platform"]
+
+    def test_not_my_mars_needs_a_mover_for_totems_and_nullify(self) -> None:
+        # "confirmed you can move the liftic to the totems via porter" - and the
+        # enemies cannot be reached at all without one either. The base game
+        # unlocks pylons here, so vanilla never exposes the requirement.
+        self.collect_all_but(self.MOVERS)
+        for loc in ("Not My Mars - Totem 1", "Not My Mars - Nullify 1"):
+            self.assertFalse(
+                self.can_reach_location(loc),
+                f"{loc} should need Pylon, Porter or Platform",
+            )
+
+    def test_any_of_the_three_movers_satisfies_not_my_mars(self) -> None:
+        # An OR group, not three requirements. One at a time, so a rule that
+        # demanded all three would fail here instead of passing by accident.
+        for mover in self.MOVERS:
+            with self.subTest(mover=mover):
+                self.collect_all_but(self.MOVERS)
+                self.collect_by_name([mover])
+                self.assertTrue(
+                    self.can_reach_location("Not My Mars - Totem 1"),
+                    f"{mover} alone should open the totems",
+                )
+                self.remove_by_name([mover])
+
+    def test_shattered_third_totem_needs_a_mover_but_the_first_two_do_not(self) -> None:
+        # "You can get 2 of the 3 totems with a refinery (greenar crystal), and
+        # factory. To get to the Enemy (nullify), and the 3rd totem you either
+        # need porter, or platform to cross space."
+        #
+        # The tier is the whole point. A flat per-objective rule would satisfy
+        # the third assertion while wrongly failing the first two.
+        self.collect_all_but(["Porter", "Platform"])
+        self.assertTrue(self.can_reach_location("Shattered - Totem 1"))
+        self.assertTrue(self.can_reach_location("Shattered - Totem 2"))
+        self.assertFalse(
+            self.can_reach_location("Shattered - Totem 3"),
+            "the third totem is across space - it needs Porter or Platform",
+        )
+
+    def test_shattered_third_totem_opens_with_either_mover(self) -> None:
+        for mover in ("Porter", "Platform"):
+            with self.subTest(mover=mover):
+                self.collect_all_but(["Porter", "Platform"])
+                self.collect_by_name([mover])
+                self.assertTrue(
+                    self.can_reach_location("Shattered - Totem 3"),
+                    f"{mover} should open the third totem",
+                )
+                self.remove_by_name([mover])
