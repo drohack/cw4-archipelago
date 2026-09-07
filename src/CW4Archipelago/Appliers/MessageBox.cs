@@ -73,11 +73,29 @@ public sealed class ApMessageBox
     private const float BaseBodyFont = 12f;
     private const float BaseTitleFont = 11f;
     private RectTransform? _content;
+    /// <summary>How many frames to keep re-pinning after content changes. Three
+    /// is enough for the layout group, the size fitter and TMP to agree in
+    /// practice; it costs one assignment per frame while it runs.</summary>
+    private const int SettleFrames = 3;
+
     private ScrollRect? _scroll;
     private GameObject? _body;              // everything but the header (for collapse)
     private TMP_FontAsset? _font;
     private bool _collapsed;
     private bool _autoScroll = true;
+
+    /// <summary>Frames left to keep re-pinning the view to the bottom.
+    ///
+    /// One ScrollToBottom at render time is not enough. The content uses a
+    /// VerticalLayoutGroup with a PreferredSize ContentSizeFitter, and TMP
+    /// recomputes its text metrics in its own update - so the scroll position
+    /// gets applied against a content height that is still smaller than final,
+    /// and the view ends up part-way up once the real height arrives. Entering
+    /// a mission with a full history landed in the MIDDLE of the log.
+    ///
+    /// Canvas.ForceUpdateCanvases does not cover it: it flushes the canvas, not
+    /// TMP's own pass. Re-applying across a few frames does.</summary>
+    private int _scrollSettle;
     private int _geomCountdown;
 
     public void LateTick(string scene)
@@ -92,6 +110,17 @@ public sealed class ApMessageBox
             TryBuild();
             return;
         }
+        // Finish pinning to the bottom while the layout is still settling.
+        // Guarded on _autoScroll so scrolling up during those frames wins - the
+        // scrollbar callback clears it, and a box that yanked itself back down
+        // under the player would be worse than starting in the wrong place.
+        if (_scrollSettle > 0)
+        {
+            _scrollSettle--;
+            if (_autoScroll)
+                ScrollToBottom();
+        }
+
         // Re-track the HUD cluster periodically so the box follows window
         // resizes and UI Scale changes without a rebuild.
         if (--_geomCountdown <= 0)
@@ -137,7 +166,10 @@ public sealed class ApMessageBox
         AddLineObject(spans);
         TrimLines();
         if (_autoScroll)
+        {
             ScrollToBottom();
+            _scrollSettle = SettleFrames;
+        }
     }
 
     /// <summary>Rebuild all visible lines from history (on first build in a
@@ -151,6 +183,7 @@ public sealed class ApMessageBox
                 AddLineObject(line.Spans);
         TrimLines();
         ScrollToBottom();
+        _scrollSettle = SettleFrames;
     }
 
     // A single-line chat/command input, hidden by default. Built with the
@@ -558,6 +591,32 @@ public sealed class ApMessageBox
             var child = _content.GetChild(0);
             child.SetParent(null, false);
             UnityEngine.Object.Destroy(child.gameObject);
+        }
+    }
+
+    /// <summary>Where the view is, for tests: 0 is the bottom (newest), 1 the
+     /// top, -1 if there is no scroll rect. Exposed because "the log opened
+     /// half way up" was otherwise only checkable by eye, and the cause was a
+     /// timing bug that an eye can easily miss on a short history.</summary>
+    internal float ScrollPosition
+    {
+        get
+        {
+            try { return _scroll == null ? -1f : _scroll.verticalNormalizedPosition; }
+            catch { return -1f; }
+        }
+    }
+
+    /// <summary>Whether the box is still following new lines.</summary>
+    internal bool AutoScroll => _autoScroll;
+
+    /// <summary>Lines currently rendered, as opposed to lines in history.</summary>
+    internal int RenderedLines
+    {
+        get
+        {
+            try { return _content == null ? -1 : _content.childCount; }
+            catch { return -1; }
         }
     }
 

@@ -84,6 +84,9 @@ public static class ModCore
 
     /// <summary>Rolling history of colored message lines (survives scene changes).</summary>
     public static readonly System.Collections.Generic.List<Appliers.MsgLine> MessageHistory = new();
+
+    /// <summary>The message box, for the debug channel's readbacks only.</summary>
+    internal static Appliers.ApMessageBox MessageBox => _messageBox;
     private const int MaxHistory = 200;
 
     /// <summary>Append a colored line to the history and the live box.</summary>

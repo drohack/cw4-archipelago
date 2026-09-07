@@ -150,7 +150,11 @@ public sealed class DebugChannel
             ModCore.Log.LogInfo($"KEYWATCH: {(_keyWatch ? "on" : "off")}"); return; }
         if (lower == "msgbox:dump")
         {
-            ModCore.Log.LogInfo($"MSGBOX DUMP: history={ModCore.MessageHistory.Count}");
+            var box = ModCore.MessageBox;
+            ModCore.Log.LogInfo(
+                $"MSGBOX DUMP: history={ModCore.MessageHistory.Count} " +
+                $"rendered={box.RenderedLines} scroll={box.ScrollPosition:0.000} " +
+                $"autoScroll={box.AutoScroll}");
             return;
         }
         if (lower.StartsWith("boot:")) { Boot(line.Substring(5).Trim()); return; }

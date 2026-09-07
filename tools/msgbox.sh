@@ -81,6 +81,26 @@ echo "[msgbox]   history after reboot=$H2"
 [ "${H2:-0}" -ge "${H1:-1}" ] && [ "${H2:-0}" -gt 0 ]; verdict $? "history retained across missions ($H1 -> $H2)"
 wait_since "MSGBOX: anchored to minimap" 20; verdict $? "box rebuilt in second mission"
 
+# Entering a mission with a history behind you must open the log at the BOTTOM,
+# on the newest line. Reported from play on v0.1.7: "when i load into a level the
+# text client starts in the middle."
+#
+# The render did call ScrollToBottom, but the content uses a VerticalLayoutGroup
+# with a PreferredSize ContentSizeFitter and TMP recomputes its metrics in its
+# own pass, so the position was applied against a height still smaller than
+# final. Canvas.ForceUpdateCanvases does not cover TMP. It re-pins for a few
+# frames now.
+#
+# The rendered-line check is the control: an empty box reports scroll 0 whatever
+# happens, so without it this assertion would pass on a box showing nothing.
+DUMP=$(since | grep "MSGBOX DUMP:" | tail -1)
+RENDERED=$(echo "$DUMP" | grep -oE "rendered=[0-9-]+" | cut -d= -f2)
+SCROLL=$(echo "$DUMP" | grep -oE "scroll=[0-9.-]+" | cut -d= -f2)
+echo "[msgbox]   $DUMP"
+[ "${RENDERED:-0}" -gt 1 ]; verdict $? "the box actually has lines to scroll ($RENDERED)"
+awk -v s="${SCROLL:-1}" 'BEGIN { exit !(s >= 0 && s <= 0.02) }'
+verdict $? "the log opens at the bottom, not part-way up (scroll=$SCROLL)"
+
 echo "[msgbox] step 7: zero plugin errors"
 ERR=$(grep -cE "\[Error :CW4 Archipelago\]|tick failed" "$L" 2>/dev/null); ERR=${ERR:-0}
 [ "$ERR" -eq 0 ]; verdict $? "no plugin errors ($ERR)"
