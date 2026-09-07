@@ -1,3 +1,4 @@
+using CW4Archipelago.Core;
 using System;
 using TMPro;
 using UnityEngine;
@@ -286,7 +287,8 @@ public sealed class MenuUi
         Place(title.GetComponent<RectTransform>(), -12f, 34f);
         title.GetComponent<RectTransform>().anchoredPosition = new Vector2(15f, -12f);
 
-        _server = MakeInput("server:port", -52f, "archipelago.gg:38281");
+        _server = MakeInput("server:port", -52f,
+            $"{ServerAddress.DefaultHost}:{ServerAddress.DefaultPort}");
         _slot = MakeInput("slot name", -94f, "");
         _pass = MakeInput("password", -136f, "");
         _pass.contentType = TMP_InputField.ContentType.Password;
@@ -389,17 +391,12 @@ public sealed class MenuUi
         UpdateAutoLabel();
     }
 
-    private static string ParseHost(string s)
-    {
-        var i = s.LastIndexOf(':');
-        return i > 0 ? s.Substring(0, i) : s;
-    }
+    // Parsing lives in Core (ServerAddress) so it can be tested. These two used
+    // to be here, and the host one returned EMPTY for empty input - which
+    // DoConnect then wrote into the config.
+    private static string ParseHost(string s) => ServerAddress.Host(s);
 
-    private static int ParsePort(string s)
-    {
-        var i = s.LastIndexOf(':');
-        return i > 0 && int.TryParse(s.Substring(i + 1), out var p) ? p : 38281;
-    }
+    private static int ParsePort(string s) => ServerAddress.Port(s);
 
     // ---- UI primitives (ported from the probe) ----
 
