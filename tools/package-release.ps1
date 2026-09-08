@@ -101,7 +101,15 @@ if (-not (Test-Path $ap)) { throw "Archipelago clone not found at $ap" }
 Push-Location $ap
 try {
     $env:SKIP_REQUIREMENTS_UPDATE = "1"
-    python Launcher.py "Build APWorlds" -- "Creeper World 4" --skip_open_folder
+    # No --skip_open_folder: that flag does not exist in 0.6.7, which is the
+    # version this repo's clone is pinned to and the minimum the world declares.
+    # It arrived after that release, so passing it made argparse reject the whole
+    # invocation ("unrecognized arguments") and the packager threw. Nothing
+    # caught it because the clone was moved from main to 0.6.7 and no release has
+    # been cut since. 0.6.7's builder takes only the world names, positionally,
+    # and pops the output folder open when it finishes - cosmetic, and the price
+    # of packaging with the version we actually support.
+    python Launcher.py "Build APWorlds" -- "Creeper World 4"
     if ($LASTEXITCODE -ne 0) { throw "Build APWorlds failed" }
 } finally { Pop-Location }
 Copy-Item (Join-Path $ap "build\apworlds\cw4.apworld") $dist -Force
