@@ -221,6 +221,173 @@ class TestAccess(CW4TestBase):
         self.assertIn(["Porter", "Platform"], groups)
         self.assertNotIn(["Greenar Refinery"], groups)
 
+    def test_not_my_mars_needs_a_way_to_move_liftic(self) -> None:
+        # From play on v0.1.7, and recorded in the worksheet long before that:
+        # "You can do this with platforms instead of pylons. and you might be
+        # able to do it with porters instead of either as well. confirmed you
+        # can move the liftic to the totems via porter." The totems have to be
+        # powered and the enemies have to be reachable at all, and with none of
+        # the three the checks showed GREEN - the worst way for a randomizer to
+        # be wrong, because a player trusts green and burns an evening on it.
+        self.collect_all_but(["Pylon", "Porter", "Platform"])
+        self.assertFalse(self.can_reach_location("Not My Mars - Totem 1"))
+        self.assertFalse(self.can_reach_location("Not My Mars - Nullify 1"))
+        # The cache is free and must stay reachable - a rule that gated
+        # everything in the mission would pass the two assertions above for the
+        # wrong reason.
+        self.assertTrue(self.can_reach_location("Not My Mars - Cache 1"))
+
+    def test_shattered_needs_movement_for_the_THIRD_totem_only(self) -> None:
+        # "You can get 2 of the 3 totems with a refinery (greenar crystal), and
+        # factory. To get to the Enemy (nullify), and the 3rd totem you either
+        # need porter, or platform to cross space."
+        #
+        # The tier is the whole point, so both halves are asserted: a flat
+        # mission-wide rule would satisfy the negative assertion below and be
+        # wrong about the other two, and a missing rule would satisfy the
+        # positives and be wrong about the third.
+        self.collect_all_but(["Porter", "Platform"])
+        self.assertTrue(self.can_reach_location("Shattered - Totem 1"))
+        self.assertTrue(self.can_reach_location("Shattered - Totem 2"))
+        self.assertFalse(self.can_reach_location("Shattered - Totem 3"))
+
+    def test_platforms_and_beacons_run_on_liftic(self) -> None:
+        # "platforms require liftic, so they need the factory and refinery item
+        # before they can be used. flows into logic." Same for beacons.
+        #
+        # Asserted through the CLAUSE, not by holding a platform and hoping: for
+        # prerequisite P needed by a subset S of group G, the expansion is
+        # G AND ((G - S) OR P), so the group survives and a second clause makes
+        # you pay for P only if you are relying on S. Holding a Platform with no
+        # factory used to read as satisfied, because the old code added the
+        # prerequisite only when EVERY option shared it - which meant it added
+        # it to nobody.
+        from ..rules import objective_requirements
+        groups = objective_requirements(3, 1)      # Not My Mars - Totems
+        self.assertIn(["Pylon", "Porter", "Platform"], groups)
+        # Pylon and Porter need no liftic, so either routes around the factory;
+        # a Platform on its own does not.
+        self.assertIn(["Pylon", "Porter", "Factory"], groups)
+        self.assertNotIn(["Factory"], groups)
+
+    # ---------------------------------------------------------------- per instance
+    #
+    # An instance is a SPECIFIC structure now, ordered by map cell
+    # ((cellY, cellX) ascending, matching InstanceIndex.Assign in the mod), not
+    # "the Nth one you completed". Every index asserted below came from
+    # tools/instance-dump.sh; see the worksheet for cell-to-structure mapping.
+    #
+    # Each of these asserts BOTH halves. A flat per-objective rule would satisfy
+    # the negative assertions and be wrong about the rest, and a missing rule
+    # would satisfy the positives and be wrong about the hard instances - so
+    # only a test that pins both can tell the three apart.
+
+    def test_sequence_nullify_is_keyed_to_specific_targets(self) -> None:
+        # Instances 6 and 11 are the two top-left creep emitters, cells (17,76)
+        # and (35,124): "you can nullify the 2 creep emitters in the top left
+        # side of the map without anything special (need weapon)".
+        #
+        # This is THE case that killed the old cumulative tier table: the two
+        # easy targets sort to 6 and 11, right through the middle. A table
+        # reading "instances up to 2 are easy" would have made the cheap pair
+        # instances 1 and 2, which are two of the bottom-right cluster.
+        self.collect_all_but(["Chronat"])
+        for easy in (6, 11):
+            self.assertTrue(self.can_reach_location(f"Sequence - Nullify {easy}"))
+        # The five under the dark tower need the beacon.
+        for dark in (5, 7, 8, 9, 10):
+            self.assertFalse(self.can_reach_location(f"Sequence - Nullify {dark}"))
+        # The bottom-right four never needed it.
+        for lit in (1, 2, 3, 4):
+            self.assertTrue(self.can_reach_location(f"Sequence - Nullify {lit}"))
+        # The top-right three take the beacon OR a mover, and a mover is held.
+        for either in (12, 13, 14):
+            self.assertTrue(self.can_reach_location(f"Sequence - Nullify {either}"))
+
+    def test_sequence_top_right_targets_accept_a_mover_instead_of_the_beacon(self) -> None:
+        # "The top right 3 (blob, 2 emitters) either need to go through the dark
+        # tower (beacon) with normal towers, or pylon/porter/platform can get
+        # you up there." With neither, they are unreachable - and the five that
+        # are genuinely IN the darkness stay unreachable too, while the
+        # bottom-right four and the easy pair do not care.
+        self.collect_all_but(["Chronat", "Pylon", "Porter", "Platform"])
+        for either in (12, 13, 14):
+            self.assertFalse(self.can_reach_location(f"Sequence - Nullify {either}"))
+        for lit in (1, 2, 3, 4):
+            self.assertTrue(self.can_reach_location(f"Sequence - Nullify {lit}"))
+
+    def test_sequence_two_caches_are_not_alike(self) -> None:
+        # Cell (239,89) sorts to instance 1 - "The 2nd item in the right side is
+        # burried below ground (needs terp)". Cell (89,125) sorts to instance 2
+        # - "the item on the top left middle" needs only a weapon. An
+        # objective-wide Terp, which is what this used to be, claimed BOTH were
+        # buried.
+        self.collect_all_but(["Terp"])
+        self.assertFalse(self.can_reach_location("Sequence - Cache 1"))
+        self.assertTrue(self.can_reach_location("Sequence - Cache 2"))
+
+    def test_sequence_buried_cache_is_yellow_without_the_approach(self) -> None:
+        # "out of logic you could get there with platforms. else you'll need
+        # nullifier, and snipers to get close to it as well." So the nullifier
+        # and sniper are what LOGIC assumes, and physics does not - the map must
+        # not paint it red for want of them.
+        from ..rules import location_requirements
+        logical = location_requirements("Sequence - Cache 1", 17)
+        physical = location_requirements("Sequence - Cache 1", 17, physical=True)
+        self.assertIn(["Nullifier"], logical)
+        self.assertIn(["Sniper"], logical)
+        self.assertNotIn(["Nullifier"], physical)
+        self.assertNotIn(["Sniper"], physical)
+        # Terp is physical - the item really is under the ground.
+        self.assertIn(["Terp"], physical)
+
+    def test_farsite_free_cache_is_the_one_nearest_the_rift_lab(self) -> None:
+        # Cells (66,51) and (150,63) sort to instances 1 and 2. "The one nearest
+        # to the rift lab is the only free one. since you can't move the rift
+        # lab you need a weapon to get to the 2nd item (right side)" - and
+        # (150,63) is the right-hand one, so the waiver belongs to instance 1.
+        #
+        # This is what lets Farsite open a seed at all, so the positive half
+        # matters as much as the negative.
+        self.collect_all_but(["Cannon", "Mortar"])
+        self.assertTrue(self.can_reach_location("Farsite - Cache 1"))
+        self.assertFalse(self.can_reach_location("Farsite - Cache 2"))
+
+    def test_wallis_needs_a_cannon_specifically(self) -> None:
+        # "You Need Snipers to do anything in this level... I think Mortars and
+        # Snipers only is not possible (red)." OFFENSE's "Cannon or Mortar" is
+        # not enough, so a mortar-only seed must not treat Wallis as openable.
+        from ..rules import mission_requirements
+        self.assertIn(["Cannon"], mission_requirements(18))
+        self.assertIn(["Cannon"], mission_requirements(18, physical=True))
+        self.collect_all_but(["Cannon"])
+        self.assertFalse(self.can_reach_location("Wallis - Nullify 1"))
+        self.assertFalse(self.can_reach_location("Wallis - Cache 1"))
+
+    def test_wallis_miner_is_yellow_not_red(self) -> None:
+        # "You could put just Snipers and Cannons as out of logic (yellow) as it
+        # might be possible." Logic assumes the miner; the map does not call the
+        # checks unreachable without one.
+        from ..rules import location_requirements
+        self.assertIn(["Miner"], location_requirements("Wallis - Nullify 1", 18))
+        self.assertNotIn(["Miner"],
+                         location_requirements("Wallis - Nullify 1", 18, physical=True))
+        # Wallis's totems still need the factory for liftic, in both readings.
+        self.assertIn(["Factory"], location_requirements("Wallis - Totem 1", 18))
+        self.assertIn(["Factory"],
+                      location_requirements("Wallis - Totem 1", 18, physical=True))
+
+    def test_wallis_nullify_is_flat_across_its_nine_targets(self) -> None:
+        # The old tier said "the first 2, maybe even 4" could be done with less,
+        # which is an ORDER claim and cannot survive per-structure identity. The
+        # designer withdrew it ("Ignore my 'first 2/4 enemies' line"), so all
+        # nine carry the same rule now - asserted, because a leftover tier would
+        # otherwise sit there quietly applying to arbitrary structures.
+        from ..rules import location_requirements
+        first = location_requirements("Wallis - Nullify 1", 18)
+        for i in range(2, 10):
+            self.assertEqual(first, location_requirements(f"Wallis - Nullify {i}", 18))
+
     def test_mission_complete_inherits_its_objectives(self) -> None:
         self.collect_all_but("Chronat")
         self.assertFalse(self.can_reach_location("Tower of Darkness - Nullify 1"))

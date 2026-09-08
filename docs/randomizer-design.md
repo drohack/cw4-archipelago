@@ -72,8 +72,11 @@ Three things about this that are easy to get wrong:
   silently disabled the map's glyph colouring once already.
 - **Optional objectives count.** A mission's nullify targets are locations whether
   or not the mission requires nullifying them.
-- **Instances are numbered by ACTIVATION ORDER.** The game cannot tell one totem
-  from another, so the Nth activation sends the Nth check.
+- **Instances are numbered by IDENTITY.** "Totem 3" is one particular totem,
+  ranked by map cell - see "An instance is a STRUCTURE, not an ordinal" below.
+  This used to read "numbered by ACTIVATION ORDER: the game cannot tell one totem
+  from another, so the Nth activation sends the Nth check", and the premise was
+  simply false - every structure carries `UnitManager.cellX`/`cellY`.
 
 The per-mission counts live in `INSTANCE_COUNTS` (`apworld/cw4/locations.py`), not
 in this document, so they cannot drift. `REQUIRED_OBJECTIVES` no longer drives the
@@ -348,6 +351,107 @@ consumer must not AND it with the mission's entry - a mission's cache is often
 collectable long before the mission is winnable, and combining them would hide
 that.
 
+**An instance is a STRUCTURE, not an ordinal (2026-09-08).** `Nullify 3` is one
+particular enemy, identified by its map cell and numbered by sorting
+`(cellY, cellX)` ascending. It used to be "the third one you finished" - a
+high-water mark, `_sentUpTo[index] + 1` - which covered 203 of the 236 locations
+and was wrong in a way that mattered: the apworld hangs different requirements
+off different instances, and those requirements were landing on whichever
+structure the player happened to finish in that slot.
+
+Shattered is the clean demonstration, and it is the bug the designer reported
+from play ("Shattered says it can do the final totem (top left corner), but you
+need porter or platform"). Its three totems sit at cells (54,48), (201,141) and
+(18,185); the mover requirement belongs to (18,185), the top-left one beside the
+nullify targets, which sorts to instance 3. The game's own iteration order
+happens to present (18,185) FIRST, so under the high-water mark finishing it
+credited `Totem 1` - an instance carrying no mover requirement at all. Measured
+end to end by `tools/instance-identity.sh`, which now requires the check sent to
+match the completed cell's rank and forbids `Totem 1` when the completed totem is
+not rank 1.
+
+**Two questions, and only one of them involves position.** Conflating them is
+the natural misreading, so to be explicit:
+
+| | "is it done?" - read off the structure | "which one is it?" |
+|---|---|---|
+| Nullify | `u.IsSuppressed()` | cell rank |
+| Totems | `tm.totemComplete` | cell rank |
+| Caches | absent from `gs.mustCollect` | cell rank, by elimination |
+
+Running liftic into a totem is **not** detected positionally. The watcher walks
+the game's own list, points at each totem and asks *that object* whether it is
+complete; the same for enemies. The cell is a NAMING rule - it turns "this
+object is done" into "Totem 3" - not a detector. Caches are the sole exception,
+and there it genuinely is positional, because a destroyed cache leaves nothing
+to ask.
+
+That split is also why nullify and totems needed no extra machinery to survive a
+save and reload, while caches did: a suppressed enemy and a finished totem are
+still standing there wearing their flags, so the whole picture can be rebuilt at
+any moment. It is the same fact behind the original nullify bug - the old code
+watched the SIZE of `nullifiableUnits`, and that list never shrinks, because the
+units are marked rather than destroyed.
+
+**There are no ids.** `UnitManager` has no `guid`, `uid` or `unitId`; the only
+GUIDs in the game belong to mods, packs, maps and planets. The cell is the
+identity for all three kinds, and it is literally the same pair of properties in
+every case - `InfoCache : UnitManager`, and although `Totem` is a component with
+no cell of its own, the unit on the same object has one. Measured across all 20
+missions: **all 63 totems resolved through that unit** (`cellFrom=unit`), so the
+`transform.position` fallback never ran. All three kinds therefore share one
+coordinate space, spanning roughly x 5-244, y 6-197 - which is what makes
+comparing a totem's position to a nullify target's meaningful, and that
+comparison is how Shattered's mover-gated totem was identified (21 cells from
+the nearest enemy, where the other two are 96 and 86 away).
+
+Campaign-wide, from `tools/instance-dump.sh` over all 20 missions: 203
+structures (120 nullify, 63 totems, 20 caches), **zero unreadable cells, and no
+two structures of the same kind sharing a cell.** So no instance numbers are
+interchangeable in practice. `InstanceIndex.HasSharedCell` still guards the case
+and the mod logs a warning if it ever appears, but nothing in the campaign trips
+it.
+
+Three consequences worth keeping in view:
+
+- **Difficulty is not monotonic in the index**, so the old cumulative tier table
+  (`(9, [...])` meaning "instances up to 9") had to become an explicit
+  per-instance map. Sequence proves it: its two easy targets sort to 6 and 11,
+  in the middle of the hard ones.
+- **The ordering must be an explicit sort.** The game keeps these in HashSets, so
+  the order structures arrive in is not an identity. Two structures sharing a
+  cell make their numbers interchangeable; `InstanceIndex.HasSharedCell` reports
+  it and the mod logs a warning, which matters only on a mission with
+  per-instance requirements.
+- **Caches cannot be identified from live state, so their cells are KNOWN
+  instead.** A nullified structure keeps standing wearing `IsSuppressed()` and a
+  finished totem keeps `totemComplete`, but a collected cache is DESTROYED -
+  measured on Farsite, `mustCollect` 2 to 1 and the InfoCache objects in the
+  scene 2 to 1, none flagged `retrieved`. There is no id to fall back on either:
+  `UnitManager` has no `guid`, `uid` or `unitId` (checked), and the only GUIDs in
+  the game belong to mods, packs, maps and planets.
+
+  The cell itself is a perfectly good identity, though, and cache positions are
+  **map** data - they do not vary with a save, a seed or a playthrough. So the
+  set is not discovered, it is known: `MapCells.cs`, generated by
+  `tools/gen-mapcells.py` from a full 20-mission dump, and collected = known
+  minus remaining. 17 missions have caches, 20 cells in all, cross-checked
+  against the apworld's `INSTANCE_COUNTS` by `audit.py` in both directions and
+  per row length, since a row of the wrong length would shift every index after
+  the gap.
+
+  Two fallbacks sit under it, each losing precision without ever mislabelling: a
+  set observed intact earlier in the run (`SlotState.CacheCells`), then plain
+  counting. The table is only trusted when its row length matches what the game
+  reports AND every cache still standing appears in it, so a cache moved by a
+  game update drops to the fallback with a logged warning rather than
+  confidently naming the wrong one.
+
+  An earlier version of this used only the observed-intact set. That is strictly
+  weaker and the gap is worth remembering: it can never help a save whose caches
+  were taken before the mod was installed, because by then the full set has
+  never been seen. Knowing map data beats observing it.
+
 ### Starter missions are RANDOM, and there is no starting weapon
 
 The only real constraint on the opening is that something must be reachable with
@@ -422,8 +526,9 @@ mission it could have got wrong is now played and reported above.
 ### Traps
 
 The seven effects from the feasibility spike are now items:
-`Spore Strike`, `Spore Scatter`, `Creeper Surge`, `Energy Drain`,
-`Emitter Overdrive`, `Unit Stun`, `Ammo Drain`. Each has a weight option, and
+`Spore Strike Trap`, `Spore Scatter Trap`, `Rift Breach Trap`,
+`Energy Drain Trap`, `Emitter Overdrive Trap`, `Unit Stun Trap`,
+`Ammo Drain Trap`. Each has a weight option, and
 `trap_percentage` (default 50) sets what share of the non-progression slots they
 take. Every effect is temporary and recoverable - permanent terrain deformation
 was dropped during the spike precisely because it could strand a mission.
@@ -447,6 +552,44 @@ handled in `Appliers/TrapApplier.cs`:
 
 Trap names are pinned by tests on both sides. The mod dispatches on the exact
 strings, so a rename would otherwise stop traps firing silently rather than fail.
+
+**RENAMED 2026-09-07, with no aliases.** Every trap gained a ` Trap` suffix and
+`Creeper Surge` became `Rift Breach Trap`.
+
+- The suffix is the real convention, measured rather than assumed: of the 36
+  worlds in a 0.6.7 checkout that classify anything as a trap, 26 put " Trap" in
+  the NAME (109 distinct names). NONE use parentheses - "(Trap)" appears in no
+  world. `docs/world api.md` defines only the `trap` CLASSIFICATION, which is
+  what trackers read, and says nothing about names.
+- "Creeper Surge" described the wrong thing. A surge implies emitters ramping
+  up; the effect drops a 49-cell slab of depth-2 creeper 12 cells from the rift
+  lab. "Rift Breach" says something got through nearby and sits beside the rift
+  lab and Microrift in CW4's own language.
+- **Item ids did not move.** They are positional and this was a rename in place,
+  so the trap block still occupies 4040050-4040056 and the name count is still
+  79. A seed generated before the rename therefore sends the OLD name, which the
+  mod no longer recognises, so its traps silently stop firing - accepted
+  deliberately ("new is always better") rather than carrying an alias table.
+- The yaml option keys did NOT change. `trap_weight_creeper_surge` still names
+  the Rift Breach weight, because renaming an option would invalidate every
+  existing yaml for no benefit. Only its display name and docstring moved.
+
+The unit suites do pin the two sides SEPARATELY - `test_options.py` hard-codes
+the Python list, `TrapRulesTests` hard-codes the C# strings - and neither can
+see the other, so a rename applied to one side only passes both. What closes
+that is not a unit test but `tools/audit/audit.py`, which reads `TrapRules.cs`
+as text and compares it against `items.TRAP_ITEMS`. It caught this rename, and
+in doing so caught itself:
+
+    FAIL every apworld trap name exists in the mod's TrapRules: ['Rift Breach Trap']
+
+was reported when the mod's side HAD been renamed correctly. The check matched
+the C# names by PREFIX (`Spore|Creeper|Energy|Emitter|Unit|Ammo`), and "Rift
+Breach Trap" begins with none of them - so a correct rename and a half-done one
+were indistinguishable to it, and the one rename it most needed to verify was
+the one it could not see. It now reads the `const string` declarations, and
+asserts the count plus both directions, so a name present on only one side fails
+whichever side is missing it.
 
 **OPEN, from play (2026-09-07): Unit Stun is far harsher than the other five.**
 The designer's words: "Stun traps are by far way worse than any other trap. It's

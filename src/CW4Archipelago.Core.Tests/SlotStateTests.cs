@@ -59,14 +59,32 @@ public class SlotStateTests
         Assert.Empty(s.PendingChecks);
     }
 
+    // Real location names, deliberately. SlotState treats them as opaque
+    // strings so "Home - Totems" tested the same behaviour, but that name
+    // stopped existing when objectives became per-instance, and a test reading
+    // as the authority on a name it gets wrong is how two harnesses came to
+    // assert against locations the world does not have.
     [Fact]
     public void ReconcileChecked_MergesServerSet_AndDropsPending()
     {
         var s = new SlotState();
-        s.MarkChecked("Home - Totems", connected: false);
-        Assert.True(s.ReconcileChecked(new[] { "Home - Totems", "Home - Collect" }));
-        Assert.False(s.ReconcileChecked(new[] { "Home - Totems" }));
+        s.MarkChecked("Home - Totem 1", connected: false);
+        Assert.True(s.ReconcileChecked(new[] { "Home - Totem 1", "Home - Cache 1" }));
+        Assert.False(s.ReconcileChecked(new[] { "Home - Totem 1" }));
         Assert.Equal(2, s.CheckedLocations.Count);
         Assert.Empty(s.PendingChecks);
+    }
+
+    /// <summary>The server reporting a check this client never made - an admin
+    /// /send_location, a !collect, another client on the slot. It has to land in
+    /// the checked set (so the map repaints) and be reported as a change exactly
+    /// once, which is what ApClient relies on to avoid a persist per no-op.</summary>
+    [Fact]
+    public void ReconcileChecked_AcceptsALocationThisClientNeverTouched()
+    {
+        var s = new SlotState();
+        Assert.True(s.ReconcileChecked(new[] { "Not My Mars - Cache 1" }));
+        Assert.Contains("Not My Mars - Cache 1", s.CheckedLocations);
+        Assert.False(s.ReconcileChecked(new[] { "Not My Mars - Cache 1" }));
     }
 }

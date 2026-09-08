@@ -9,10 +9,19 @@ Two consequences worth stating:
 - Optional objectives count. A mission's nullify targets are locations whether
   or not the mission requires nullifying them, so clearing a map fully is
   rewarded.
-- Instances are numbered by ACTIVATION ORDER, not identity. The game cannot tell
-  totem 3 from totem 5 and does not need to: the objective counter is live
-  progress, so the Nth activation sends the Nth check. That keeps ids stable and
-  independent of map layout.
+- Instances are numbered by IDENTITY, not activation order. "Totem 3" is one
+  particular totem: the mod ranks a mission's structures by map cell,
+  (cellY, cellX) ascending, and sends the check belonging to the structure that
+  was finished. Location names and ids are unchanged by this - the ORDER they
+  arrive in is what changed.
+
+  It matters because the tables below and in rules.py hang DIFFERENT
+  requirements off different instances (Sequence's five targets under the dark
+  tower need a Chronat; Shattered's top-left totem needs a mover). Under the old
+  activation-order rule those requirements landed on whichever structure the
+  player happened to finish Nth, which is how Shattered's mover-gated totem came
+  to read as free. Difficulty is therefore NOT monotonic in the index: Sequence's
+  two easy targets are instances 6 and 11.
 
 Counts come from the campaign survey recorded in
 docs/design/mission-requirements-worksheet.md, which was measured from the game

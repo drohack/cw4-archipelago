@@ -53,6 +53,30 @@ class P {
                         Console.WriteLine("TYPE " + t.FullName);
                     continue;
                 }
+                // Everything ONE type declares. The name search above answers
+                // "where does this member live"; this answers the opposite
+                // question, "what does this type have", which is what you need
+                // when you are looking for an identity or a persisted flag and
+                // do not yet know what it would be called.
+                if (mode == "members") {
+                    if (!string.Equals(t.Name, needle, StringComparison.OrdinalIgnoreCase)) continue;
+                    var bfm = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static
+                            | BindingFlags.Instance | BindingFlags.DeclaredOnly;
+                    Console.WriteLine("TYPE " + t.FullName + " : " + (t.BaseType?.Name ?? "-"));
+                    foreach (var pr in t.GetProperties(bfm))
+                        Console.WriteLine($"  PROP   {pr.Name} : {pr.PropertyType.Name}");
+                    foreach (var f in t.GetFields(bfm)) {
+                        if (f.Name.StartsWith("NativeFieldInfoPtr") ||
+                            f.Name.StartsWith("NativeMethodInfoPtr")) continue;
+                        Console.WriteLine($"  {(f.IsStatic ? "SFIELD" : "FIELD ")} {f.Name} : {f.FieldType.Name}");
+                    }
+                    foreach (var m in t.GetMethods(bfm)) {
+                        if (m.Name.StartsWith("get_") || m.Name.StartsWith("set_")) continue;
+                        var ps2 = string.Join(",", m.GetParameters().Select(x => x.ParameterType.Name));
+                        Console.WriteLine($"  {(m.IsStatic ? "STATIC" : "METHOD")} {m.Name}({ps2}) -> {m.ReturnType.Name}");
+                    }
+                    continue;
+                }
                 var bf = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static
                        | BindingFlags.Instance | BindingFlags.DeclaredOnly;
                 foreach (var m in t.GetMethods(bf)) {

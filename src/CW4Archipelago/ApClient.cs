@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
@@ -142,10 +143,6 @@ public sealed class ApClient
     private string _lastSlot = "";
     private string _lastPass = "";
 
-    // Serializes all connect attempts (manual and auto-reconnect) so they can
-    // never run concurrently and race the pending-check state.
-    private volatile bool _connectInFlight;
-
     /// <summary>Connect, superseding anything already in flight.
     ///
     /// This used to return early when an attempt was in flight or the status was
@@ -164,22 +161,115 @@ public sealed class ApClient
         _lastHost = host; _lastPort = port; _lastSlot = slot; _lastPass = password;
         _manualDisconnect = false;
         _retryCount = 0;   // a manual/menu connect re-arms the retry budget
+        // ...and re-arms the SCHEDULER, which is a separate flag and was the
+        // bug. Bumping the generation below makes any pending retry a no-op, so
+        // leaving _reconnecting set meant nothing was pending and nothing could
+        // be scheduled either:
+        //
+        //   retry pending (gen G, _reconnecting = true)
+        //   a connect arrives -> gen becomes G+1, _reconnecting still true
+        //   that connect fails -> ScheduleReconnect returns on _reconnecting
+        //   the old retry wakes, clears the flag, sees IsStale(G), returns
+        //
+        // leaving the client Failed with nothing scheduled and NO log line to
+        // say so - the exact "gives up silently" behaviour the unbounded
+        // backoff was added to remove. Reachable without touching anything: the
+        // menu-entry auto-connect fires while the first retry is still waiting.
+        // Found by offline-test.sh, which saw attempt 1 and then silence.
+        _reconnecting = false;
         int gen = ++_connectGen;
         SetStatus(ConnectionStatus.Connecting, $"connecting to {host}:{port} as {slot}...");
-        Task.Run(() => ConnectBlocking(gen, host, port, slot, password));
+        StartConnectWatched(0, gen, host, port, slot, password);
     }
 
     /// <summary>Bumped by every connect and every disconnect. An attempt whose
     /// generation is stale must have no effect.</summary>
     private int _connectGen;
+
+    /// <summary>How long one connect attempt may take before it is abandoned.
+    ///
+    /// A failure against an unreachable host normally reports back in 4 to 6
+    /// seconds (measured). This is set far above that because the point is to
+    /// catch a HANG, not to cut a slow-but-working attempt short - and being
+    /// wrong in that direction would turn a bad connection into no
+    /// connection.</summary>
+    private const int ConnectWatchdogSeconds = 45;
+
+    /// <summary>Start a connect attempt that cannot hang the chain.
+    ///
+    /// Measured: the fifth TryConnectAndLogin of a process, against a dead port,
+    /// never returns - attempts 1 to 4 each fail in a few seconds and then the
+    /// log stops permanently. Whatever the library is doing there, the backoff
+    /// must not be staked on that call coming back.
+    ///
+    /// If it does not, the attempt is ABANDONED: the generation is bumped so
+    /// every IsStale guard in ConnectBlocking now rejects it (a thread that
+    /// finally wakes up cannot install a session nobody is waiting for), and the
+    /// chain schedules the next attempt as though this one had failed - which,
+    /// as far as the player is concerned, it has.</summary>
+    private void StartConnectWatched(int attempt, int gen, string host, int port,
+                                     string slot, string password)
+    {
+        var done = new ManualResetEventSlim(false);
+        OffPool($"cw4ap-connect-{attempt}", () =>
+        {
+            try { ConnectBlocking(gen, host, port, slot, password); }
+            finally { done.Set(); }
+        });
+        OffPool($"cw4ap-watchdog-{attempt}", () =>
+        {
+            if (done.Wait(TimeSpan.FromSeconds(ConnectWatchdogSeconds)))
+                return;                      // returned in time, nothing to do
+            _dispatch(() =>
+            {
+                if (IsStale(gen) || _manualDisconnect)
+                    return;                  // already superseded or stood down
+                _log.LogWarning(
+                    $"AP RECONNECT: attempt {attempt} did not return within " +
+                    $"{ConnectWatchdogSeconds}s - abandoning it and carrying on");
+                _connectGen++;               // the hung attempt is now stale
+                SetStatus(ConnectionStatus.Failed, "cannot reach server: attempt timed out");
+                ScheduleReconnect();
+            });
+        });
+    }
+
+    /// <summary>Run long, BLOCKING work on its own thread, never on the pool.
+    ///
+    /// TryConnectAndLogin blocks for the whole connect timeout - measured at
+    /// roughly 15 to 20 seconds against an unreachable host - and the backoff
+    /// then has to wait. Doing both through the thread pool (Task.Run plus
+    /// Task.Delay) meant long blocking calls were occupying pool threads while
+    /// the timer continuation that resumes the chain needed one of those same
+    /// threads. The reconnect chain died after three or four rounds because of
+    /// it, silently, which is exactly what the unbounded backoff exists to
+    /// prevent. A dedicated background thread per attempt costs nothing at this
+    /// frequency and cannot be starved.</summary>
+    private static void OffPool(string name, Action work)
+    {
+        var th = new Thread(() =>
+        {
+            try { work(); } catch { }
+        });
+        th.IsBackground = true;     // must never hold the game open
+        th.Name = name;
+        th.Start();
+    }
     private bool IsStale(int gen) => gen != _connectGen;
 
     private void ConnectBlocking(int gen, string host, int port, string slot, string password)
     {
-        _connectInFlight = true;
+        // Ownership of `session` passes to OnLoginSuccess on the happy path and
+        // NOWHERE otherwise, so the finally below has to clean up after every
+        // other outcome. Each failed attempt used to leave a live session with
+        // its own socket machinery behind, and against an unreachable server
+        // that is one leak per retry, for as long as the player leaves the game
+        // open.
+        ArchipelagoSession? session = null;
+        bool handedOn = false;
         try
         {
-            var session = ArchipelagoSessionFactory.CreateSession(host, port);
+            session = ArchipelagoSessionFactory.CreateSession(host, port);
             var result = session.TryConnectAndLogin(
                 Game, slot, ItemsHandlingFlags.AllItems, ApVersion,
                 tags: null, uuid: null,
@@ -188,6 +278,8 @@ public sealed class ApClient
 
             if (result is LoginSuccessful success)
             {
+                var opened = session;
+                handedOn = true;        // the dispatch below owns it now
                 _dispatch(() =>
                 {
                     if (IsStale(gen))
@@ -196,10 +288,10 @@ public sealed class ApClient
                         // negotiating. Close it rather than installing a session
                         // nobody asked for any more.
                         _log.LogInfo("AP: discarding a superseded connection");
-                        try { session.Socket.DisconnectAsync(); } catch { }
+                        try { opened.Socket.DisconnectAsync(); } catch { }
                         return;
                     }
-                    OnLoginSuccess(session, slot, success);
+                    OnLoginSuccess(opened, slot, success);
                 });
             }
             else
@@ -245,7 +337,13 @@ public sealed class ApClient
         }
         finally
         {
-            _connectInFlight = false;
+            if (!handedOn && session != null)
+            {
+                // A failed or superseded attempt must not leave its socket
+                // alive. Best-effort by design: the session may never have
+                // opened at all.
+                try { session.Socket.DisconnectAsync(); } catch { }
+            }
         }
     }
 
@@ -482,15 +580,46 @@ public sealed class ApClient
             : Math.Min(MaxRetryDelaySeconds, 5 * (1 << (attempt - 1)));
         var host = _lastHost; var port = _lastPort; var slot = _lastSlot; var pass = _lastPass;
         int gen = _connectGen;
-        _log.LogInfo($"AP RECONNECT: attempt {attempt} in {delay}s");
-        Task.Run(async () =>
+        _log.LogInfo($"AP RECONNECT: attempt {attempt} scheduled in {delay}s");
+        // Every exit from this task says so. The old version logged the
+        // SCHEDULING and nothing else, so "the retry is waiting" and "the retry
+        // silently never happened" produced identical logs - and the second is
+        // what was actually occurring. A backoff whose firing cannot be
+        // observed cannot be trusted, and the three early returns below are all
+        // conditions a player could hit.
+        OffPool($"cw4ap-retry-{attempt}", () =>
         {
-            await Task.Delay(delay * 1000);
-            _reconnecting = false;
-            // A manual connect or a disconnect during the wait wins.
-            if (IsStale(gen) || _manualDisconnect) return;
-            if (Status != ConnectionStatus.Connected)
-                ConnectBlocking(gen, host, port, slot, pass);
+            try
+            {
+                Thread.Sleep(delay * 1000);
+                _reconnecting = false;
+                // A manual connect or a disconnect during the wait wins.
+                if (IsStale(gen))
+                {
+                    _log.LogInfo($"AP RECONNECT: attempt {attempt} superseded (newer request)");
+                    return;
+                }
+                if (_manualDisconnect)
+                {
+                    _log.LogInfo($"AP RECONNECT: attempt {attempt} dropped (disconnected on purpose)");
+                    return;
+                }
+                if (Status == ConnectionStatus.Connected)
+                {
+                    _log.LogInfo($"AP RECONNECT: attempt {attempt} not needed (already connected)");
+                    return;
+                }
+                _log.LogInfo($"AP RECONNECT: attempt {attempt} firing");
+                StartConnectWatched(attempt, gen, host, port, slot, pass);
+            }
+            catch (Exception e)
+            {
+                // Nothing awaits this task, so an exception here would be
+                // swallowed whole and the chain would just stop - which is
+                // indistinguishable from the bug above without this line.
+                _reconnecting = false;
+                _log.LogWarning($"AP RECONNECT: attempt {attempt} threw: {e}");
+            }
         });
     }
 
@@ -619,6 +748,12 @@ public sealed class ApClient
     {
         _manualDisconnect = true;   // suppress auto-reconnect for an intentional disconnect
         _connectGen++;              // and cancel any attempt still negotiating
+        // The pending retry the bump just invalidated cannot clear this itself
+        // (it returns early on IsStale), so clear it here as well. Connect()
+        // also clears it, which is what actually unblocks a later reconnect -
+        // this keeps the flag honest in between rather than leaving it claiming
+        // a retry is scheduled when none is.
+        _reconnecting = false;
         session_ItemsUnsubscribe();
         try { _session?.Socket.DisconnectAsync(); } catch { }
         _session = null;

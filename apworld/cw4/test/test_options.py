@@ -319,8 +319,8 @@ class TestTraps(bases.CW4TestBase):
         # would silently stop traps firing rather than fail loudly.
         from ..items import TRAP_ITEMS
         self.assertEqual(TRAP_ITEMS, [
-            "Spore Strike", "Spore Scatter", "Creeper Surge", "Energy Drain",
-            "Emitter Overdrive", "Unit Stun", "Ammo Drain",
+            "Spore Strike Trap", "Spore Scatter Trap", "Rift Breach Trap", "Energy Drain Trap",
+            "Emitter Overdrive Trap", "Unit Stun Trap", "Ammo Drain Trap",
         ])
 
 
@@ -362,9 +362,9 @@ class TestOneTrapKind(bases.CW4TestBase):
 
     def test_trap_weights_are_respected(self) -> None:
         pool = [i.name for i in self.multiworld.itempool]
-        self.assertIn("Spore Strike", pool)
-        self.assertNotIn("Creeper Surge", pool)
-        self.assertNotIn("Unit Stun", pool)
+        self.assertIn("Spore Strike Trap", pool)
+        self.assertNotIn("Rift Breach Trap", pool)
+        self.assertNotIn("Unit Stun Trap", pool)
 
 
 class TestClassification(bases.CW4TestBase):
@@ -541,13 +541,13 @@ class TestEmitterOverdriveIsNotGenerated(bases.CW4TestBase):
 
     def test_no_emitter_overdrive_in_the_pool(self) -> None:
         names = [i.name for i in self.multiworld.itempool]
-        self.assertNotIn("Emitter Overdrive", names)
+        self.assertNotIn("Emitter Overdrive Trap", names)
 
     def test_the_id_is_still_reserved(self) -> None:
         from ..items import ITEM_NAME_TO_ID, TRAP_ITEMS, POOL_TRAP_ITEMS
-        self.assertIn("Emitter Overdrive", ITEM_NAME_TO_ID)
-        self.assertIn("Emitter Overdrive", TRAP_ITEMS)
-        self.assertNotIn("Emitter Overdrive", POOL_TRAP_ITEMS)
+        self.assertIn("Emitter Overdrive Trap", ITEM_NAME_TO_ID)
+        self.assertIn("Emitter Overdrive Trap", TRAP_ITEMS)
+        self.assertNotIn("Emitter Overdrive Trap", POOL_TRAP_ITEMS)
 
     def test_the_other_six_are_still_generated(self) -> None:
         # A weight-filter bug could silently empty the trap pool; this is the

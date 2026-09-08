@@ -35,6 +35,23 @@ public sealed class SlotState
     /// so it survives a restart too.</summary>
     public int TrapsApplied { get; set; }
 
+    /// <summary>Cache cells per mission specifier, in INSTANCE ORDER - entry 0
+    /// is that mission's Cache 1.
+    ///
+    /// Only caches need this. A nullified structure keeps standing in the scene
+    /// wearing IsSuppressed() and a finished totem keeps its totemComplete, so
+    /// both can be identified from live state at any time. A collected cache is
+    /// destroyed - measured on Farsite, mustCollect 2 to 1 and the InfoCache
+    /// objects 2 to 1 with none flagged retrieved - so the live set can only say
+    /// which caches are LEFT. Recording the full list the first time the mission
+    /// is seen intact is what lets a taken one still be named afterwards.
+    ///
+    /// Persisted with the rest of the slot, so it survives a restart. If it is
+    /// missing for a mission (a save whose caches were taken before the mod ever
+    /// saw it), the watcher falls back to counting, which loses the ordering but
+    /// never mislabels a check. See InstanceIndex.DoneFromRemembered.</summary>
+    public Dictionary<string, List<string>> CacheCells { get; set; } = new();
+
     public event Action? ItemsChanged;
     public event Action? LocationsChanged;
 

@@ -72,7 +72,12 @@ echo "[apbattery] step 1/10: starting local AP server on :$AP_PORT"
 rm -f "$SRV_IN"; : > "$SRV_IN"
 tail -n +1 -f "$SRV_IN" | ( cd "$AP" && SKIP_REQUIREMENTS_UPDATE=1 python MultiServer.py "$MULTIDATA" --port "$AP_PORT" --disable_save > "$SRV_LOG" 2>&1 ) &
 SRV_PIPE=$!
-sleep 8
+# Poll rather than sleeping a fixed 8s. MultiServer's startup is not that
+# predictable - it reads and validates the whole multidata first - and this
+# reported FAIL: server up while the following 19 assertions all passed against
+# that same server, which is a self-refuting verdict: the run cannot both have
+# no server and check locations on it.
+for i in $(seq 1 25); do grep -q "Hosting game at" "$SRV_LOG" 2>/dev/null && break; sleep 1; done
 grep -q "Hosting game at" "$SRV_LOG"; verdict $? "server up"
 
 echo "[apbattery] step 2/9: launching game (autoconnect)"
@@ -112,6 +117,41 @@ since | grep -q "TRACKER: story1 'Farsite' status=InLogic"; verdict $? "story1 i
 since | grep -q "TRACKER: story2 'Home' status=Partial"; verdict $? "story2 partial (orange, Nullify needs Nullifier)"
 since | grep -q "TRACKER: story3 .* status=Locked"; verdict $? "story3 locked (red)"
 
+# A location checked by anything OTHER than this client - an admin
+# /send_location, a !collect, another client on the same slot. The mod ignored
+# all of it: nothing subscribed to Locations.CheckedLocationsUpdated, so the
+# level-select icon stayed green until a reconnect rebuilt state from
+# AllLocationsChecked. Reported from play on v0.1.7.
+#
+# Only reachable with a real server, which is why it was missed - the offline
+# harness cannot produce a check it did not make.
+#
+# THIS HAS TO RUN WHILE THE MAP IS OPEN, which is why it sits here rather than
+# after the mission steps where it was first written. tracker:dump enumerates
+# SpanNetworkPlanet objects, and inside a mission there are none - and
+# story:open cannot get back out, because it works by clicking the Farsite
+# button on the menu, which in a mission does not exist ("story:open: no
+# farsite button"). The first version asserted from inside story1 and failed on
+# an empty planet list while the fix it was testing was working correctly.
+echo "[apbattery] step 4b/9: a check made SERVER-side repaints the map"
+mark
+# Not My Mars is locked in this seed, so its icon is red and its checks are
+# untouched - picking an unlocked mission's location risks asserting against
+# something already checked earlier in this run.
+srv "/send_location $SLOT Not My Mars - Cache 1"
+if wait_since "AP SERVER CHECKED: Not My Mars - Cache 1" 25; then
+  verdict 0 "the server-side check reached the client"
+  # And the map must repaint without a reconnect. The tracker logs a line per
+  # planet on each pass, so asking it to rescan proves the state moved.
+  mark
+  send "tracker:dump"; sleep 3
+  since | grep -q "TRACKER: story3 'Not My Mars'"; verdict $? "the tracker re-evaluated the planet"
+else
+  verdict 1 "the server-side check reached the client"
+  verdict 1 "the tracker re-evaluated the planet"
+  since | grep -E "AP SERVER CHECKED|Locations" | tail -3 | sed 's/^/        /'
+fi
+
 echo "[apbattery] step 5/9: mission gating blocks a locked mission"
 mark
 send "boot:story3"; sleep 2
@@ -140,34 +180,6 @@ srv "/send $SLOT Mortar"
 wait_since "AP ITEM RECEIVED: Mortar" 20; verdict $? "received Mortar in mission"
 send "units"; sleep 2
 since | grep -q "allowed=\[.*mortar.*\]"; verdict $? "mortar now allowed live"
-
-# A location checked by anything OTHER than this client - an admin
-# /send_location, a !collect, another client on the same slot. The mod ignored
-# all of it: nothing subscribed to Locations.CheckedLocationsUpdated, so the
-# level-select icon stayed green until a reconnect rebuilt state from
-# AllLocationsChecked. Reported from play on v0.1.7.
-#
-# Only reachable with a real server, which is why it was missed - the offline
-# harness cannot produce a check it did not make.
-echo "[apbattery] step 8b/10: a check made SERVER-side repaints the map"
-mark
-send "story:open"; sleep 3
-# Not My Mars is locked in this seed, so its icon is red and its checks are
-# untouched - picking an unlocked mission's location risks asserting against
-# something already checked earlier in this run.
-srv "/send_location $SLOT Not My Mars - Cache 1"
-if wait_since "AP SERVER CHECKED: Not My Mars - Cache 1" 25; then
-  verdict 0 "the server-side check reached the client"
-  # And the map must repaint without a reconnect. The tracker logs a line per
-  # planet on each pass, so asking it to rescan proves the state moved.
-  mark
-  send "tracker:dump"; sleep 3
-  since | grep -q "story3 'Not My Mars'"; verdict $? "the tracker re-evaluated the planet"
-else
-  verdict 1 "the server-side check reached the client"
-  verdict 1 "the tracker re-evaluated the planet"
-  since | grep -E "AP SERVER CHECKED|Locations" | tail -3 | sed 's/^/        /'
-fi
 
 echo "[apbattery] step 9/10: check made while disconnected reaches the server"
 mark

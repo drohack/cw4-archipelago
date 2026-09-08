@@ -62,6 +62,103 @@ We match this, with one deviation: the delay is capped at 60 seconds. Pure
 doubling reaches an hour by the twelfth attempt, which a player cannot tell
 apart from having given up.
 
+**The two pieces of retry state have to be re-armed together** (fixed
+2026-09-07). `_retryCount` decides the delay; `_reconnecting` decides whether a
+retry is scheduled at all. `Connect()` reset the first and not the second, and
+because a new connect also bumps `_connectGen` - which makes any pending retry
+return early as stale - the flag ended up asserting a retry was scheduled when
+none was and none could be:
+
+    retry pending (gen G, _reconnecting = true)
+    a connect arrives          -> gen becomes G+1, _reconnecting still true
+    that connect fails         -> ScheduleReconnect returns on _reconnecting
+    the old retry wakes        -> clears the flag, sees IsStale(G), returns
+
+leaving the client `Failed` with nothing scheduled and no log line saying so:
+the silent give-up this whole section exists to prevent, reintroduced by the
+guard added to fix the swallowed CONNECT click. It needs no unusual input - the
+menu-entry auto-connect fires while the first retry is still waiting.
+
+`Connect()` now clears `_reconnecting` as well, and `Disconnect()` clears it too
+so the flag does not sit true between a disconnect and the next connect.
+
+**A scheduled retry is not a retry (2026-09-08).** `AP RECONNECT: attempt 1 in
+5s` was printed synchronously by `ScheduleReconnect`, so it recorded that a timer
+had been set and nothing more. A chain that stopped after that point produced
+exactly the same log as one patiently waiting - and since nothing awaits the
+retry task, an exception inside it would have been swallowed whole. Every exit
+from that task is now logged: `firing`, `superseded`, `dropped`, `not needed`, or
+`threw`. `offline-test` asserts on `attempt 1 firing` and `attempt 2 firing`
+rather than on the scheduling lines, so this particular blind spot cannot come
+back.
+
+Measured with `tools/retry-interval.sh`, from the mod coming up against a dead
+port: attempt 1 fires at t+22s, 2 at t+35s, 3 at t+59s, 4 at t+103s. The connect
+timeout is roughly 20s on top of each delay, which is why the wall-clock gaps are
+much larger than the 5/10/20/40 backoff suggests, and why a 40s window for
+"attempt 2" was always going to flap.
+
+**The chain used to die after three or four attempts, and that was real.** Once
+the measurement was trustworthy - it took three attempts to make it so, see
+below - the pattern was reproducible across separate runs: attempts 1 to 4 each
+fire and each log `cannot reach server` within 4 to 6 seconds, then one attempt's
+`TryConnectAndLogin` never returns and the log stops permanently. Always around
+the fifth connect of the process, which is what makes it look like a resource
+limit rather than a timing accident.
+
+Three changes went in, and the honest accounting is that **it is not settled
+which one fixed it**:
+
+1. **Failed attempts no longer leak their session.** `CreateSession` builds a
+   session with its own socket machinery. The success path handed ownership to
+   `OnLoginSuccess` and the superseded path called `DisconnectAsync`, but the two
+   FAILURE paths simply dropped the reference - one live session left behind per
+   retry, for as long as the player leaves the game open. Now torn down in a
+   `finally` unless ownership was handed on.
+2. **The connect and the wait are off the thread pool.** `Task.Run` was used for
+   a call that blocks for the whole connect timeout while `Task.Delay` needed the
+   same pool to resume the chain. Both now get a dedicated background thread
+   (`OffPool`).
+3. **Each attempt has a watchdog** (`ConnectWatchdogSeconds`, 45s). If a connect
+   has not returned, the attempt is abandoned: the generation is bumped so every
+   existing `IsStale` guard rejects the hung attempt when it eventually wakes -
+   it cannot install a session nobody is waiting for - and the backoff continues.
+
+**The watchdog turned out to be the load-bearing one, and the hang is
+intermittent rather than positional.** Two runs tell the whole story:
+
+- 420s run: attempts 1 to 9, backoff 5/10/20/40 then 60, nine failures logged
+  normally, watchdog fired **zero** times.
+- 300s run, same build: attempts 1 and 2 BOTH hung and were abandoned at 45s
+  each; 3, 4 and 5 returned in the usual few seconds. Chain unbroken throughout.
+
+So it is not "the fifth connect" - that was an artefact of the first two
+sightings. Any attempt can hang, and without the watchdog the FIRST one to do so
+ends the chain permanently. That also settles an earlier observation which was
+recorded here as unproven: a run against the previous build that saw a single
+attempt in 420 seconds. It was not a dead game. It was attempt 1 hanging with
+nothing to recover it - exactly this bug, seen before there was any way to tell.
+
+The cause inside MultiClient.Net was never identified, and is not guessed at
+here: `tools/reflect` only sees the game's interop assemblies, not the mod's
+websocket stack. What is fixed is the DEPENDENCE - the chain no longer needs that
+call to come back - and the recovery is visible in the log when it happens.
+
+**Three of the measurement's own bugs are worth remembering, because each
+produced a verdict that looked like a product failure:** it read the previous
+run's log (so a stale line was reported one second into a fourteen-second
+launch); it polled for liveness before the process existed (reporting GAME EXITED
+at t+3s); and `grep -c ... || echo 0` produced the two-line string `0\n0`,
+because `grep -c` prints a zero AND exits non-zero, which turned the comparison
+into an error. The ordering is now: wait for the old process to be gone,
+truncate the log, launch, wait for the process to appear, wait for
+`ModCore initialized`, and only then count. Silence is only evidence once you
+know there is a live process to be silent.
+`offline-test.sh` is what caught it, by asserting that a SECOND attempt is
+scheduled rather than stopping at the first - a one-attempt assertion would have
+passed. That is the general lesson for anything with a backoff: assert the
+sequence continues, never just that it started.
+
 **A refused login is not retried.** `ConnectionRefused` - wrong slot name,
 wrong password, wrong game, incompatible version - is a different case from a
 transport failure, and the reference client does not spin on it. We split them:

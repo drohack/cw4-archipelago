@@ -86,7 +86,7 @@ public sealed class TrapApplier
         {
             case TrapRules.SporeStrike: TrapEffects.SporeStrikeBuilding(0, 0); return;
             case TrapRules.SporeScatter: TrapEffects.SporeStrikeScatter(0, 0); return;
-            case TrapRules.CreeperSurge: TrapEffects.Creep(0, 0); return;
+            case TrapRules.RiftBreach: TrapEffects.Creep(0, 0); return;
             case TrapRules.EnergyDrain: TrapEffects.Energy(0f); return;
             case TrapRules.EmitterOverdrive: TrapEffects.Emit(0f, 0f); return;
             case TrapRules.UnitStun: TrapEffects.Stun(0f); return;

@@ -3,6 +3,82 @@
 Versions follow semantic versioning. The plugin and the apworld share one number,
 so a release is a matched pair - if you update one, update the other.
 
+## v0.1.8 - checks that belong to the right structure
+
+**Checks now belong to the structure you completed, not to how many you have
+completed.** Nullify the hard enemy first and you used to get `Nullify 1`; the
+Nth thing finished simply sent the Nth check. That covered 203 of the 236
+locations. Each structure is now identified by its position on the map, so
+`Nullify 3` is always the same enemy, `Totem 2` always the same totem, and
+`Cache 1` always the same cache.
+
+This matters beyond tidiness, because different instances carry different
+requirements - and those requirements had been attached to whichever structure
+happened to be finished in that slot. Re-derived from the map with the designer:
+
+- **Sequence**'s 14 nullify targets split four ways: the two top-left creep
+  emitters need only a weapon, the five under the dark tower need the beacon, the
+  four bottom-right ones are tower-reachable, and the three top-right ones take
+  the beacon or a mover. The two easy ones turn out to be instances **6 and 11** -
+  in the middle - which is exactly what the old "the first N are easy" table could
+  never express.
+- **Sequence**'s two caches are no longer both treated as buried: only the
+  right-hand one needs the Terp, and the top-left-middle one needs just a weapon.
+- **Shattered**'s mover requirement is pinned to the actual top-left totem beside
+  the nullify targets.
+- **Farsite**'s free cache is pinned to the one nearest the rift lab.
+- **Wallis** needs a **Cannon** specifically - Mortar-and-Sniper is not a
+  beatable seed there any more - and its Miner is now "reachable but not
+  promised" rather than required. Its old "the first 2, maybe 4, are easier"
+  tier is withdrawn; all nine targets share one rule.
+
+Caches needed one extra step. Collecting one destroys it, and units carry no id,
+so the game cannot be asked afterwards which cache you took. But a cache's
+position is fixed map data, so the mod now simply knows where all 20 of them are
+and works out which is missing - meaning even a save from before this update
+identifies its caches correctly.
+
+If you are mid-mission on an existing seed nothing breaks: location names and ids
+are unchanged, and a check you already banked stays banked.
+
+**The traps are renamed, and old seeds will not fire them.** Every trap now ends
+in `Trap` - the convention 26 of the 36 trap-using worlds follow - and `Creeper
+Surge` is now **Rift Breach Trap**, because a surge sounds like emitters ramping
+up and what it actually does is drop a slab of creeper next to the rift lab.
+There are no aliases: a seed generated before this sends the old name, the mod
+does not recognise it, and its traps quietly do nothing. Regenerate to keep
+traps working. Item ids did not move, and the yaml keys did not change either -
+`trap_weight_creeper_surge` still sets the Rift Breach weight, so existing yamls
+stay valid.
+
+- **Fixed: an unreachable server stopped being retried after about four
+  attempts, silently.** Measured against a dead port: the backoff fired four
+  times and then went quiet for good, so a player who started the game before
+  their server was up would sit disconnected forever with nothing in the log to
+  explain it. Three things were wrong - each failed attempt leaked its
+  connection, the retry competed with itself for thread-pool threads, and a
+  single hung connect could end the chain. It now runs indefinitely (verified to
+  nine attempts over seven minutes) and abandons any attempt that hangs rather
+  than waiting on it.
+- **Fixed: a second cause of the same thing.** The retry had two pieces of state
+  and a connect re-armed only one, so a connect landing while a retry was still
+  waiting - which the menu-entry auto-connect does on its own - left the client
+  failed with nothing scheduled. Reintroduced in v0.1.6 by the guard that fixed
+  the swallowed CONNECT click.
+- The log now says when a retry actually FIRES, and why it did not. It only ever
+  recorded what had been scheduled, which is why a chain that had stopped looked
+  exactly like one still waiting.
+- **Fixed: a location checked by someone else did not repaint the map.** An admin
+  `/send_location`, a `!collect`, or another client on your slot only showed up
+  after a reconnect. Reported from play on v0.1.7.
+- **Fixed: the message log opened part-way up** instead of on the newest line
+  when you entered a mission with history behind you.
+- Two missions showed checks as reachable that were not: **Not My Mars** needs a
+  Pylon, Porter or Platform to move liftic to the totems and reach the enemies,
+  and **Shattered**'s third totem needs a Porter or Platform to cross space.
+  Platforms and beacons also run on liftic, so both now require the refinery and
+  factory before they count towards anything.
+
 ## v0.1.7 - checks that actually arrive
 
 Six fixes, all found by playing. Two of them were losing checks silently, which

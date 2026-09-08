@@ -151,13 +151,18 @@ launch
 wait_since "ModCore initialized" 30; verdict $? "the mod loaded (control)"
 refute "AP OFFLINE: loaded cached slot" "no cached slot exists to load yet"
 wait_since "cannot reach server" 40; verdict $? "an unreachable server is reported as such"
-wait_since "AP RECONNECT: attempt 1" 20; verdict $? "and is retried, not given up on"
+# FIRING, not scheduling. "AP RECONNECT: attempt 1 scheduled in 5s" is printed
+# synchronously by ScheduleReconnect and proves only that a timer was set -
+# so this assertion used to pass on a chain that never actually retried, and
+# the client logged nothing further to give it away. The mod now logs every
+# exit from the retry task, including the three early returns.
+wait_since "AP RECONNECT: attempt 1 firing" 40; verdict $? "the first retry actually fires"
 # The backoff is 5s then 10s, but each attempt has to TIME OUT before the next
-# is scheduled, so the wall-clock gap is much larger than the delay. Measured
-# on 2026-09-04: attempts 1, 2 and 3 logged within 150s of launch. 90s is the
-# window for the second, not 40 - which is why this failed once while the
-# product was behaving correctly.
-if wait_since "AP RECONNECT: attempt 2" 120; then
+# is scheduled, so the wall-clock gap is much larger than the delay. Re-measured
+# with tools/retry-interval.sh on 2026-09-08, from the mod coming up: attempt 1
+# fires at t+22s, 2 at t+35s, 3 at t+59s, 4 at t+103s - the connect timeout is
+# about 20s on top of each delay. 120s covers attempt 2 with a wide margin.
+if wait_since "AP RECONNECT: attempt 2 firing" 120; then
   verdict 0 "the retry keeps going (attempt 2)"
 else
   verdict 1 "the retry keeps going (attempt 2)"
@@ -176,8 +181,8 @@ wait_since "ModCore initialized" 30; verdict $? "the mod loaded (control)"
 wait_since "AP CONNECTED slot='$SLOT'" 60; verdict $? "connected"
 srv "/send $SLOT Mission Unlock: Farsite"
 wait_since "AP ITEM RECEIVED: Mission Unlock: Farsite" 25; verdict $? "received a mission unlock"
-srv "/send $SLOT Spore Strike"
-wait_since "AP ITEM RECEIVED: Spore Strike" 25; verdict $? "received a trap"
+srv "/send $SLOT Spore Strike Trap"
+wait_since "AP ITEM RECEIVED: Spore Strike Trap" 25; verdict $? "received a trap"
 send "boot:story1"
 wait_since "New GameSpace" 45 || echo "  (story1 slow to load)"
 send "ada:close"
@@ -201,8 +206,36 @@ mark
 send "disconnect"; sleep 12
 refute "disconnected - will retry" "a manual disconnect is not treated as a drop"
 refute "AP CONNECTED slot=" "and it does not silently reconnect"
+
+# An offline check must be QUEUED, not dropped, and the queue must survive to
+# the reconnect. This is asserted HERE, where a deliberate disconnect has the
+# client offline with real state behind it, and no longer in step 5 where it
+# used to live. Step 4 goals the slot, and a goal makes the server auto-collect
+# everything in it - the server log reads "DrohaCW4 has collected their items
+# from other worlds" and then shows `Hints - Cache 1` itself being checked. From
+# that point NO location in the world is unchecked, MarkChecked returns false
+# for every candidate, and nothing can be queued. So the assertion was reporting
+# a product failure for a premise the harness had destroyed one step earlier.
+# The "already checked" branch below makes that unusable-premise case say so in
+# its own words rather than borrowing the product's.
+QLOC="Hints - Cache 1"
+mark; send "check:$QLOC"; sleep 3
+if since | grep -q "already checked, nothing queued"; then
+  verdict 1 "HARNESS PREMISE: '$QLOC' was already checked, so nothing could queue"
+elif since | grep -q "AP CHECKS QUEUED (offline)"; then
+  verdict 0 "an offline check is queued, not dropped"
+else
+  verdict 1 "an offline check is queued, not dropped"
+  since | grep "DEBUG check:" | tail -2 | sed "s/^/        /"
+fi
+
+mark
 send "connect"; sleep 10
 wait_since "AP CONNECTED slot='$SLOT'" 45; verdict $? "an explicit connect still works after it"
+# Queued offline, so it has to leave on the reconnect under its own steam.
+wait_since "AP FLUSHED" 30; verdict $? "and the queued check was flushed on reconnect"
+sleep 2
+grep -q "$QLOC" "$SRV_LOG"; verdict $? "the server recorded the flushed check"
 
 echo "step 4/6: a goal reached offline reaches the server on reconnect"
 srv "/send $SLOT Mission Unlock: Founders"
@@ -237,19 +270,18 @@ wait_since "AP OFFLINE: loaded cached slot='$SLOT'" 30; verdict $? "came up on t
 mark; send "gatecheck:story1"; sleep 2
 since | grep -q "DEBUG GATECHECK: 'story1' allowed=True"
 verdict $? "a mission unlocked before the drop is playable offline"
-# Dump the cached state first: `check:` goes through MarkChecked, which returns
-# false for an ALREADY-checked location and then queues nothing - so this
-# assertion is only meaningful on a location known to be unchecked. It flapped
-# between two runs for exactly that reason.
+# The offline check-queue assertion used to sit here and has moved up to step
+# 3b: it needs a location that is still unchecked, and step 4's goal makes the
+# server auto-collect every location in the slot, so by this point there is no
+# such location left. What is unique to this step - coming up with no server at
+# all and driving off the cached slot - is asserted above.
+# Kept as a diagnostic, deliberately NOT a verdict. At the menu there are no
+# SpanNetworkPlanet objects to enumerate, so tracker:dump prints "TRACKER: 0
+# planets found" and any grep for "TRACKER: " passes whatever the state is -
+# an assertion that cannot fail is worse than no assertion, because it reads
+# in the output like coverage.
 mark; send "tracker:dump"; sleep 2
-mark; send "check:Hints - Cache 1"; sleep 3
-if since | grep -q "AP CHECKS QUEUED (offline)"; then
-  verdict 0 "an offline check is queued, not dropped"
-else
-  verdict 1 "an offline check is queued, not dropped"
-  echo "        (state dump kept in $LOGDIR; DEBUG check line follows)"
-  since | grep "DEBUG check:" | tail -2 | sed "s/^/        /"
-fi
+since | grep "TRACKER:" | tail -2 | sed "s/^/        /"
 
 # ---------------------------------------------------------------- 6
 echo "step 6/6: zero plugin errors"

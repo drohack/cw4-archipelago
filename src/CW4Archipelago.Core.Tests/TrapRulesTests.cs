@@ -4,13 +4,13 @@ using Xunit;
 public class TrapRulesTests
 {
     [Theory]
-    [InlineData("Spore Strike")]
-    [InlineData("Spore Scatter")]
-    [InlineData("Creeper Surge")]
-    [InlineData("Energy Drain")]
-    [InlineData("Emitter Overdrive")]
-    [InlineData("Unit Stun")]
-    [InlineData("Ammo Drain")]
+    [InlineData("Spore Strike Trap")]
+    [InlineData("Spore Scatter Trap")]
+    [InlineData("Rift Breach Trap")]
+    [InlineData("Energy Drain Trap")]
+    [InlineData("Emitter Overdrive Trap")]
+    [InlineData("Unit Stun Trap")]
+    [InlineData("Ammo Drain Trap")]
     public void TrapNames_MatchTheApworld(string name) => Assert.True(TrapRules.IsTrap(name));
 
     [Theory]
@@ -36,9 +36,9 @@ public class TrapRulesTests
         // actually happen: see SessionReconcileTests.
         var s = new SlotState();
         Assert.Equal(0, s.TrapsApplied);
-        s.ApplyReceivedItems(new[] { "Spore Strike", "Cannon" });
+        s.ApplyReceivedItems(new[] { "Spore Strike Trap", "Cannon" });
         s.TrapsApplied = 2;
-        s.ApplyReceivedItems(new[] { "Spore Strike", "Cannon" });
+        s.ApplyReceivedItems(new[] { "Spore Strike Trap", "Cannon" });
         Assert.Equal(2, s.TrapsApplied);
     }
 }

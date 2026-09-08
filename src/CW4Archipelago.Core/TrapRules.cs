@@ -14,17 +14,17 @@ namespace CW4Archipelago.Core;
 /// </summary>
 public static class TrapRules
 {
-    public const string SporeStrike = "Spore Strike";
-    public const string SporeScatter = "Spore Scatter";
-    public const string CreeperSurge = "Creeper Surge";
-    public const string EnergyDrain = "Energy Drain";
-    public const string EmitterOverdrive = "Emitter Overdrive";
-    public const string UnitStun = "Unit Stun";
-    public const string AmmoDrain = "Ammo Drain";
+    public const string SporeStrike = "Spore Strike Trap";
+    public const string SporeScatter = "Spore Scatter Trap";
+    public const string RiftBreach = "Rift Breach Trap";
+    public const string EnergyDrain = "Energy Drain Trap";
+    public const string EmitterOverdrive = "Emitter Overdrive Trap";
+    public const string UnitStun = "Unit Stun Trap";
+    public const string AmmoDrain = "Ammo Drain Trap";
 
     public static readonly IReadOnlyList<string> All = new[]
     {
-        SporeStrike, SporeScatter, CreeperSurge, EnergyDrain,
+        SporeStrike, SporeScatter, RiftBreach, EnergyDrain,
         EmitterOverdrive, UnitStun, AmmoDrain,
     };
 

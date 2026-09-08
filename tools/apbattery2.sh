@@ -121,7 +121,21 @@ wait_since "AP ITEM RECEIVED: Mission Unlock: Sequence" 20
 srv "/send $SLOT Cannon"
 sleep 4
 send "tracker:dump"; sleep 2
-since | grep -qE "TRACKER: $LOCKED_B 'Sequence' status=(InLogic|Partial|OutOfLogic)"; verdict $? "$LOCKED_B unlocked live while page open"
+# Probe the UNLOCK and the REPAINT, not the mission's colour. Colour was the
+# wrong instrument: MissionStatus aggregates LocationStatus, and every one of
+# Sequence's 18 checks needs Terp or Nullifier (see docs/randomizer-logic.md),
+# neither of which this step grants - so the mission correctly stays Locked
+# after its unlock arrives, and asserting otherwise fails on a working product.
+# It passed on one seed and failed on the next only because the two runs had
+# picked up different items by this point, which is the same seed-dependence
+# the comment above records for War and Peace, traded for a worse instance of
+# itself rather than removed.
+#
+# The two things this step actually exists to prove, each measured directly:
+since | grep -q "TRACKER: reconciled $LOCKED_B icons"; verdict $? "the tracker repainted $LOCKED_B while the page was open"
+mark
+send "gatecheck:$LOCKED_B"; sleep 2
+since | grep -q "DEBUG GATECHECK: '$LOCKED_B' allowed=True"; verdict $? "$LOCKED_B is unlocked live, without leaving the page"
 
 # --- (C) server-message toasts (receive path) ---
 echo "[ab2] step 5: server message received (toast path)"

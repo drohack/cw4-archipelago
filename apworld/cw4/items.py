@@ -202,13 +202,13 @@ POOL_FILLER_KINDS = [ENERGY_STORAGE_ITEM, BASE_GENERATION_ITEM]
 # deliberately not in POOL_TRAP_ITEMS below: dropping the name outright would
 # renumber every id after it, and ids are the one thing that must not move.
 TRAP_ITEMS = [
-    "Spore Strike",
-    "Spore Scatter",
-    "Creeper Surge",
-    "Energy Drain",
-    "Emitter Overdrive",
-    "Unit Stun",
-    "Ammo Drain",
+    "Spore Strike Trap",
+    "Spore Scatter Trap",
+    "Rift Breach Trap",
+    "Energy Drain Trap",
+    "Emitter Overdrive Trap",
+    "Unit Stun Trap",
+    "Ammo Drain Trap",
 ]
 
 # Emitter Overdrive is NOT generated (designer, 2026-08-31).
@@ -234,7 +234,7 @@ TRAP_ITEMS = [
 # removed to make that easy: the effect, the applier mapping, the trap: debug
 # command and the yaml weight all still work, so putting the name back in this
 # list is the whole change.
-POOL_TRAP_ITEMS = [t for t in TRAP_ITEMS if t != "Emitter Overdrive"]
+POOL_TRAP_ITEMS = [t for t in TRAP_ITEMS if t != "Emitter Overdrive Trap"]
 
 # APPENDED, never inserted. Item ids are positional, and the client's
 # ITEM_NAME_TO_ID has to match across every yaml - inserting a name anywhere but
@@ -916,16 +916,16 @@ def create_all_items(world) -> None:
 def trap_weights(world) -> dict:
     o = world.options
     return {
-        "Spore Strike": o.trap_weight_spore_strike.value,
-        "Spore Scatter": o.trap_weight_spore_scatter.value,
-        "Creeper Surge": o.trap_weight_creeper_surge.value,
-        "Energy Drain": o.trap_weight_energy_drain.value,
+        "Spore Strike Trap": o.trap_weight_spore_strike.value,
+        "Spore Scatter Trap": o.trap_weight_spore_scatter.value,
+        "Rift Breach Trap": o.trap_weight_creeper_surge.value,
+        "Energy Drain Trap": o.trap_weight_energy_drain.value,
         # Read but unused while Emitter Overdrive is out of the pool - see
         # POOL_TRAP_ITEMS. Kept so the option keeps working if it goes back in,
         # and so an existing yaml naming it is not an error.
-        "Emitter Overdrive": o.trap_weight_emitter_overdrive.value,
-        "Unit Stun": o.trap_weight_unit_stun.value,
-        "Ammo Drain": o.trap_weight_ammo_drain.value,
+        "Emitter Overdrive Trap": o.trap_weight_emitter_overdrive.value,
+        "Unit Stun Trap": o.trap_weight_unit_stun.value,
+        "Ammo Drain Trap": o.trap_weight_ammo_drain.value,
     }
 
 

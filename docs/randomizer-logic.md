@@ -34,7 +34,7 @@ and counts toward the finale.
 | 15 | Tower of Darkness | Cannon or Mortar | Cannon or Mortar + Missile Launcher or Sniper |
 | 16 | The Compound | Cannon or Mortar + Sniper | same |
 | 17 | Sequence | Cannon or Mortar | Cannon or Mortar + Missile Launcher or Sniper |
-| 18 | Wallis | Cannon or Mortar + Sniper | same |
+| 18 | Wallis | Sniper + Cannon + Miner | same |
 | 19 | Founders | Cannon or Mortar | Cannon or Mortar + Missile Launcher or Sniper |
 | 20 | Ever After | Miner + Cannon + Mortar | Miner + Cannon + Mortar + Missile Launcher or Sniper |
 
@@ -300,43 +300,43 @@ waiver deliberately drops them (a free first cache, say).
 
 | Check | Standard | Casual |
 |---|---|---|
-| Cache 1 | Terp + Cannon or Mortar | Terp + Cannon or Mortar + Missile Launcher or Sniper |
-| Cache 2 | Terp + Cannon or Mortar | Terp + Cannon or Mortar + Missile Launcher or Sniper |
-| Nullify 1 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
-| Nullify 2 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
-| Nullify 3 | Nullifier + Cannon or Mortar + Sniper + Miner + Platform or Porter or Pylon + Factory or Porter or Pylon | same |
-| Nullify 4 | Nullifier + Cannon or Mortar + Sniper + Miner + Platform or Porter or Pylon + Factory or Porter or Pylon | same |
-| Nullify 5 | Nullifier + Cannon or Mortar + Sniper + Miner + Platform or Porter or Pylon + Factory or Porter or Pylon | same |
-| Nullify 6 | Nullifier + Cannon or Mortar + Sniper + Miner + Platform or Porter or Pylon + Factory or Porter or Pylon | same |
-| Nullify 7 | Nullifier + Cannon or Mortar + Sniper + Miner + Platform or Porter or Pylon + Factory or Porter or Pylon | same |
-| Nullify 8 | Nullifier + Cannon or Mortar + Sniper + Miner + Platform or Porter or Pylon + Factory or Porter or Pylon | same |
-| Nullify 9 | Nullifier + Cannon or Mortar + Sniper + Miner + Platform or Porter or Pylon + Factory or Porter or Pylon | same |
-| Nullify 10 | Nullifier + Cannon or Mortar + Sniper + Miner + Platform or Porter or Pylon + Chronat + Factory | same |
-| Nullify 11 | Nullifier + Cannon or Mortar + Sniper + Miner + Platform or Porter or Pylon + Chronat + Factory | same |
-| Nullify 12 | Nullifier + Cannon or Mortar + Sniper + Miner + Platform or Porter or Pylon + Chronat + Factory | same |
-| Nullify 13 | Nullifier + Cannon or Mortar + Sniper + Miner + Platform or Porter or Pylon + Chronat + Factory | same |
-| Nullify 14 | Nullifier + Cannon or Mortar + Sniper + Miner + Platform or Porter or Pylon + Chronat + Factory | same |
+| Cache 1 | Cannon or Mortar + Terp + Nullifier + Sniper | same |
+| Cache 2 | Cannon or Mortar | Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 1 | Nullifier + Cannon or Mortar + Sniper + Miner | same |
+| Nullify 2 | Nullifier + Cannon or Mortar + Sniper + Miner | same |
+| Nullify 3 | Nullifier + Cannon or Mortar + Sniper + Miner | same |
+| Nullify 4 | Nullifier + Cannon or Mortar + Sniper + Miner | same |
+| Nullify 5 | Nullifier + Cannon or Mortar + Sniper + Chronat + Miner + Factory | same |
+| Nullify 6 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 7 | Nullifier + Cannon or Mortar + Sniper + Chronat + Miner + Factory | same |
+| Nullify 8 | Nullifier + Cannon or Mortar + Sniper + Chronat + Miner + Factory | same |
+| Nullify 9 | Nullifier + Cannon or Mortar + Sniper + Chronat + Miner + Factory | same |
+| Nullify 10 | Nullifier + Cannon or Mortar + Sniper + Chronat + Miner + Factory | same |
+| Nullify 11 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 12 | Nullifier + Cannon or Mortar + Sniper + Chronat or Platform or Porter or Pylon + Miner + Factory or Porter or Pylon | same |
+| Nullify 13 | Nullifier + Cannon or Mortar + Sniper + Chronat or Platform or Porter or Pylon + Miner + Factory or Porter or Pylon | same |
+| Nullify 14 | Nullifier + Cannon or Mortar + Sniper + Chronat or Platform or Porter or Pylon + Miner + Factory or Porter or Pylon | same |
 | Reclaim | Nullifier + Sniper + Miner + Platform or Porter or Pylon + Chronat + Cannon or Mortar + Factory | same |
-| Mission Complete | Cannon or Mortar + Terp | Cannon or Mortar + Missile Launcher or Sniper + Terp |
+| Mission Complete | Cannon or Mortar | Cannon or Mortar + Missile Launcher or Sniper |
 
 ### 18. Wallis
 
 | Check | Standard | Casual |
 |---|---|---|
-| Cache 1 | Terp + Cannon or Mortar + Sniper | same |
-| Totem 1 | Factory + Cannon or Mortar + Sniper | same |
-| Totem 2 | Factory + Cannon or Mortar + Sniper | same |
-| Nullify 1 | Nullifier + Cannon or Mortar + Sniper + Miner | same |
-| Nullify 2 | Nullifier + Cannon or Mortar + Sniper + Miner | same |
-| Nullify 3 | Nullifier + Cannon or Mortar + Sniper + Miner | same |
-| Nullify 4 | Nullifier + Cannon or Mortar + Sniper + Miner | same |
-| Nullify 5 | Nullifier + Sniper + Miner + Cannon | same |
-| Nullify 6 | Nullifier + Sniper + Miner + Cannon | same |
-| Nullify 7 | Nullifier + Sniper + Miner + Cannon | same |
-| Nullify 8 | Nullifier + Sniper + Miner + Cannon | same |
-| Nullify 9 | Nullifier + Sniper + Miner + Cannon | same |
-| Reclaim | Nullifier + Cannon + Sniper | same |
-| Mission Complete | Cannon or Mortar + Sniper + Terp | same |
+| Cache 1 | Terp + Sniper + Cannon + Miner | same |
+| Totem 1 | Factory + Sniper + Cannon + Miner | same |
+| Totem 2 | Factory + Sniper + Cannon + Miner | same |
+| Nullify 1 | Nullifier + Sniper + Cannon + Miner | same |
+| Nullify 2 | Nullifier + Sniper + Cannon + Miner | same |
+| Nullify 3 | Nullifier + Sniper + Cannon + Miner | same |
+| Nullify 4 | Nullifier + Sniper + Cannon + Miner | same |
+| Nullify 5 | Nullifier + Sniper + Cannon + Miner | same |
+| Nullify 6 | Nullifier + Sniper + Cannon + Miner | same |
+| Nullify 7 | Nullifier + Sniper + Cannon + Miner | same |
+| Nullify 8 | Nullifier + Sniper + Cannon + Miner | same |
+| Nullify 9 | Nullifier + Sniper + Cannon + Miner | same |
+| Reclaim | Nullifier + Cannon + Sniper + Miner | same |
+| Mission Complete | Sniper + Cannon + Miner + Terp | same |
 
 ### 19. Founders
 

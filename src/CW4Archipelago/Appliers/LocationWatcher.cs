@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using CW4Archipelago.Core;
 using HarmonyLib;
 
@@ -7,23 +8,33 @@ namespace CW4Archipelago.Appliers;
 /// <summary>
 /// Watches the live mission and turns progress into Archipelago location checks.
 ///
-/// Counted objectives - nullify, totems, collect - send ONE CHECK PER INSTANCE,
-/// and progress is read from the game's own live SETS rather than from
-/// MissionObjectiveData.count:
+/// Counted objectives - nullify, totems, collect - send ONE CHECK PER INSTANCE.
+/// There are TWO separate questions here, and only the second involves position.
 ///
-///   caches   maxMustCollect - mustCollect.Count
-///   totems   totems where totemComplete
-///   nullify  (count at mission start) - nullifiableUnits.Count
+/// IS IT DONE? Read off the structure ITSELF. Never inferred from where it is:
 ///
-/// The counter cannot be trusted for this. Farsite proves it: its Collect slot
-/// reads enabled=False with count=0 while two caches sit on the map and are
+///   nullify  u.IsSuppressed()          the unit stays in the scene, marked
+///   totems   tm.totemComplete          the totem stays in the scene, marked
+///   caches   absent from gs.mustCollect (the unit is DESTROYED on pickup)
+///
+/// So running liftic into a totem is not detected by anything positional: the
+/// watcher walks the game's own list, points at each totem and asks that object
+/// whether it is complete. Same for enemies. The object answers for itself, and
+/// because the object survives being finished, that answer is still there after
+/// a save and reload.
+///
+/// WHICH ONE IS IT? Its map cell - UnitManager.cellX/cellY, ordered
+/// (cellY, cellX) ascending. See InstanceIndex. That is a NAMING rule, not a
+/// detector: it turns "this object is done" into "Totem 3". Caches are the sole
+/// exception and there it genuinely is positional, because a destroyed cache
+/// leaves nothing to ask - the one that went is the one whose cell is no longer
+/// occupied (MapCells).
+///
+/// Neither question uses MissionObjectiveData.count, and Farsite is why: its
+/// Collect slot reads enabled=False with count=0 while two caches sit on the map
 /// perfectly collectable, so checks driven off the counter would be dead there.
 /// The same doubt applies to every OPTIONAL objective, which is 104 of the 120
-/// nullify targets - far too much to leave resting on a field that is not
-/// guaranteed to move. The sets are what the game itself counts.
-///
-/// Instances are numbered by activation order, because the game cannot tell one
-/// totem from another.
+/// nullify targets - far too much to rest on a field not guaranteed to move.
 ///
 /// Reclaim and Custom are not counts (a percentage and a script), so they stay a
 /// single check on completion. Finishing the final mission sends the goal.
@@ -54,6 +65,10 @@ public sealed class LocationWatcher
     private int _countdown;
     private bool _missionComplete;
 
+    /// <summary>Warn once per mission load, not once a second, if the known
+    /// cache-cell table does not fit the mission in front of us.</summary>
+    private bool _cacheTableWarned;
+
     public void Tick()
     {
         var gs = GameSpace.instance;
@@ -70,6 +85,7 @@ public sealed class LocationWatcher
             _sentUpTo = null;
             _lastNullifiableSeen = -999;
             _missionComplete = false;
+            _cacheTableWarned = false;
             ModCore.Log.LogInfo($"LocationWatcher: mission {_mission} ('{SpecifierOf(_mission)}')");
         }
         if (_mission == 0)
@@ -118,9 +134,16 @@ public sealed class LocationWatcher
             // player got none of the nine checks. research-findings.md said
             // progress "is measured by that set shrinking"; that holds during
             // live play and not across a load.
-            SendCounted(0, Math.Max(NullifiedCount(gs), AllIfObjectiveDone(world, 0)));
-            SendCounted(1, Math.Max(TotemsCompleteCount(gs), AllIfObjectiveDone(world, 1)));
-            SendCounted(4, Math.Max(CachesCollectedCount(gs), AllIfObjectiveDone(world, 4)));
+            //
+            // Each of the three sends BY IDENTITY where it can, and falls back to
+            // counting where it cannot. Identity is the point: the apworld puts
+            // different requirements on different instances - Sequence's five
+            // targets under the dark tower need a Chronat, Shattered's top-left
+            // totem needs a mover - and a high-water mark attached those
+            // requirements to whichever structure happened to be finished Nth.
+            SendNullify(gs, world);
+            SendTotems(gs, world);
+            SendCaches(gs, world);
         }
 
         bool mc = false;
@@ -164,6 +187,224 @@ public sealed class LocationWatcher
     /// re-sent: reset the high-water mark and wait for progress to climb again.
     /// Sending is idempotent anyway (MarkChecked filters), but rewinding keeps
     /// the log honest about what actually happened.</summary>
+    /// <summary>Nullify targets, by identity.
+    ///
+    /// The easy case. The set never shrinks and the units are never destroyed -
+    /// a nullified structure is marked SUPPRESSED and stays exactly where it is
+    /// - so both the cell and the done-flag are readable from live state at any
+    /// time, including after a reload.</summary>
+    private void SendNullify(GameSpace gs, World world)
+    {
+        var cells = new List<(int X, int Y)>();
+        var done = new List<bool>();
+        int total = 0, suppressed = 0;
+        try
+        {
+            foreach (var u in gs.nullifiableUnits)
+            {
+                if (!GameUtil.IsAlive(u)) continue;
+                total++;
+                bool supp = false;
+                try { supp = u.IsSuppressed(); } catch { }
+                if (supp) suppressed++;
+                int cx = InstanceIndex.Unknown, cy = InstanceIndex.Unknown;
+                try { cx = u.cellX; cy = u.cellY; } catch { }
+                cells.Add((cx, cy));
+                done.Add(supp);
+            }
+        }
+        catch { return; }
+
+        int locations = MissionRules
+            .LocationsForObjective(ModCore.Client.State, _mission, 0).Count;
+        if (suppressed != _lastNullifiableSeen)
+        {
+            _lastNullifiableSeen = suppressed;
+            ModCore.Log.LogInfo(
+                $"NULLIF: suppressed={suppressed}/{total} locations={locations}");
+        }
+        SendByIdentity(0, cells, done, locations,
+                       NullifyRules.Completed(suppressed, locations),
+                       AllIfObjectiveDone(world, 0));
+    }
+
+    /// <summary>Totems, by identity. Totem is a component and carries no cell of
+    /// its own; the unit on the same object does, and the game's own scalar
+    /// converter UnitManager.GetCellX turns a world axis into a cell
+    /// otherwise.</summary>
+    private void SendTotems(GameSpace gs, World world)
+    {
+        var cells = new List<(int X, int Y)>();
+        var done = new List<bool>();
+        int complete = 0;
+        try
+        {
+            foreach (var tm in gs.totems)
+            {
+                if (tm == null) continue;
+                bool isDone = false;
+                try { isDone = tm.totemComplete; } catch { }
+                if (isDone) complete++;
+                int cx = InstanceIndex.Unknown, cy = InstanceIndex.Unknown;
+                try
+                {
+                    var um = tm.GetComponent<UnitManager>();
+                    if (um != null) { cx = um.cellX; cy = um.cellY; }
+                }
+                catch { }
+                if (cx < 0)
+                {
+                    try
+                    {
+                        var p = tm.transform.position;
+                        cx = UnitManager.GetCellX(p.x);
+                        cy = UnitManager.GetCellX(p.z);
+                    }
+                    catch { }
+                }
+                cells.Add((cx, cy));
+                done.Add(isDone);
+            }
+        }
+        catch { return; }
+
+        int locations = MissionRules
+            .LocationsForObjective(ModCore.Client.State, _mission, 1).Count;
+        SendByIdentity(1, cells, done, locations, complete, AllIfObjectiveDone(world, 1));
+    }
+
+    /// <summary>Caches, by identity where it is possible at all.
+    ///
+    /// A collected cache is DESTROYED and leaves GameSpace.mustCollect, so the
+    /// live set names what is LEFT and can never name what was taken. The full
+    /// list is therefore recorded in SlotState the first time the mission is
+    /// seen intact (mustCollect still at maxMustCollect), and after that a
+    /// remembered cell no longer present is a cache that was collected.
+    ///
+    /// No memory means a save whose caches were taken before the mod ever saw
+    /// the mission; that falls through to counting, which loses the ordering but
+    /// never mislabels a check.</summary>
+    private void SendCaches(GameSpace gs, World world)
+    {
+        var remaining = new List<(int X, int Y)>();
+        int max = -1;
+        try { max = gs.maxMustCollect; } catch { }
+        try
+        {
+            foreach (var u in gs.mustCollect)
+            {
+                if (u == null) continue;
+                int cx = InstanceIndex.Unknown, cy = InstanceIndex.Unknown;
+                try { cx = u.cellX; cy = u.cellY; } catch { }
+                remaining.Add((cx, cy));
+            }
+        }
+        catch { return; }
+
+        int locations = MissionRules
+            .LocationsForObjective(ModCore.Client.State, _mission, 4).Count;
+        if (locations <= 0)
+            return;
+        int collected = max < 0 ? -1 : max - remaining.Count;
+        var state = ModCore.Client.State;
+        var key = MissionRules.Specifier(_mission);
+        int fromGame = AllIfObjectiveDone(world, 4);
+
+        // The cells still on the map, as keys, for the table check below.
+        var present = new List<string>();
+        foreach (var c in remaining)
+            if (c.X >= 0 && c.Y >= 0)
+                present.Add(InstanceIndex.Key(c.X, c.Y));
+
+        // FIRST CHOICE: the known map cells. Cache positions do not vary with a
+        // save, a seed or a playthrough, so the intact set does not have to be
+        // observed - it is a fact about the mission. That matters for the one
+        // case the observed-set memory below can never serve: a save whose
+        // caches were already taken before this mod was installed.
+        //
+        // Guarded three ways, because a wrong index here is a mislabelled check:
+        // the table must know the mission, its row must be the length the GAME
+        // reports, and every cache still standing must appear in it. A cache
+        // moved by a game update fails the third test.
+        var table = MapCells.CachesFor(_mission);
+        if (table != null && max > 0 && table.Count == max && MapCells.Covers(_mission, present))
+        {
+            foreach (var n in InstanceIndex.DoneFromRemembered(table, remaining, locations))
+                SendCheck(MissionRules.InstanceLocation(_mission, 4, n));
+            SendCounted(4, fromGame);   // the game's verdict still backfills
+            return;
+        }
+        if (table != null && !_cacheTableWarned)
+        {
+            _cacheTableWarned = true;
+            ModCore.Log.LogWarning(
+                $"CACHES: the known cell table does not fit {key} " +
+                $"(table={table.Count} game={max} covers={MapCells.Covers(_mission, present)}) " +
+                "- falling back to what this run observed");
+        }
+
+        // SECOND: the set as first seen this playthrough. Guarded on the mission
+        // actually BEING intact at that moment - remembering a half-collected
+        // first sighting as the whole thing would shift every index after the
+        // gap.
+        if (max > 0 && remaining.Count == max && !state.CacheCells.ContainsKey(key))
+        {
+            var remembered = InstanceIndex.Remember(remaining);
+            if (remembered.Count == max)
+            {
+                state.CacheCells[key] = remembered;
+                ModCore.Log.LogInfo(
+                    $"CACHES: remembered {remembered.Count} cell(s) for {key} " +
+                    $"[{string.Join(" ", remembered)}]");
+            }
+        }
+
+        if (state.CacheCells.TryGetValue(key, out var known) && known != null && known.Count > 0)
+        {
+            foreach (var n in InstanceIndex.DoneFromRemembered(known, remaining, locations))
+                SendCheck(MissionRules.InstanceLocation(_mission, 4, n));
+            SendCounted(4, fromGame);
+            return;
+        }
+
+        // LAST: count. Loses which cache, never claims the wrong one.
+        SendCounted(4, Math.Max(collected, fromGame));
+    }
+
+    /// <summary>Send the identified instances, or fall back to counting.
+    ///
+    /// The fallback is not a nicety. Identity needs every cell to read, and
+    /// InstanceIndex refuses the whole set if any one of them did not, because a
+    /// partial read yields confident numbers derived from a coordinate we never
+    /// got. Counting is wrong in a way that only loses ordering; a bad index is
+    /// wrong in a way that mislabels a check, and the apworld hangs different
+    /// requirements off different indices.
+    ///
+    /// The game's own completion query is layered on top either way - it is the
+    /// one signal that is still right on a resumed save.</summary>
+    private void SendByIdentity(int objectiveIndex,
+                                List<(int X, int Y)> cells,
+                                List<bool> done,
+                                int locations,
+                                int countedProgress,
+                                int gameVerdict)
+    {
+        if (locations <= 0)
+            return;
+        if (InstanceIndex.Assign(cells).Length > 0)
+        {
+            if (InstanceIndex.HasSharedCell(cells))
+                ModCore.Log.LogWarning(
+                    $"INSTANCE: two {MissionRules.InstanceKind(objectiveIndex)} structures share " +
+                    $"a cell on {MissionRules.Specifier(_mission)} - their numbers are interchangeable");
+            foreach (var n in InstanceIndex.DoneInstances(cells, done, locations))
+                SendCheck(MissionRules.InstanceLocation(_mission, objectiveIndex, n));
+            SendCounted(objectiveIndex, gameVerdict);
+            return;
+        }
+        SendCounted(objectiveIndex, Math.Max(countedProgress, gameVerdict));
+    }
+
     private void SendCounted(int index, int progress)
     {
         if (_sentUpTo == null || index >= _sentUpTo.Length || progress < 0)
@@ -180,35 +421,6 @@ public sealed class LocationWatcher
             _sentUpTo[index] = next;
             SendCheck(MissionRules.InstanceLocation(_mission, index, next));
         }
-    }
-
-    /// <summary>Caches taken so far. mustCollect holds the ones still wanted and
-    /// maxMustCollect the total, and both are live regardless of whether the
-    /// Collect objective is enabled.</summary>
-    private static int CachesCollectedCount(GameSpace gs)
-    {
-        try
-        {
-            int remaining = 0;
-            foreach (var u in gs.mustCollect) if (u != null) remaining++;
-            return gs.maxMustCollect - remaining;
-        }
-        catch { return -1; }
-    }
-
-    private static int TotemsCompleteCount(GameSpace gs)
-    {
-        try
-        {
-            int done = 0;
-            foreach (var t in gs.totems)
-            {
-                if (t == null) continue;
-                try { if (t.totemComplete) done++; } catch { }
-            }
-            return done;
-        }
-        catch { return -1; }
     }
 
     /// <summary>Every instance of an objective the GAME says is complete, or 0.
@@ -229,45 +441,6 @@ public sealed class LocationWatcher
                 .LocationsForObjective(ModCore.Client.State, _mission, index).Count;
         }
         catch { return 0; }
-    }
-
-    /// <summary>Nullify targets destroyed, measured from ABSOLUTE state.
-    ///
-    /// This used to be the drop from the count at mission start, which is right
-    /// only when the mission is started fresh. Resuming a save in which the
-    /// targets were already destroyed meant the first tick saw an empty set, so
-    /// the "start" was recorded as zero and progress stayed zero for the rest of
-    /// the mission - a player who nullified all nine on We Were Never Alone,
-    /// saved and came back received none of the nine checks. The rule now lives
-    /// in NullifyRules where it is tested; see NullifyRulesTests.</summary>
-    private int NullifiedCount(GameSpace gs)
-    {
-        try
-        {
-            // Count the SUPPRESSED targets. The set itself never shrinks and the
-            // units are never destroyed, so anything that counts what is left
-            // reports zero forever - see NullifyRules for the measurements.
-            int total = 0, suppressed = 0;
-            foreach (var u in gs.nullifiableUnits)
-            {
-                if (!GameUtil.IsAlive(u)) continue;
-                total++;
-                try { if (u.IsSuppressed()) suppressed++; } catch { }
-            }
-
-            int locations = MissionRules
-                .LocationsForObjective(ModCore.Client.State, _mission, 0).Count;
-            int done = NullifyRules.Completed(suppressed, locations);
-
-            if (suppressed != _lastNullifiableSeen)
-            {
-                _lastNullifiableSeen = suppressed;
-                ModCore.Log.LogInfo(
-                    $"NULLIF: suppressed={suppressed}/{total} locations={locations} done={done}");
-            }
-            return done;
-        }
-        catch { return -1; }
     }
 
     /// <summary>Winning a mission means its REQUIRED objectives are done, so

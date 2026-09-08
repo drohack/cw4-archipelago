@@ -87,7 +87,15 @@ MISSION_EXTRA = {
     # Wallis, the second standard-tier sniper mission, and stated as flatly:
     # "You need snipers to actually do this level as a hard requirement.
     #  (regardless of energy/weapons)".
-    18: [["Sniper"]],
+    #
+    # And a CANNON specifically, not either weapon (designer, 2026-09-08): "You
+    # Need Snipers to do anything in this level. I was able to beat it with
+    # Miners, Snipers, and Cannons only... I think Mortars and Snipers only is
+    # not possible (red), and even if you added miners it would be hard (let's
+    # keep it red for now)." So OFFENSE's "Cannon or Mortar" is not enough here
+    # and the mortar-only route is withdrawn - this is a TIGHTENING of what the
+    # generator may assume for the whole mission, not just its nullifies.
+    18: [["Sniper"], ["Cannon"]],
     # Ever After. The ONLY mission where logic demands BOTH weapons - two
     # separate groups, so both must be held:
     #   "you need Miners, morters and cannons. hard requirement. There's jsut too
@@ -136,6 +144,12 @@ MISSION_EXTRA = {
 MISSION_SOFT = {
     3: [["Miner"]],
     4: [["Miner"]],
+    # Wallis. Beaten with "Miners, Snipers, and Cannons only", and the designer
+    # put the miner-less case at yellow rather than red: "You could put just
+    # Snipers and Cannons as out of logic (yellow) as it might be possible."
+    # So logic assumes a Miner and the map still shows the checks reachable
+    # without one - exactly what this table is for.
+    18: [["Miner"]],
 }
 
 
@@ -196,8 +210,11 @@ OBJECTIVE_OWN = {
     (3, "Nullify"): [["Pylon", "Porter", "Platform"]],
     (3, "Totems"): [["Pylon", "Porter", "Platform"]],
 
-    # Sequence' reclaim means clearing everything, so it inherits the whole
-    # nullify stack including the darkness beacon - see OBJECTIVE_TIERS.
+    # Sequence's reclaim means clearing everything, so it inherits the whole
+    # nullify stack including the darkness beacon - the union of every group in
+    # OBJECTIVE_INSTANCE_EXTRA[(17, "Nullify")], since clearing the map means
+    # doing all fourteen. Miner stays HARD here even though it is soft per
+    # instance: reclaiming needs every target, not a reachable subset.
     (17, "Reclaim"): [["Sniper"], ["Miner"], ["Pylon", "Porter", "Platform"],
                       ["Chronat"]],
 
@@ -256,7 +273,9 @@ OBJECTIVE_OWN = {
 
     # Buried caches.
     (16, "Collect"): [["Terp"]],
-    (17, "Collect"): [["Terp"]],   # "The 2nd item ... is burried (TERP)"
+    # (17, "Collect") deliberately absent: Sequence's two caches DIFFER, and an
+    # objective-wide Terp claimed the free one needed digging too. It is keyed to
+    # the buried cache alone in OBJECTIVE_INSTANCE_EXTRA.
     (18, "Collect"): [["Terp"]],
 
     # Founders: "The item is in darkness (BEACON), and burried (TERP), and behind
@@ -306,51 +325,127 @@ OBJECTIVE_SOFT = {
 }
 
 
-# Requirements that ESCALATE across the instances of one counted objective.
+# Requirements that differ BETWEEN THE INSTANCES of one counted objective.
 #
-# Sound because instance locations are numbered by ACTIVATION ORDER - the game
-# cannot tell one nullify target from another, so "Nullify 3" is the third one
-# the player does, and its requirement is the third-easiest target's. A flat
-# per-mission rule would instead paint the two easy targets red until the whole
-# late-game kit had arrived.
+# This replaced OBJECTIVE_TIERS, which was cumulative - each entry read "every
+# instance up to N needs this" - and that shape only made sense while instances
+# were numbered by ACTIVATION ORDER. Its own comment said so: "Nullify 3 is the
+# third one the player does, and its requirement is the third-easiest target's."
 #
-# Each entry is (highest instance this tier covers, extra groups), lowest first.
-OBJECTIVE_TIERS = {
-    # Sequence, from the map review (2026-09-03):
-    #   "With nullifier, you can nullify 2 of the enemies (the 2 connected to
-    #    your island on the left hand side ... you can get 7 more nullifies if
-    #    you have sniper, plus miner access to get to the RESO (the reso needs
-    #    pylon or porter or platform to actually get to, you cannot get there
-    #    with just towers) ... The final 5 enemies are in darkness and need
-    #    light/beacon to even get to to nullify."
-    (17, "Nullify"): [
-        (2, []),
-        (9, [["Sniper"], ["Miner"], ["Pylon", "Porter", "Platform"]]),
-        (14, [["Sniper"], ["Miner"], ["Pylon", "Porter", "Platform"],
-              ["Chronat"]]),
-    ],
-    # Wallis:
-    #   "I tried with miners and morters, and you could probably get the first 2
-    #    nullifies with that, maybe even first 4. but after that you'll need some
-    #    more firepower, so i would say need cannons for after."
-    # The hedge is resolved the way the design doc says to resolve hedges -
-    # require rather than not - so the cheap tier stops at 4.
-    (18, "Nullify"): [
-        (4, [["Miner"]]),
-        (9, [["Miner"], ["Cannon"]]),
-    ],
-    # Shattered. From the worksheet: "You can get 2 of the 3 totems with a
-    # refinery (greenar crystal), and factory. To get to the Enemy (nullify),
-    # and the 3rd totem you either need porter, or platform to cross space."
+# Instances are now numbered by MAP CELL, sorted (cellY, cellX) ascending, so an
+# index is a specific structure and difficulty is NOT monotonic in the index.
+# Sequence proves it: its two easy targets sort to 6 and 11, right through the
+# middle of the hard ones. A cumulative table would have made instances 1 and 2
+# the cheap pair, and they are two of the bottom-right cluster.
+#
+# Indices come from tools/instance-dump.sh. Instances not listed need only their
+# objective's and mission's own requirements.
+OBJECTIVE_INSTANCE_EXTRA = {
+    # Shattered's totems. "You can get 2 of the 3 totems with a refinery
+    # (greenar crystal), and factory. To get to the Enemy (nullify), and the 3rd
+    # totem you either need porter, or platform to cross space", and which totem
+    # that is was named on 2026-09-08: "it's the one in the top left, near the
+    # enemies that need to be nullified".
     #
-    # Its Nullify entry already carried Platform-or-Porter; the totems were
-    # missed, and the third read GREEN without either - reported from play on
-    # v0.1.7. A flat per-objective rule would be wrong in the other direction,
-    # painting the two reachable totems red until a mover arrives.
-    (11, "Totems"): [
-        (2, []),
-        (3, [["Porter", "Platform"]]),
-    ],
+    # Dumped totem cells (54,48), (201,141), (18,185) sort to instances 1, 2, 3.
+    # Instance 3 at (18,185) is 21 cells from the nearest nullify target where
+    # the other two are 96 and 86 away, and it is the low-X high-Y corner - so
+    # "top left, near the enemies" identifies instance 3 on both counts.
+    (11, "Totems"): {
+        3: [["Porter", "Platform"]],
+    },
+
+    # Sequence's 14 nullify targets, in four groups (designer, 2026-09-08). The
+    # dumped cells match the described groups exactly by unit type as well as by
+    # count, which is what makes the mapping a derivation rather than a guess:
+    #
+    #   instances 1-4    bottom-right   (198,25)E (199,40)Skimmer (233,45)E
+    #                                   (244,55)Blob
+    #                                   "the 4 enemies in the right bottom
+    #                                    (skimmer, 2 emitters, 1 blob) that you
+    #                                    don't need pylon/platform/porter to get
+    #                                    to, you can just get to these with a
+    #                                    tower"
+    #   instances 5,7-10 dark tower     (209,73)Spore (194,88)Denier (204,88)E
+    #                                   (180,102)Skimmer (209,103)Spore
+    #                                   "the dark tower that covers 1 skimmer,
+    #                                    2 spore, 1 emitter in the center right"
+    #                                   - five with the Denier, which reconciles
+    #                                   with the earlier "final 5 enemies are in
+    #                                   darkness"
+    #   instances 6,11   top-left       (17,76)E (35,124)E
+    #                                   "you can nullify the 2 creep emitters in
+    #                                    the top left side of the map without
+    #                                    anything special (need weapon)"
+    #   instances 12-14  top-right      (165,132)E (212,135)E (146,144)Blob
+    #                                   "either need to go through the dark tower
+    #                                    (beacon) with normal towers, or
+    #                                    pylon/porter/platform can get you up
+    #                                    there"
+    #
+    # Sniper is on all twelve non-top-left targets: "you'll need nullifier, and
+    # snipers to get close to it as well. same with all of the other enemies."
+    # Miner is NOT here - see OBJECTIVE_INSTANCE_SOFT for why it is soft.
+    (17, "Nullify"): {
+        1: [["Sniper"]],
+        2: [["Sniper"]],
+        3: [["Sniper"]],
+        4: [["Sniper"]],
+        5: [["Sniper"], ["Chronat"]],
+        # 6 - top-left, weapon and nullifier only
+        7: [["Sniper"], ["Chronat"]],
+        8: [["Sniper"], ["Chronat"]],
+        9: [["Sniper"], ["Chronat"]],
+        10: [["Sniper"], ["Chronat"]],
+        # 11 - top-left, weapon and nullifier only
+        12: [["Sniper"], ["Chronat", "Pylon", "Porter", "Platform"]],
+        13: [["Sniper"], ["Chronat", "Pylon", "Porter", "Platform"]],
+        14: [["Sniper"], ["Chronat", "Pylon", "Porter", "Platform"]],
+    },
+
+    # Sequence's two caches are NOT alike, which an objective-wide Terp got
+    # wrong in both directions. Dumped cells (239,89) and (89,125) sort to
+    # instances 1 and 2:
+    #
+    #   1  (239,89)  far right   "The 2nd item in the right side is burried
+    #                             below ground (needs terp)"
+    #   2  (89,125)  left-middle "You can also get the item on the top left
+    #                             middle with the same" - i.e. a weapon only
+    (17, "Collect"): {
+        1: [["Terp"]],
+    },
+}
+
+
+# Per-INSTANCE requirements that logic asserts and physics does not. The
+# instance-level twin of OBJECTIVE_SOFT, for the same reason that table exists:
+# the generator must not assume a hard-mode run, while the map should still show
+# the check reachable-but-unpromised rather than red.
+OBJECTIVE_INSTANCE_SOFT = {
+    (17, "Nullify"): {
+        # Miner, on the twelve targets away from the top-left pair.
+        #
+        # DELIBERATELY SOFT, and flagged as a judgement call. The earlier map
+        # review said "you can get 7 more nullifies if you have sniper, plus
+        # miner access to get to the RESO"; the fuller 2026-09-08 description
+        # that supersedes it does not mention a Miner at all. Dropping it
+        # outright would be a LOOSENING, and a wrong loosening shows a check
+        # green that cannot be reached - the failure this whole pass exists to
+        # remove. Keeping it hard would instead paint reachable checks red.
+        # Soft is the honest middle: logic keeps assuming it, the map does not
+        # call it unreachable without one. Delete these if the newer reading is
+        # meant to replace the older entirely.
+        1: [["Miner"]], 2: [["Miner"]], 3: [["Miner"]], 4: [["Miner"]],
+        5: [["Miner"]], 7: [["Miner"]], 8: [["Miner"]], 9: [["Miner"]],
+        10: [["Miner"]], 12: [["Miner"]], 13: [["Miner"]], 14: [["Miner"]],
+    },
+    (17, "Collect"): {
+        # The buried right-side cache. "out of logic you could get there with
+        # platforms. else you'll need nullifier, and snipers to get close to it
+        # as well." So logic wants the nullifier-and-sniper approach; physically
+        # a platform route exists, which is why these two are not hard.
+        1: [["Nullifier"], ["Sniper"]],
+    },
 }
 
 
@@ -371,7 +466,16 @@ WAIVES_MISSION_REQUIREMENTS = {
 # point was that ANY mission with a free collectible should be able to.
 #
 # Locations are per instance, so the rule can be too. Keyed
-# (mission, kind, instance); instances are numbered by activation order.
+# (mission, kind, instance), and an instance is now a SPECIFIC structure -
+# ordered by map cell, (cellY, cellX) ascending - rather than the Nth one
+# completed.
+#
+# Farsite's dumped cache cells are (66,51) and (150,63), which sort to instances
+# 1 and 2. The free one is instance 1: "The one nearest to the rift lab is the
+# only free one. since you can't move the rift lab you need a weapon to get to
+# the 2nd item (right side)" (designer, 2026-09-08) - and (150,63) is the
+# right-hand one. So this entry keeps the same index it had, but for a derived
+# reason instead of an assumed ordering.
 WAIVES_INSTANCE = {
     (1, "Collect", 1),
 }
@@ -584,19 +688,6 @@ def mission_complete_requirements(mission: int, casual: bool = False,
     return groups
 
 
-def _tier_for(tiers: list, index: int) -> list:
-    """The extra groups for instance `index`: the first tier that covers it.
-
-    Past the last tier the highest one applies - an extra instance appearing in
-    a future game update should inherit the hardest known requirement rather
-    than none at all.
-    """
-    for upto, extra in tiers:
-        if index <= upto:
-            return extra
-    return tiers[-1][1] if tiers else []
-
-
 def _instance_index(name: str) -> int | None:
     """The trailing instance number of a per-instance location name, or None."""
     tail = name.rsplit(" ", 1)[-1]
@@ -607,10 +698,14 @@ def location_requirements(name: str, mission: int, casual: bool = False,
                           physical: bool = False) -> list:
     """The COMPLETE requirement for one location, by name.
 
-    Instances of an objective type usually share their type's rule - the game
-    cannot tell one totem from another, and neither can logic. WAIVES_INSTANCE is
-    the exception, for the one case where the worksheet distinguishes them:
-    Farsite's first cache is free and its second is not.
+    Instances of an objective type usually share their type's rule. Where they
+    do not, the difference is keyed to the INSTANCE - a specific structure now,
+    identified by its map cell, not "the Nth one you did":
+
+      OBJECTIVE_INSTANCE_EXTRA  extra requirements for one instance
+      OBJECTIVE_INSTANCE_SOFT   the same, but logic-only (yellow, not red)
+      WAIVES_INSTANCE           drops the MISSION's requirements for one
+                                instance - Farsite's free cache
     """
     if name == mission_complete_location_name(mission):
         return mission_complete_requirements(mission, casual, physical)
@@ -618,14 +713,18 @@ def location_requirements(name: str, mission: int, casual: bool = False,
     if not kind:
         return []
     index = _instance_index(name)
-    tiers = OBJECTIVE_TIERS.get((mission, kind))
-    if index is not None and tiers is not None:
-        extra = _tier_for(tiers, index)
+    hard = OBJECTIVE_INSTANCE_EXTRA.get((mission, kind))
+    soft = OBJECTIVE_INSTANCE_SOFT.get((mission, kind))
+    if index is not None and (hard is not None or soft is not None):
         groups = [list(g) for g in requirements_for_kind(mission, kind, casual,
                                                          physical)]
-        for group in extra:
+        for group in (hard or {}).get(index, []):
             if list(group) not in groups:
                 groups.append(list(group))
+        if not physical:
+            for group in (soft or {}).get(index, []):
+                if list(group) not in groups:
+                    groups.append(list(group))
         return _expand(groups)
     if index is not None and (mission, kind, index) in WAIVES_INSTANCE:
         # The instance's own requirements, without the mission's. Built the same

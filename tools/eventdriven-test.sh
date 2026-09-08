@@ -169,19 +169,45 @@ since | grep -q "LocationWatcher: mission 2"; r=$?
 verdict $r "mission 2 loaded"
 send "ada:close"
 
+# Order-independent, deliberately. `totem:complete` finishes the first
+# incomplete totem in GameSpace's HashSet, whose order is not defined, and a
+# check belongs to the STRUCTURE now - so the location that fires is that
+# totem's cell rank, not "1". This asserted "Home - Totem 1" for the first
+# completion, which passed for the whole time the identity bug existed (a
+# high-water mark satisfies it while crediting the wrong structure) and then
+# failed the moment the behaviour became correct.
+#
+# The property actually being protected is that each instance is sent ONCE and
+# never re-sent. See tools/instance-identity.sh for the assertion that pins
+# WHICH instance, by ranking the completed cell independently.
+WSTART=$(wc -l < "$L" 2>/dev/null || echo 0)
+
 mark
 send "totem:complete"
 sleep 5           # past the once-a-second safety poll, so a double send shows up
-n=$(since | grep -c "LOCATION CHECK: Home - Totem 1")
-verdict $([ "$n" = 1 ] && echo 0 || echo 1) "totem 1 sent exactly once (got $n)"
+FIRST=$(since | grep -oE "LOCATION CHECK: Home - Totem [0-9]+" | sort -u)
+n=$(printf "%s" "$FIRST" | grep -c "Home - Totem")
+verdict $([ "$n" = 1 ] && echo 0 || echo 1) "one totem instance sent for one completion (${FIRST:-none})"
 
 mark
 send "totem:complete"
 sleep 5
-n=$(since | grep -c "LOCATION CHECK: Home - Totem 2")
-verdict $([ "$n" = 1 ] && echo 0 || echo 1) "totem 2 sent exactly once (got $n)"
-n=$(since | grep -c "LOCATION CHECK: Home - Totem 1")
-verdict $([ "$n" = 0 ] && echo 0 || echo 1) "totem 1 not re-sent (got $n)"
+SECOND=$(since | grep -oE "LOCATION CHECK: Home - Totem [0-9]+" | sort -u)
+n=$(printf "%s" "$SECOND" | grep -c "Home - Totem")
+verdict $([ "$n" = 1 ] && echo 0 || echo 1) "one more sent for the second completion (${SECOND:-none})"
+
+[ -n "$FIRST" ] && [ -n "$SECOND" ] && [ "$FIRST" != "$SECOND" ]
+verdict $? "the second completion sent a DIFFERENT instance, so neither was re-sent"
+
+# Home has exactly two totems, so across both completions the set sent must be
+# {Totem 1, Totem 2}, once each - the no-double-send property stated over the
+# whole step rather than per window.
+BOTH=$(tail -n +"$((WSTART+1))" "$L" 2>/dev/null | grep -oE "LOCATION CHECK: Home - Totem [0-9]+" | sort | uniq -c)
+echo "$BOTH" | sed 's/^/        /'
+t1=$(printf "%s" "$BOTH" | grep -cE " 1 LOCATION CHECK: Home - Totem 1$")
+t2=$(printf "%s" "$BOTH" | grep -cE " 1 LOCATION CHECK: Home - Totem 2$")
+[ "${t1:-0}" = 1 ] && [ "${t2:-0}" = 1 ]
+verdict $? "both instances sent exactly once across the step"
 
 # The totem patch must have FIRED, not merely been applied - otherwise the
 # safety poll is silently doing all the work and the event path is dead code.

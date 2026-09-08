@@ -54,9 +54,18 @@ public static class MissionRules
         _ => "",
     };
 
-    /// <summary>The Nth check of a counted objective. Instances are numbered by
-    /// ACTIVATION ORDER: the game cannot tell one totem from another, so the Nth
-    /// activation sends the Nth check.</summary>
+    /// <summary>The name of one INSTANCE of a counted objective.
+    ///
+    /// `instance` identifies a particular STRUCTURE, not how many have been
+    /// finished. It is that structure's rank when the mission's structures of
+    /// that kind are ordered by map cell, (cellY, cellX) ascending - see
+    /// InstanceIndex, which is the only thing allowed to compute it.
+    ///
+    /// This used to be activation order ("the game cannot tell one totem from
+    /// another, so the Nth activation sends the Nth check"), and it can: every
+    /// structure carries UnitManager.cellX/cellY. The old rule attached the
+    /// apworld's per-instance requirements to whichever structure happened to be
+    /// finished Nth, which showed Shattered's mover-gated totem as free.</summary>
     public static string InstanceLocation(int mission, int objectiveIndex, int instance)
         => $"{Titles[mission]} - {InstanceKind(objectiveIndex)} {instance}";
 

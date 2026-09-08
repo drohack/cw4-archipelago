@@ -76,13 +76,13 @@ public class SessionReconcileTests
         // Connecting re-delivers the whole received list, so a mark that resets
         // to zero re-fires every trap and boon the player has ever been sent.
         var live = Live("seedA", "Droha");
-        live.ApplyReceivedItems(new[] { "Spore Strike", "Cannon", "Ammo Cache" });
+        live.ApplyReceivedItems(new[] { "Spore Strike Trap", "Cannon", "Ammo Cache" });
         live.TrapsApplied = 3;
 
         var state = SessionReconcile.OnConnected(
             live, null, "seedA", "Droha", new SlotData(),
             Array.Empty<string>(),
-            new[] { "Spore Strike", "Cannon", "Ammo Cache" },
+            new[] { "Spore Strike Trap", "Cannon", "Ammo Cache" },
             Array.Empty<string>());
 
         Assert.Equal(3, state.TrapsApplied);
@@ -166,7 +166,7 @@ public class SessionReconcileTests
         {
             var store = new SlotStore(dir);
             var s = Live("seedA", "Droha");
-            s.ApplyReceivedItems(new[] { "Spore Strike", "Cannon" });
+            s.ApplyReceivedItems(new[] { "Spore Strike Trap", "Cannon" });
             s.TrapsApplied = 2;
             store.Save(s);
 

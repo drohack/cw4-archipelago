@@ -124,7 +124,8 @@ divided by the count.
 **Trap weights.** Six options, `0 to 100`, all defaulting to 100, setting the
 relative frequency of each trap within the `trap_percentage` share:
 `trap_weight_spore_strike`, `trap_weight_spore_scatter`,
-`trap_weight_creeper_surge`, `trap_weight_energy_drain`,
+`trap_weight_creeper_surge` (the Rift Breach Trap - the option keeps the
+old name so existing yamls stay valid), `trap_weight_energy_drain`,
 `trap_weight_unit_stun` and `trap_weight_ammo_drain`. A seventh,
 `trap_weight_emitter_overdrive`, exists but is inert - see below.
 

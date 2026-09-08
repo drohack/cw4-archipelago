@@ -291,6 +291,9 @@ items in the pool, so read the report through these:
 **Two traps were renamed.** The spike calls them "emitter burst" and "weapon
 drain"; the items are **Emitter Overdrive** and **Ammo Drain**. The other five
 kept their names: Spore Strike, Spore Scatter, Creeper Surge, Energy Drain,
+(RENAMED 2026-09-07: all seven gained a " Trap" suffix and Creeper Surge became
+Rift Breach Trap - see randomizer-design.md. The spike names are left as written
+here, being what they were called at the time.)
 Unit Stun. All seven are in `TRAP_ITEMS` (`apworld/cw4/items.py`), each with its
 own `trap_weight_*` yaml option, and `trap_percentage` defaults to 50.
 

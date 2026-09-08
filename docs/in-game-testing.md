@@ -383,3 +383,91 @@ Two habits, both cheap:
 
 And when one silent failure is found, **re-verify every other wiring claim from
 the same session**, because the same script wrote them all.
+
+## A harness that has not been run is not a passing harness
+
+The 2026-09-07 sweep ran all seven batteries for the first time in a while and
+returned 8 failures. **Seven of the eight were defects in the tests, and two of
+those were failing BECAUSE the fix under test worked.** The lesson is not "tests
+are unreliable" - each of the seven was a specific, avoidable mistake, and the
+one real product bug would never have surfaced without them. It is that an
+unrun harness rots silently, and rereads as coverage it no longer provides.
+
+**`msgbox.sh` could not pass.** It waited on `MSGBOX: anchored to minimap`, a
+string the mod does not emit - the real line is `MSGBOX: built on '<canvas>'` -
+so four of its ten assertions were unsatisfiable whatever the box did. It also
+called `mark` in four places without DEFINING it (every other harness here does),
+which left `MARK` at 0 so `since` returned the whole log and each assertion could
+be satisfied by an earlier step's output. Note the direction: the missing helper
+made it fail LOOSE, and only the stderr - `mark: command not found`, four times -
+said so. **Read the harness's stderr, not only its verdict lines.**
+
+**Assert the mechanism, not an aggregate other inputs also move.** apbattery2
+asserted a mission unlock had applied by checking the mission's tracker COLOUR.
+Colour comes from `MissionStatus`, which aggregates every location's status, and
+all 18 of Sequence's checks need Terp or Nullifier - so the mission correctly
+stays `Locked` when its unlock arrives, and the assertion failed on a working
+product. It had passed on the previous seed purely because that run held
+different items by then. The fix is to measure the two things the step is about:
+`TRACKER: reconciled <mission> icons` for the repaint, and `gatecheck:` for the
+unlock. Neither depends on what else the seed handed out.
+
+**A step can destroy its own premise.** offline-test asserted an offline check
+gets queued, using a location it needed to be UNCHECKED - one step after a step
+that goals the slot. A goal makes the server auto-collect everything
+("has collected their items from other worlds", then that very location checked
+in the server log), so no unusable-premise case existed to pick from. It reported
+a product failure for a state the harness had created. Two habits: **assert the
+premise explicitly** so it fails in its own words, and **make the debug command
+report which outcome happened** - `check:` printed "(queued)" whenever offline,
+including when it had queued nothing, which is what made this unreadable.
+
+**Assert that a sequence CONTINUES, not that it started.** The one real bug this
+sweep found was a reconnect backoff that scheduled attempt 1 and then stopped
+forever. `wait_since "attempt 1"` passed; only the assertion for attempt 2 caught
+it. Anything with a retry, a backoff, or a poll needs the second iteration
+asserted, because the failure mode is always the loop dying after the first.
+
+## "A check fired" is not "the right check fired"
+
+Per-structure identity had been broken since the beginning - the Nth structure
+finished sent the Nth check, for 203 of the 236 locations - and **every existing
+harness passed throughout**. `eventdriven-test` asserted `totem 1 sent exactly
+once (got 1)`, `totem 2 sent exactly once`, `cache 1 sent exactly once`. All
+true. All satisfied by a high-water mark that credited the wrong structure.
+
+The assertion that catches it has to close the loop through the game's own state
+rather than through the count of events:
+
+1. Ask the game which structures exist and which are done (`inst:dump` prints
+   each one's map cell and done-flag).
+2. Change exactly one thing.
+3. Ask again, and find which CELL became done.
+4. Compute that cell's expected instance number **in the harness**, by the
+   documented rule, so the mod cannot mark its own homework.
+5. Require the location sent to be that instance - and, as the negative half,
+   require instance 1 NOT to have been sent when the completed structure is not
+   rank 1. That last line is the one that separates the two implementations,
+   because the old code sent instance 1 on every first completion.
+
+`tools/instance-identity.sh` does this, and the first run produced exactly the
+discriminating case: the game completed the totem at cell (18,185), which ranks
+3, and the log read `LOCATION CHECK: Shattered - Totem 3`. The old build would
+have said Totem 1 there - which is also, precisely, the play-reported bug
+("Shattered says it can do the final totem (top left corner), but you need porter
+or platform"), because instance 1 carries no mover requirement.
+
+The general form: when a system maps events to identities, counting the events
+tests the counter, not the map. Make the fixture assert the identity, and give it
+a case where the two answers differ - a fixture where the right answer and the
+wrong answer coincide is not a fixture.
+
+## A cross-side check can go blind exactly where it matters
+
+`audit.py` compares the apworld's trap names against the mod's `TrapRules.cs`,
+and matched the C# side by name PREFIX. Renaming a trap to `Rift Breach Trap` -
+outside the prefix list - made it report a failure for a correct rename,
+indistinguishable from the half-done rename it exists to catch. Bind such a
+check to the DECLARATION
+(`const string ... = "..."`) rather than to the shape of today's values, and
+assert both directions plus the count.

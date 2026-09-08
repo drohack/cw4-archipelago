@@ -119,10 +119,21 @@ public sealed class DebugChannel
         if (lower.StartsWith("check:"))
         {
             var loc = line.Substring(6).Trim();
-            var was = ModCore.Client.State.MarkChecked(loc, ModCore.Client.Connected);
+            var connected = ModCore.Client.Connected;
+            var was = ModCore.Client.State.MarkChecked(loc, connected);
             if (was)
                 ModCore.Client.SendChecks(new[] { loc });
-            ModCore.Log.LogInfo($"DEBUG check: {loc} ({(ModCore.Client.Connected ? "sent" : "queued")})");
+            // Report WHICH of the three outcomes happened. This used to print
+            // "(queued)" whenever the client was offline, including when
+            // MarkChecked had returned false for an already-checked location
+            // and nothing was queued at all - so a harness asserting on the
+            // queue saw "queued" in the log and a missing queue line, with no
+            // way to tell a real drop from an unusable premise. It cost a
+            // wrong-looking FAIL in offline-test, where a goal earlier in the
+            // run had auto-collected every location in the slot.
+            var outcome = !was ? "already checked, nothing queued"
+                        : connected ? "sent" : "queued";
+            ModCore.Log.LogInfo($"DEBUG check: {loc} ({outcome})");
             return;
         }
         if (lower == "minimap:dump") { MinimapDump(); return; }
@@ -181,6 +192,7 @@ public sealed class DebugChannel
         if (lower.StartsWith("loadsave:")) { LoadSave(line.Substring(9).Trim()); return; }
         if (lower == "obj:dump") { ObjDump(); return; }
         if (lower == "null:dump") { NullDump(); return; }
+        if (lower == "inst:dump") { InstanceDump(); return; }
         if (lower.StartsWith("toast:")) { ModCore.EnqueueToast(line.Substring(6).Trim()); return; }
         if (lower.StartsWith("limit:")) { LimitDump(line.Substring(6).Trim()); return; }
         if (lower == "ern:status") { ErnStatus(); return; }
@@ -1064,6 +1076,148 @@ public sealed class DebugChannel
                 $"canNullify={canNull} suppressed={supp} health={hp:0.0} alive={GameUtil.IsAlive(u)}");
         }
         ModCore.Log.LogInfo($"DEBUG NULLUNIT: {i} unit(s) in nullifiableUnits");
+    }
+
+    /// <summary>Every counted-objective INSTANCE with its map cell and
+    /// done-state, for all three kinds at once.
+    ///
+    /// Checks are moving from "the Nth one you did" to "this specific
+    /// structure", which needs two things measured rather than assumed: a
+    /// position key that is stable across a save/load, and - for caches -
+    /// whether a COLLECTED one can still be identified at all.
+    ///
+    /// Where the cells come from, all confirmed by reflecting the interop
+    /// metadata rather than guessed (tools/reflect):
+    ///
+    ///   nullify  UnitManager.cellX / .cellY - Int32 properties. The elements of
+    ///            GameSpace.nullifiableUnits are UnitManagers, which is where
+    ///            IsSuppressed() lives.
+    ///   caches   the same, via GameSpace.mustCollect.
+    ///   totems   Totem is a component and carries no cell of its own, so the
+    ///            unit on the same object is tried first and the world position
+    ///            through the game's OWN scalar converter,
+    ///            UnitManager.GetCellX(float), second. There is no GetCellY: it
+    ///            is one world-axis-to-cell conversion, so the map's second axis
+    ///            is position.z through the same call.
+    ///
+    /// NOTE the sets are HashSets, so iteration order is not defined and the
+    /// "raw" index below is NOT an identity - it is printed only to show how
+    /// little it can be trusted. The real index comes from sorting the cells.
+    ///
+    /// The InfoCache sweep at the end is the cache-identity question stated as a
+    /// measurement: mustCollect loses a cache when it is taken, so if the
+    /// InfoCache objects survive collection with a flag of their own, caches
+    /// behave exactly like nullify targets and need no persisted state. Run this
+    /// before and after taking one.</summary>
+    private static void InstanceDump()
+    {
+        var gs = GameSpace.instance;
+        if (gs == null) { ModCore.Log.LogWarning("inst:dump: no game space"); return; }
+        // gs.specifier is the live current-mission id (storyN), which is what
+        // LocationWatcher.ResolveMission reads and is reliable on both the boot
+        // and the resume-from-save path.
+        string spec = "?";
+        try { spec = gs.specifier ?? "?"; } catch { }
+        ModCore.Log.LogInfo($"INST DUMP: mission={spec} maxMustCollect={SafeMaxCollect(gs)}");
+
+        int i = 0;
+        try
+        {
+            foreach (var u in gs.nullifiableUnits)
+            {
+                if (u == null) continue;
+                int cx = -1, cy = -1; bool supp = false; string name = "?";
+                try { cx = u.cellX; } catch { }
+                try { cy = u.cellY; } catch { }
+                try { supp = u.IsSuppressed(); } catch { }
+                try { name = u.GetDataName() ?? "?"; } catch { }
+                ModCore.Log.LogInfo(
+                    $"INST NULLIFY raw={i++} cell=({cx},{cy}) done={supp} " +
+                    $"name='{name}' alive={GameUtil.IsAlive(u)}");
+            }
+        }
+        catch (Exception e) { ModCore.Log.LogWarning($"inst:dump nullify failed: {e.Message}"); }
+        ModCore.Log.LogInfo($"INST NULLIFY: {i} in nullifiableUnits");
+
+        int j = 0;
+        try
+        {
+            foreach (var tm in gs.totems)
+            {
+                if (tm == null) continue;
+                int cx = -1, cy = -1; bool done = false; string src = "none";
+                try { done = tm.totemComplete; } catch { }
+                // The unit on the same object, if there is one.
+                try
+                {
+                    var um = tm.GetComponent<UnitManager>();
+                    if (um != null) { cx = um.cellX; cy = um.cellY; src = "unit"; }
+                }
+                catch { }
+                if (src == "none")
+                {
+                    try
+                    {
+                        var p = tm.transform.position;
+                        cx = UnitManager.GetCellX(p.x);
+                        cy = UnitManager.GetCellX(p.z);
+                        src = "position";
+                    }
+                    catch { }
+                }
+                ModCore.Log.LogInfo(
+                    $"INST TOTEM raw={j++} cell=({cx},{cy}) done={done} cellFrom={src}");
+            }
+        }
+        catch (Exception e) { ModCore.Log.LogWarning($"inst:dump totems failed: {e.Message}"); }
+        ModCore.Log.LogInfo($"INST TOTEM: {j} in totems");
+
+        int k = 0;
+        try
+        {
+            foreach (var u in gs.mustCollect)
+            {
+                if (u == null) continue;
+                int cx = -1, cy = -1; string name = "?";
+                try { cx = u.cellX; } catch { }
+                try { cy = u.cellY; } catch { }
+                try { name = u.GetDataName() ?? "?"; } catch { }
+                ModCore.Log.LogInfo($"INST CACHE raw={k++} cell=({cx},{cy}) name='{name}' remaining=True");
+            }
+        }
+        catch (Exception e) { ModCore.Log.LogWarning($"inst:dump caches failed: {e.Message}"); }
+        ModCore.Log.LogInfo($"INST CACHE: {k} still in mustCollect");
+
+        // The identity question. If a taken cache still appears here, caches
+        // need no persisted state; if the count only ever equals mustCollect,
+        // a collected cache is unidentifiable from live state alone.
+        int c = 0;
+        try
+        {
+            var caches = UnityEngine.Object.FindObjectsOfType<InfoCache>();
+            if (caches != null)
+                foreach (var ic in caches)
+                {
+                    if (ic == null) continue;
+                    int cx = -1, cy = -1; bool retrieved = false;
+                    try
+                    {
+                        var um = ic.GetComponent<UnitManager>();
+                        if (um != null) { cx = um.cellX; cy = um.cellY; }
+                    }
+                    catch { }
+                    try { retrieved = ic.retrieved; } catch { }
+                    ModCore.Log.LogInfo(
+                        $"INST INFOCACHE raw={c++} cell=({cx},{cy}) retrieved={retrieved}");
+                }
+        }
+        catch (Exception e) { ModCore.Log.LogWarning($"inst:dump InfoCache sweep failed: {e.Message}"); }
+        ModCore.Log.LogInfo($"INST INFOCACHE: {c} InfoCache object(s) in the scene");
+    }
+
+    private static int SafeMaxCollect(GameSpace gs)
+    {
+        try { return gs.maxMustCollect; } catch { return -1; }
     }
 
     private static void ObjDump()

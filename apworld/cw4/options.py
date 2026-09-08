@@ -229,7 +229,7 @@ class TrapPercentage(Range):
 
 
 class TrapWeightSporeStrike(Range):
-    """Relative weight of Spore Strike, which drops spores on one of your buildings."""
+    """Relative weight of Spore Strike Trap, which drops spores on one of your buildings."""
     display_name = "Trap Weight: Spore Strike"
     range_start = 0
     range_end = 100
@@ -237,7 +237,7 @@ class TrapWeightSporeStrike(Range):
 
 
 class TrapWeightSporeScatter(Range):
-    """Relative weight of Spore Scatter, which drops spores at random."""
+    """Relative weight of Spore Scatter Trap, which drops spores at random."""
     display_name = "Trap Weight: Spore Scatter"
     range_start = 0
     range_end = 100
@@ -245,15 +245,22 @@ class TrapWeightSporeScatter(Range):
 
 
 class TrapWeightCreeperSurge(Range):
-    """Relative weight of Creeper Surge, a dump of creeper near your base."""
-    display_name = "Trap Weight: Creeper Surge"
+    """Relative weight of Rift Breach Trap, a slab of creeper that lands a
+    short way off from your rift lab - not on it.
+
+    The yaml key still says creeper_surge: the item was renamed on
+    2026-09-07 because "surge" reads as emitters ramping up, which is not
+    what it does, but renaming the OPTION would invalidate every existing
+    yaml for no benefit.
+    """
+    display_name = "Trap Weight: Rift Breach"
     range_start = 0
     range_end = 100
     default = 100
 
 
 class TrapWeightEnergyDrain(Range):
-    """Relative weight of Energy Drain, which empties your energy store."""
+    """Relative weight of Energy Drain Trap, which empties your energy store."""
     display_name = "Trap Weight: Energy Drain"
     range_start = 0
     range_end = 100
@@ -261,7 +268,7 @@ class TrapWeightEnergyDrain(Range):
 
 
 class TrapWeightEmitterOverdrive(Range):
-    """Relative weight of Emitter Overdrive, a timed boost to enemy emitters.
+    """Relative weight of Emitter Overdrive Trap, a timed boost to enemy emitters.
 
     CURRENTLY UNUSED: this trap is not generated, so the weight has no effect.
     It does nothing on missions that have no emitters, which is a third of the
@@ -276,7 +283,7 @@ class TrapWeightEmitterOverdrive(Range):
 
 
 class TrapWeightUnitStun(Range):
-    """Relative weight of Unit Stun, which briefly disables your units."""
+    """Relative weight of Unit Stun Trap, which briefly disables your units."""
     display_name = "Trap Weight: Unit Stun"
     range_start = 0
     range_end = 100
@@ -284,7 +291,7 @@ class TrapWeightUnitStun(Range):
 
 
 class TrapWeightAmmoDrain(Range):
-    """Relative weight of Ammo Drain, which empties your weapons' ammo."""
+    """Relative weight of Ammo Drain Trap, which empties your weapons' ammo."""
     display_name = "Trap Weight: Ammo Drain"
     range_start = 0
     range_end = 100

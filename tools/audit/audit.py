@@ -210,11 +210,48 @@ diff = {n: (cs_obj.get(n), ap_obj[n]) for n in range(1, 21) if cs_obj.get(n) != 
 check(not diff, "the mod's per-mission objective slots equal the apworld's location set", str(diff))
 
 print(f"[2/6] step 4/4: trap names agree", flush=True)
+# Read the const declarations rather than matching name PREFIXES. The prefix
+# alternation this used to carry (Spore|Creeper|Energy|...) silently stopped
+# seeing a trap the moment one was renamed to something outside the list:
+# "Creeper Surge" -> "Rift Breach Trap" made the C# side look EMPTY of that
+# trap, which is the failure this check exists to catch - but it would have
+# reported the same failure had the mod genuinely not been renamed, so it could
+# not tell a real break from its own blind spot. Every const string in
+# TrapRules.cs is a trap name, so bind to the declaration instead.
 tr = open(os.path.join(REPO, "src/CW4Archipelago.Core/TrapRules.cs"), encoding="utf-8").read()
-cs_traps = set(re.findall(r'"((?:Spore|Creeper|Energy|Emitter|Unit|Ammo)[^"]*)"', tr))
+cs_traps = set(re.findall(r'const\s+string\s+\w+\s*=\s*"([^"]*)"', tr))
+check(len(cs_traps) == len(I.TRAP_ITEMS),
+      "the mod declares one const per apworld trap",
+      "cs=%d apworld=%d" % (len(cs_traps), len(I.TRAP_ITEMS)))
 missing = set(I.TRAP_ITEMS) - cs_traps
 check(not missing, "every apworld trap name exists in the mod's TrapRules", str(sorted(missing)))
+# And the other direction. A rename applied to the C# side only would leave the
+# apworld sending a name the mod no longer answers to; without this the check
+# was one-way and a half-done rename passed.
+extra = cs_traps - set(I.TRAP_ITEMS)
+check(not extra, "the mod declares no trap the apworld never sends", str(sorted(extra)))
 print(f"      apworld traps: {len(I.TRAP_ITEMS)} names, {len(I.POOL_TRAP_ITEMS)} generated", flush=True)
+
+print(f"[2/6] step 4b/5: the mod's cache-cell table matches the apworld's counts", flush=True)
+# MapCells.cs is generated from a live dump and drives which CACHE instance a
+# check belongs to; the apworld independently says how many caches each mission
+# has. Neither side can see the other. A row of the wrong LENGTH is the damaging
+# case - it shifts every index after the gap and mislabels checks - so the length
+# is compared per mission rather than just the total.
+mc = open(os.path.join(REPO, "src/CW4Archipelago.Core/MapCells.cs"), encoding="utf-8").read()
+rows = {}
+for _m in re.finditer(r"\[(\d+)\]\s*=\s*new\[\]\s*\{([^}]*)\}", mc):
+    rows[int(_m.group(1))] = re.findall(r'"(\d+,\d+)"', _m.group(2))
+import worlds.cw4.locations as _LOC
+want = {n: c[0] for n, c in _LOC.INSTANCE_COUNTS.items() if c[0] > 0}
+check(bool(rows), "MapCells.cs parsed to at least one row", str(len(rows)))
+bad = {n: (len(rows.get(n, [])), want[n]) for n in want if len(rows.get(n, [])) != want[n]}
+check(not bad, "every cache-cell row is the length the apworld expects", str(bad))
+extra = sorted(set(rows) - set(want))
+check(not extra, "no cache-cell row for a mission with no caches", str(extra))
+dupes = {n: cs for n, cs in rows.items() if len(set(cs)) != len(cs)}
+check(not dupes, "no mission lists the same cache cell twice", str(dupes))
+print(f"      cache rows: {len(rows)} mission(s), {sum(len(c) for c in rows.values())} cell(s)", flush=True)
 
 print(f"[2/6] step 5/5: ERN upgrade and energy item names agree", flush=True)
 # The mod counts received items by these exact strings, so a rename on one side
