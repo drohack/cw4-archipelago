@@ -79,7 +79,23 @@ public sealed class SlotData
     // The defaults are the measured values, not guesses - see
     // docs/ern-upgrade-measurements.md.
 
-    /// <summary>What four copies of an ERN Efficiency Rate item are worth, as a
+    /// <summary>How many copies of each ERN upgrade item reach the maxima
+    /// below, exactly as EnergyStorageCopies does for the energy curve.
+    ///
+    /// THE DEFAULT OF 4 IS THE COMPATIBILITY VALUE, not the current option
+    /// default. A seed generated before this key existed sends nothing, and 4
+    /// is what those seeds were built with - so an old seed keeps behaving
+    /// exactly as it did. New seeds send their real count.
+    ///
+    /// Before this existed the divisor was the hardcoded MaxCopies, which meant
+    /// lowering the pool's copy count silently lowered the CEILING rather than
+    /// coarsening the steps - the opposite of how the energy knob behaves.
+    /// Dropping the pool to 2 copies capped efficiency at 150 percent instead
+    /// of 200 and rate at 250 instead of 400.</summary>
+    [JsonPropertyName("ern_upgrade_copies")]
+    public int ErnUpgradeCopies { get; set; } = 4;
+
+    /// <summary>What a full set of ERN Efficiency Rate items is worth, as a
     /// percent of the game's own fill speed. 400 means a slot that normally
     /// takes 3600 ticks fills in 900.</summary>
     [JsonPropertyName("ern_rate_max_percent")]

@@ -244,3 +244,69 @@ public class ErnUpgradeRulesTests
         Assert.Equal("Build Speed", ErnUpgradeRules.UpgradeNames[ErnUpgradeRules.BuildSpeedIndex]);
     }
 }
+
+public class ErnUpgradeCopiesTests
+{
+    // The copy count is GRANULARITY, not power - the same contract
+    // EnergyStorageCopies has. Before ern_upgrade_copies travelled in slot data
+    // the plugin divided by a hardcoded 4, so halving the pool's copies halved
+    // the journey rather than doubling the step: efficiency capped at 150
+    // percent instead of 200, and rate at 250 instead of 400. These pin the
+    // fixed behaviour in both directions.
+    private const int FireRange = 4;
+
+    private static SlotState WithCopies(string item, int n, int copiesForMax)
+    {
+        var s = new SlotState
+        {
+            Hints = new SlotData { ErnUpgradeCopies = copiesForMax },
+        };
+        s.ApplyReceivedItems(System.Linq.Enumerable.Repeat(item, n).ToArray());
+        return s;
+    }
+
+    [Fact]
+    public void TwoCopiesStillReachTheFullCap()
+    {
+        var item = ErnUpgradeRules.CapItem("Fire Range");
+        // Two copies, two steps of 50 percent, landing exactly on 2.0.
+        Assert.Equal(1.5f, ErnUpgradeRules.EfficiencyCap(WithCopies(item, 1, 2), FireRange), 3);
+        Assert.Equal(2.0f, ErnUpgradeRules.EfficiencyCap(WithCopies(item, 2, 2), FireRange), 3);
+    }
+
+    [Fact]
+    public void TwoCopiesStillReachTheFullRate()
+    {
+        var item = ErnUpgradeRules.RateItem("Fire Range");
+        Assert.Equal(2.5f, ErnUpgradeRules.RateMultiplier(WithCopies(item, 1, 2), FireRange), 3);
+        Assert.Equal(4.0f, ErnUpgradeRules.RateMultiplier(WithCopies(item, 2, 2), FireRange), 3);
+    }
+
+    [Fact]
+    public void ExtraCopiesBeyondTheCountDoNothing()
+    {
+        var item = ErnUpgradeRules.CapItem("Fire Range");
+        Assert.Equal(2.0f, ErnUpgradeRules.EfficiencyCap(WithCopies(item, 5, 2), FireRange), 3);
+    }
+
+    [Fact]
+    public void AMissingCountFallsBackToFour()
+    {
+        // The compatibility path: a seed generated before the key existed sends
+        // nothing, and those seeds were built with four copies.
+        var item = ErnUpgradeRules.CapItem("Fire Range");
+        var s = new SlotState();
+        s.ApplyReceivedItems(System.Linq.Enumerable.Repeat(item, 2).ToArray());
+        Assert.Equal(4, SlotData.Empty.ErnUpgradeCopies);
+        Assert.Equal(1.5f, ErnUpgradeRules.EfficiencyCap(s, FireRange), 3);
+    }
+
+    [Fact]
+    public void AZeroCountIsNeverADivideByZero()
+    {
+        var item = ErnUpgradeRules.CapItem("Fire Range");
+        Assert.Equal(1f, ErnUpgradeRules.EfficiencyCap(WithCopies(item, 3, 0), FireRange), 3);
+        Assert.Equal(1f, ErnUpgradeRules.RateMultiplier(
+            WithCopies(ErnUpgradeRules.RateItem("Fire Range"), 3, 0), FireRange), 3);
+    }
+}

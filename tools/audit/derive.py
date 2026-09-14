@@ -18,7 +18,7 @@ OUT = os.path.join(REPO, ".aptest", "audit")
 os.environ.setdefault("SKIP_REQUIREMENTS_UPDATE", "1")
 sys.path.insert(0, AP)
 
-from worlds.cw4 import items as I, locations as L  # noqa: E402
+from worlds.cw4 import items as I, locations as L, options as O  # noqa: E402
 
 # ---------------------------------------------------------------- derivation
 LOCATIONS = (sum(c for c, _, _ in L.INSTANCE_COUNTS.values())
@@ -27,10 +27,23 @@ LOCATIONS = (sum(c for c, _, _ in L.INSTANCE_COUNTS.values())
              + len(L.RECLAIM_MISSIONS) + len(L.CUSTOM_MISSIONS)
              + (20 - 1))          # mission complete on all but the finale
 
-DEFAULTS = {"starter_missions": 2, "progressive_erns": 4, "trap_percentage": 50,
-            "traps_off": False, "filler_off": False,
-            "ern_upgrade_copies": 4,
-            "energy_storage_copies": 8, "base_generation_copies": 8}
+# The option DEFAULTS are read from the option classes; the pool ARITHMETIC
+# below is written independently, and that is the part this tool exists to
+# check. Hand-copying the numbers here was the older design and it is a trap:
+# changing ern_upgrade_copies from 4 to 2 and energy copies from 8 to 20 turned
+# this into "0/16 match, 16 mismatched", which reads like a generation bug
+# rather than a stale constant. Nothing is lost by sourcing them - a wrong
+# default still produces a pool this file's own sums must agree with.
+_OPTION_DEFAULTS = {
+    "starter_missions": O.StarterMissions,
+    "progressive_erns": O.ProgressiveErns,
+    "trap_percentage": O.TrapPercentage,
+    "ern_upgrade_copies": O.ErnUpgradeCopies,
+    "energy_storage_copies": O.EnergyStorageCopies,
+    "base_generation_copies": O.BaseGenerationCopies,
+}
+DEFAULTS = {"traps_off": False, "filler_off": False}
+DEFAULTS.update({k: v.default for k, v in _OPTION_DEFAULTS.items()})
 
 
 def derive(**o):

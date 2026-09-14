@@ -68,11 +68,35 @@ class ErnUpgradeCopies(Range):
     These items do nothing until you have the ERN Portal unlock, a portal built,
     and an ERN docked in the matching slot - so a seed that keeps ERN Portal
     late will see them sit dead for a while.
+
+    THE DEFAULT IS 2, NOT 4, AND THAT IS MEASURED. The ERN Portal gates nothing
+    in logic, so it is placed at random; over 40 seeds it landed at median
+    sphere 11 of about 18. At 4 copies that put 48 items in the pool and an
+    average of 21.6 of them - 45 percent - arrived BEFORE the portal that makes
+    them work, with a worst seed of 47 of 48. The designer hit exactly this in
+    play (2026-09-14): "i was getting ERN upgrades, but never got the ERN port
+    ... the ERN upgrades to the port itself were useless."
+
+    At 2 copies that is 24 items, and the slots freed go to the energy upgrades
+    (see energy_storage_copies), which pay out the moment they arrive.
+
+    THE MAXIMA DO NOT MOVE. This is the same kind of knob as the energy copies:
+    the per-copy step is the maximum divided by this count, so the last copy
+    always lands exactly on ern_rate_max / ern_cap_max however many there are.
+    Two copies means two bigger steps, not half the power - 200 percent cap in
+    steps of 50 rather than four of 25.
+
+    It did not always work that way. The plugin used to divide by a hardcoded 4
+    because the count was never sent to it, so lowering this silently lowered
+    the CEILING - 2 copies capped efficiency at 150 percent and rate at 250.
+    The count now travels in slot data (ern_upgrade_copies) and the divisor is
+    the real one. A seed generated before that change sends no key and the
+    plugin falls back to 4, which is what those seeds were built with.
     """
     display_name = "ERN Upgrade Copies"
     range_start = 0
     range_end = 4
-    default = 4
+    default = 2
 
 
 class ErnRateMax(Range):
@@ -320,11 +344,18 @@ class EnergyStorageCopies(Range):
 
     This is exactly the number generated - there is no such thing as a spare
     copy, because the per-copy value is the maximum divided by this.
+
+    RAISED FROM 8 TO 20 to absorb the slots freed by halving ern_upgrade_copies.
+    Because the per-copy value is the maximum divided by this count, more copies
+    costs nothing and creates no dead items: the same total benefit arrives in
+    smaller, more frequent pieces, and every piece pays out immediately instead
+    of waiting on an ERN Portal. That is the whole trade - 24 items that might
+    do nothing for half the run, swapped for 24 that never do nothing.
     """
     display_name = "Energy Storage Copies"
     range_start = 0
     range_end = 36
-    default = 8
+    default = 20
 
 
 class BaseGenerationMax(Range):
@@ -343,12 +374,16 @@ class BaseGenerationMax(Range):
 
 class BaseGenerationCopies(Range):
     """How many Progressive Base Generation items are in the pool, and how many
-    it takes to reach the maximum above. 10 over 8 copies is 1.25 each.
+    it takes to reach the maximum above. 10 over 20 copies is 0.5 each.
+
+    Raised from 8 to 20 alongside energy_storage_copies, and for the same
+    reason - see there. 0.5 energy/sec per copy against CW4's own 3 to 4/sec is
+    still a step you feel, and it lands the moment the item does.
     """
     display_name = "Base Generation Copies"
     range_start = 0
     range_end = 36
-    default = 8
+    default = 20
 
 
 class FillerEnergyStorageWeight(Range):

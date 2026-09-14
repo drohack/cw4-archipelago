@@ -162,6 +162,16 @@ class CW4World(World):
         # Magnitudes for the ERN port upgrades, here for the same reason: an
         # amount in an item name would move item ids whenever a player retuned
         # an option.
+        # And the COPY COUNT, for exactly the reason energy_storage_copies
+        # travels: the per-copy step is the maximum divided by the count, so the
+        # plugin cannot work out the step without knowing how many the pool
+        # holds. Before this was sent it divided by a hardcoded 4, which made
+        # lowering ern_upgrade_copies quietly lower the CEILING instead of
+        # coarsening the steps - two copies capped efficiency at 150 percent
+        # rather than 200, and rate at 250 rather than 400. A seed generated
+        # before this key existed sends nothing and the plugin falls back to 4,
+        # which is what those seeds were built with.
+        data["ern_upgrade_copies"] = self.options.ern_upgrade_copies.value
         data["ern_rate_max_percent"] = self.options.ern_rate_max.value
         data["ern_cap_max_percent"] = self.options.ern_cap_max.value
         data["ern_cap_max_build_speed_percent"] = (

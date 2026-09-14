@@ -47,8 +47,19 @@ public static class ErnUpgradeRules
     public const string RatePrefix = "Progressive ERN Efficiency Rate: ";
     public const string CapPrefix = "Progressive ERN Efficiency Cap: ";
 
-    /// <summary>Copies beyond this change nothing, so the pool should not hold
-    /// more. Four copies at a quarter each is exactly 200 percent.</summary>
+    /// <summary>The DEFAULT number of copies that reaches a maximum, used when
+    /// the slot data does not say - which means a seed generated before
+    /// SlotData.ErnUpgradeCopies existed.
+    ///
+    /// It is no longer a hard ceiling. The copy count is the player's option
+    /// and behaves like EnergyStorageCopies: the per-copy step is the maximum
+    /// divided by the count, so the last copy always lands exactly on the
+    /// maximum however many there are, and no copy is ever a no-op.
+    ///
+    /// It used to be the divisor outright, which made the count control POWER
+    /// rather than granularity - lowering the pool to 2 copies capped
+    /// efficiency at 150 percent instead of 200, and rate at 250 instead of
+    /// 400. That asymmetry with the energy knob was not intended.</summary>
     public const int MaxCopies = 4;
     public const float StepPerCopy = 0.25f;
     public const float MaxMultiplier = 1f + MaxCopies * StepPerCopy;   // 2.0
@@ -138,19 +149,22 @@ public static class ErnUpgradeRules
     /// <summary>How much faster this upgrade's efficiency fills. 1.0 means the
     /// game's own rate, 4.0 is four times as fast.
     ///
-    /// Step derived from the maximum, like the cap, so the fourth copy lands
-    /// exactly on 4.0 and no copy is ever a no-op: 1.75, 2.5, 3.25, 4.0.</summary>
-    public static float RateMultiplier(SlotState state, int index, int rateMaxPercent)
+    /// Step derived from the maximum, like the cap, so the LAST copy lands
+    /// exactly on 4.0 and no copy is ever a no-op - 1.75, 2.5, 3.25, 4.0 at
+    /// four copies, 2.5 and 4.0 at two.</summary>
+    public static float RateMultiplier(SlotState state, int index,
+                                       int rateMaxPercent, int copiesForMax)
     {
         if (state == null || !IsValidIndex(index)) return 1f;
+        if (copiesForMax <= 0) return 1f;
         int copies = state.Count(RatePrefix + UpgradeNames[index]);
         if (copies <= 0) return 1f;
-        if (copies > MaxCopies) copies = MaxCopies;
+        if (copies > copiesForMax) copies = copiesForMax;
         // Never below 1.0 - a rate under the game's own would SLOW the ramp and
         // turn the item into a penalty.
         if (rateMaxPercent < 100) rateMaxPercent = 100;
         float max = rateMaxPercent / 100f;
-        return 1f + copies * (max - 1f) / MaxCopies;
+        return 1f + copies * (max - 1f) / copiesForMax;
     }
 
     /// <summary>What this upgrade's efficiency may reach. 1.0 means the game's
@@ -159,16 +173,19 @@ public static class ErnUpgradeRules
     /// The per-copy step is derived from that upgrade's ceiling rather than
     /// fixed at 0.25, so the LAST copy always lands exactly on the ceiling and
     /// no copy is ever a no-op. Build Speed's 1.5 ceiling therefore means four
-    /// copies of +12.5 percent instead of four of +25.</summary>
+    /// copies of +12.5 percent instead of four of +25 - or two of +25 if the
+    /// pool holds two.</summary>
     public static float EfficiencyCap(SlotState state, int index,
-                                      int capMaxPercent, int buildSpeedMaxPercent)
+                                      int capMaxPercent, int buildSpeedMaxPercent,
+                                      int copiesForMax)
     {
         if (state == null || !IsValidIndex(index)) return 1f;
+        if (copiesForMax <= 0) return 1f;
         int copies = state.Count(CapPrefix + UpgradeNames[index]);
         if (copies <= 0) return 1f;
-        if (copies > MaxCopies) copies = MaxCopies;
+        if (copies > copiesForMax) copies = copiesForMax;
         float ceiling = CeilingFor(index, capMaxPercent, buildSpeedMaxPercent);
-        return 1f + copies * (ceiling - 1f) / MaxCopies;
+        return 1f + copies * (ceiling - 1f) / copiesForMax;
     }
 
     /// <summary>Convenience overloads reading the player's configured values
@@ -176,12 +193,15 @@ public static class ErnUpgradeRules
     /// Kept separate from the explicit-percent versions so the pure rules stay
     /// testable without constructing slot data.</summary>
     public static float RateMultiplier(SlotState state, int index)
-        => RateMultiplier(state, index, state?.Hints?.ErnRateMaxPercent ?? 400);
+        => RateMultiplier(state, index,
+                          state?.Hints?.ErnRateMaxPercent ?? 400,
+                          state?.Hints?.ErnUpgradeCopies ?? MaxCopies);
 
     public static float EfficiencyCap(SlotState state, int index)
         => EfficiencyCap(state, index,
                          state?.Hints?.ErnCapMaxPercent ?? 200,
-                         state?.Hints?.ErnCapMaxBuildSpeedPercent ?? 150);
+                         state?.Hints?.ErnCapMaxBuildSpeedPercent ?? 150,
+                         state?.Hints?.ErnUpgradeCopies ?? MaxCopies);
 
     private static float Multiplier(SlotState state, int index, string prefix)
     {

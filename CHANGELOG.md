@@ -3,8 +3,50 @@
 Versions follow semantic versioning. The plugin and the apworld share one number,
 so a release is a matched pair - if you update one, update the other.
 
-## Unreleased
+## v0.1.10 - Founders opens up, and ERN upgrades stop arriving dead
 
+- **Founders: a Terp crosses the chasm, not just a Platform.** The enemy builds
+  a land bridge to the starting island; the only thing wrong with it is that it
+  is too bumpy to place weapons on, and a Terp fixes that. Every Founders rule
+  that meant "you have to leave the starting island" now accepts either route -
+  the nullify targets, the three totems across the chasm, and the custom
+  objective.
+
+  The item cache dropped its Platform requirement entirely. It already needs a
+  Terp to dig the item up, so once a Terp does the crossing the Platform clause
+  can never fail: anyone who can dig it out can get to it.
+
+  A Terp route does not pay for the greenar chain a Platform needs, which the
+  generated logic table now shows as `Factory or Terp`.
+- **ERN upgrades: half as many, and no weaker.** 45 percent of ERN upgrade
+  items were arriving before the ERN Portal that makes them work - the portal
+  gates nothing in logic, so it is placed at random and landed at median sphere
+  11 of about 18. Measured over 40 seeds that was 21.6 dead-on-arrival items per
+  seed out of 48, and a worst seed of 47.
+
+  `ern_upgrade_copies` drops from 4 to 2, so 48 items become 24, and the freed
+  slots go to the energy upgrades - `energy_storage_copies` and
+  `base_generation_copies` rise from 8 to 20 each, turning 16 items into 40.
+  The pool is the same size; 24 items that might do nothing for half the run
+  became 24 that pay out the moment they arrive. Dead-on-arrival falls to 10.3
+  per seed, worst case 23.
+
+  **The ERN maxima did not move.** The copy count now behaves like the energy
+  one: the per-copy step is the maximum divided by the count, so two copies is
+  two bigger steps rather than half the power - 200 percent efficiency in steps
+  of 50, 400 percent rate in steps of 150.
+
+  This is a fix, not just a rebalance. The plugin used to divide by a hardcoded
+  4 because the pool's copy count was never sent to it, so lowering this option
+  silently lowered the CEILING instead of coarsening the steps: two copies
+  capped efficiency at 150 percent and rate at 250. The count now travels in
+  slot data. **A seed generated before this release is unaffected** - it sends
+  no such key and the plugin falls back to 4, which is what those seeds were
+  built with.
+- **The ERN Portal itself is, and always was, in every seed.** Confirmed after a
+  report of never seeing one: it is an ordinary unit unlock, one copy per seed,
+  never retired and never precollected. Two playthroughs that did not reach it
+  had it behind a check that was not done.
 - **Fixed: generation errors in CI.** The test suite could fail with
   `FillError: No more spots to place 25 items` on roughly 1 seed in 1,000. No
   seed was ever unfillable, and no released seed was affected - the tests were

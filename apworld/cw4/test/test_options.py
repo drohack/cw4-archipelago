@@ -29,15 +29,26 @@ class TestDefaults(bases.CW4TestBase):
         data = self.world.fill_slot_data()
         # A maximum and the copy count that reaches it. The per-copy value is
         # derived from the pair, which is what makes a dead copy impossible and
-        # is also why the step cannot be the setting: +10 over 8 copies is 1.25
+        # is also why the step cannot be the setting: +10 over 20 copies is 0.5
         # each, not an integer.
         self.assertEqual(data["energy_storage_max"], 200)
-        self.assertEqual(data["energy_storage_copies"], 8)
+        self.assertEqual(data["energy_storage_copies"], 20)
         self.assertEqual(data["base_generation_max"], 10)
-        self.assertEqual(data["base_generation_copies"], 8)
+        self.assertEqual(data["base_generation_copies"], 20)
         for item in self.multiworld.itempool:
             self.assertNotIn("+25", item.name)
             self.assertNotIn("+200", item.name)
+
+    def test_the_ern_copy_count_travels_too(self) -> None:
+        # The plugin derives the per-copy step as maximum/count, so without this
+        # key it cannot know the step. Its absence does NOT fail loudly - the C#
+        # falls back to 4, which is right for old seeds and wrong for new ones,
+        # so a dropped key would quietly cap a 2-copy seed at 150 percent
+        # instead of 200. Nothing else would notice; this is what notices.
+        data = self.world.fill_slot_data()
+        self.assertIn("ern_upgrade_copies", data)
+        self.assertEqual(data["ern_upgrade_copies"],
+                         self.world.options.ern_upgrade_copies.value)
 
 
 class TestNoErns(bases.CW4TestBase):
@@ -66,9 +77,9 @@ class TestOnlyStorageFiller(bases.CW4TestBase):
 
     def test_counts_come_from_their_own_options_not_the_weights(self) -> None:
         names = [i.name for i in self.multiworld.itempool]
-        # Zero weight, but the copies option is still 8.
-        self.assertEqual(names.count("Progressive Base Generation"), 8)
-        self.assertEqual(names.count("Progressive Energy Storage"), 8)
+        # Zero weight, but the copies option is still 20.
+        self.assertEqual(names.count("Progressive Base Generation"), 20)
+        self.assertEqual(names.count("Progressive Energy Storage"), 20)
         self.assertNotIn("Build Limit +1 (Tower)", names)
 
 
@@ -344,7 +355,7 @@ class TestAllTraps(bases.CW4TestBase):
         from ..items import TRAP_ITEMS, ENERGY_STORAGE_ITEM
         pool = [i.name for i in self.multiworld.itempool]
         self.assertTrue([n for n in pool if n in TRAP_ITEMS])
-        self.assertEqual(pool.count(ENERGY_STORAGE_ITEM), 8)
+        self.assertEqual(pool.count(ENERGY_STORAGE_ITEM), 20)
         locations = [l for l in self.multiworld.get_locations(self.player) if l.address is not None]
         self.assertEqual(len(pool), len(locations))
 
@@ -670,16 +681,24 @@ class TestErnUpgradeItems(bases.CW4TestBase):
             "Progressive ERN Efficiency Cap: Fire Rate",
         ])
 
-    def test_exactly_four_of_each_by_default(self) -> None:
+    def test_the_option_decides_the_count_and_the_default_is_two(self) -> None:
         # FIXED counts, not a weighted draw. filler_sequence draws with
         # replacement, which could produce nine copies of one name - five of
         # them inert, because a fifth copy does nothing - and none of another.
-        from ..items import ERN_UPGRADE_ITEMS, ERN_UPGRADE_MAX_COPIES
+        #
+        # This used to assert ERN_UPGRADE_MAX_COPIES, conflating two different
+        # numbers: the useful CEILING (4, still enforced by the next test) and
+        # the DEFAULT, which dropped to 2 on 2026-09-14 because 45 percent of
+        # ERN upgrades were arriving before the ERN Portal that makes them work.
+        # Pinning the default explicitly means changing it stays a deliberate
+        # edit here rather than something a pool count quietly absorbs.
+        from ..items import ERN_UPGRADE_ITEMS
+        expected = self.world.options.ern_upgrade_copies.value
+        self.assertEqual(2, expected, "the default copy count is 2")
         pool = [i.name for i in self.multiworld.itempool]
         for name in ERN_UPGRADE_ITEMS:
-            self.assertEqual(pool.count(name), ERN_UPGRADE_MAX_COPIES,
-                             f"{name} should appear exactly "
-                             f"{ERN_UPGRADE_MAX_COPIES} times")
+            self.assertEqual(pool.count(name), expected,
+                             f"{name} should appear exactly {expected} times")
 
     def test_never_more_than_the_useful_maximum(self) -> None:
         from ..items import ERN_UPGRADE_ITEMS, ERN_UPGRADE_MAX_COPIES
