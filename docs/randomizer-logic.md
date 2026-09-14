@@ -342,30 +342,30 @@ waiver deliberately drops them (a free first cache, say).
 
 | Check | Standard | Casual |
 |---|---|---|
-| Cache 1 | Terp + Chronat + Platform + Cannon or Mortar + Factory | Terp + Chronat + Platform + Cannon or Mortar + Missile Launcher or Sniper + Factory |
+| Cache 1 | Terp + Chronat + Cannon or Mortar + Factory | Terp + Chronat + Cannon or Mortar + Missile Launcher or Sniper + Factory |
 | Totem 1 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
-| Totem 2 | Factory + Cannon or Mortar + Platform | Factory + Cannon or Mortar + Missile Launcher or Sniper + Platform |
-| Totem 3 | Factory + Cannon or Mortar + Platform | Factory + Cannon or Mortar + Missile Launcher or Sniper + Platform |
-| Totem 4 | Factory + Cannon or Mortar + Platform | Factory + Cannon or Mortar + Missile Launcher or Sniper + Platform |
+| Totem 2 | Factory + Cannon or Mortar + Platform or Terp | Factory + Cannon or Mortar + Missile Launcher or Sniper + Platform or Terp |
+| Totem 3 | Factory + Cannon or Mortar + Platform or Terp | Factory + Cannon or Mortar + Missile Launcher or Sniper + Platform or Terp |
+| Totem 4 | Factory + Cannon or Mortar + Platform or Terp | Factory + Cannon or Mortar + Missile Launcher or Sniper + Platform or Terp |
 | Totem 5 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
-| Nullify 1 | Nullifier + Platform + Cannon or Mortar + Factory | Nullifier + Platform + Cannon or Mortar + Missile Launcher or Sniper + Factory |
-| Nullify 2 | Nullifier + Platform + Cannon or Mortar + Factory | Nullifier + Platform + Cannon or Mortar + Missile Launcher or Sniper + Factory |
-| Nullify 3 | Nullifier + Platform + Cannon or Mortar + Factory | Nullifier + Platform + Cannon or Mortar + Missile Launcher or Sniper + Factory |
-| Nullify 4 | Nullifier + Platform + Cannon or Mortar + Factory | Nullifier + Platform + Cannon or Mortar + Missile Launcher or Sniper + Factory |
-| Nullify 5 | Nullifier + Platform + Cannon or Mortar + Factory | Nullifier + Platform + Cannon or Mortar + Missile Launcher or Sniper + Factory |
-| Nullify 6 | Nullifier + Platform + Cannon or Mortar + Factory | Nullifier + Platform + Cannon or Mortar + Missile Launcher or Sniper + Factory |
-| Nullify 7 | Nullifier + Platform + Cannon or Mortar + Factory | Nullifier + Platform + Cannon or Mortar + Missile Launcher or Sniper + Factory |
-| Nullify 8 | Nullifier + Platform + Cannon or Mortar + Factory | Nullifier + Platform + Cannon or Mortar + Missile Launcher or Sniper + Factory |
-| Nullify 9 | Nullifier + Platform + Cannon or Mortar + Factory | Nullifier + Platform + Cannon or Mortar + Missile Launcher or Sniper + Factory |
-| Nullify 10 | Nullifier + Platform + Cannon or Mortar + Factory | Nullifier + Platform + Cannon or Mortar + Missile Launcher or Sniper + Factory |
-| Nullify 11 | Nullifier + Platform + Cannon or Mortar + Factory | Nullifier + Platform + Cannon or Mortar + Missile Launcher or Sniper + Factory |
-| Nullify 12 | Nullifier + Platform + Cannon or Mortar + Factory | Nullifier + Platform + Cannon or Mortar + Missile Launcher or Sniper + Factory |
-| Nullify 13 | Nullifier + Platform + Cannon or Mortar + Factory | Nullifier + Platform + Cannon or Mortar + Missile Launcher or Sniper + Factory |
-| Nullify 14 | Nullifier + Platform + Cannon or Mortar + Factory | Nullifier + Platform + Cannon or Mortar + Missile Launcher or Sniper + Factory |
-| Nullify 15 | Nullifier + Platform + Cannon or Mortar + Factory | Nullifier + Platform + Cannon or Mortar + Missile Launcher or Sniper + Factory |
-| Nullify 16 | Nullifier + Platform + Cannon or Mortar + Factory | Nullifier + Platform + Cannon or Mortar + Missile Launcher or Sniper + Factory |
-| Nullify 17 | Nullifier + Platform + Cannon or Mortar + Factory | Nullifier + Platform + Cannon or Mortar + Missile Launcher or Sniper + Factory |
-| Custom | Nullifier + Platform + Cannon or Mortar + Factory | Nullifier + Platform + Cannon or Mortar + Missile Launcher or Sniper + Factory |
+| Nullify 1 | Nullifier + Platform or Terp + Cannon or Mortar + Factory or Terp | Nullifier + Platform or Terp + Cannon or Mortar + Missile Launcher or Sniper + Factory or Terp |
+| Nullify 2 | Nullifier + Platform or Terp + Cannon or Mortar + Factory or Terp | Nullifier + Platform or Terp + Cannon or Mortar + Missile Launcher or Sniper + Factory or Terp |
+| Nullify 3 | Nullifier + Platform or Terp + Cannon or Mortar + Factory or Terp | Nullifier + Platform or Terp + Cannon or Mortar + Missile Launcher or Sniper + Factory or Terp |
+| Nullify 4 | Nullifier + Platform or Terp + Cannon or Mortar + Factory or Terp | Nullifier + Platform or Terp + Cannon or Mortar + Missile Launcher or Sniper + Factory or Terp |
+| Nullify 5 | Nullifier + Platform or Terp + Cannon or Mortar + Factory or Terp | Nullifier + Platform or Terp + Cannon or Mortar + Missile Launcher or Sniper + Factory or Terp |
+| Nullify 6 | Nullifier + Platform or Terp + Cannon or Mortar + Factory or Terp | Nullifier + Platform or Terp + Cannon or Mortar + Missile Launcher or Sniper + Factory or Terp |
+| Nullify 7 | Nullifier + Platform or Terp + Cannon or Mortar + Factory or Terp | Nullifier + Platform or Terp + Cannon or Mortar + Missile Launcher or Sniper + Factory or Terp |
+| Nullify 8 | Nullifier + Platform or Terp + Cannon or Mortar + Factory or Terp | Nullifier + Platform or Terp + Cannon or Mortar + Missile Launcher or Sniper + Factory or Terp |
+| Nullify 9 | Nullifier + Platform or Terp + Cannon or Mortar + Factory or Terp | Nullifier + Platform or Terp + Cannon or Mortar + Missile Launcher or Sniper + Factory or Terp |
+| Nullify 10 | Nullifier + Platform or Terp + Cannon or Mortar + Factory or Terp | Nullifier + Platform or Terp + Cannon or Mortar + Missile Launcher or Sniper + Factory or Terp |
+| Nullify 11 | Nullifier + Platform or Terp + Cannon or Mortar + Factory or Terp | Nullifier + Platform or Terp + Cannon or Mortar + Missile Launcher or Sniper + Factory or Terp |
+| Nullify 12 | Nullifier + Platform or Terp + Cannon or Mortar + Factory or Terp | Nullifier + Platform or Terp + Cannon or Mortar + Missile Launcher or Sniper + Factory or Terp |
+| Nullify 13 | Nullifier + Platform or Terp + Cannon or Mortar + Factory or Terp | Nullifier + Platform or Terp + Cannon or Mortar + Missile Launcher or Sniper + Factory or Terp |
+| Nullify 14 | Nullifier + Platform or Terp + Cannon or Mortar + Factory or Terp | Nullifier + Platform or Terp + Cannon or Mortar + Missile Launcher or Sniper + Factory or Terp |
+| Nullify 15 | Nullifier + Platform or Terp + Cannon or Mortar + Factory or Terp | Nullifier + Platform or Terp + Cannon or Mortar + Missile Launcher or Sniper + Factory or Terp |
+| Nullify 16 | Nullifier + Platform or Terp + Cannon or Mortar + Factory or Terp | Nullifier + Platform or Terp + Cannon or Mortar + Missile Launcher or Sniper + Factory or Terp |
+| Nullify 17 | Nullifier + Platform or Terp + Cannon or Mortar + Factory or Terp | Nullifier + Platform or Terp + Cannon or Mortar + Missile Launcher or Sniper + Factory or Terp |
+| Custom | Nullifier + Platform or Terp + Cannon or Mortar + Factory or Terp | Nullifier + Platform or Terp + Cannon or Mortar + Missile Launcher or Sniper + Factory or Terp |
 
 ### 20. Ever After
 

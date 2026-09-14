@@ -157,11 +157,27 @@ class TestAccess(CW4TestBase):
         self.assertFalse(self.can_reach_location("The Compound - Cache 1"))
         self.assertFalse(self.can_reach_location("The Compound - Mission Complete"))
 
-    def test_founders_needs_terp_beacon_and_platform(self) -> None:
+    def test_founders_cache_needs_terp_and_beacon_but_not_a_platform(self) -> None:
+        # It used to demand a Platform as well, for "behind enemy lines". That
+        # crossing is Platform OR Terp since 2026-09-14 (the enemy builds a land
+        # bridge; a Terp flattens it), and this objective already requires a Terp
+        # to dig the item up - so the crossing is covered by an item the rule has
+        # already asked for, and the Platform clause can never fail. Asserting it
+        # here would be asserting a requirement that does not exist.
         self.assertAccessDependency(
             ["Founders - Cache 1"],
-            [["Terp", "Chronat", "Platform"]],   # one combination, all needed
+            [["Terp", "Chronat"]],               # one combination, both needed
             only_check_listed=True,
+        )
+        # assertAccessDependency proves the listed items ARE needed; it says
+        # nothing about anything else also being needed, so on its own it passes
+        # just as happily with the old Platform requirement still in place.
+        # Measured: it did. This is the half that actually discriminates.
+        self.collect_all_but(["Platform"])
+        self.assertTrue(
+            self.can_reach_location("Founders - Cache 1"),
+            "the cache must not want a Platform - its own Terp does the "
+            "crossing",
         )
 
     def test_ever_after_is_an_ordinary_mission(self) -> None:
@@ -771,12 +787,64 @@ class TestLifticPrerequisites(CW4TestBase):
             "crossing space by Platform needs the liftic chain",
         )
 
-    def test_a_sole_platform_requirement_demands_the_chain_outright(self) -> None:
-        # Founders' nullify is Platform with no alternative - "pylon will not
-        # work, and porter might, but would be very hard mode" - so here the
-        # clause collapses to requiring the Factory unconditionally.
-        self.collect_all_but(["Factory"])
+    def test_the_platform_route_still_pays_for_its_chain(self) -> None:
+        # Founders' crossing is Platform OR Terp. _expand therefore emits
+        # ["Terp", "Factory"] alongside, meaning "pay for the platform, or route
+        # around it". Remove BOTH the Terp and the Factory and neither half is
+        # available: the Terp route is gone and the Platform route is unbuilt.
+        #
+        # This replaces a test that asserted the Factory was needed with only
+        # the Factory removed. That was right while Platform was the sole route
+        # and is wrong now - a lone Terp crosses without any greenar at all,
+        # which is the next test.
+        self.collect_all_but(["Terp", "Factory"])
         self.assertFalse(
             self.can_reach_location("Founders - Nullify 1"),
-            "the only route is a Platform, so the Factory is not optional",
+            "no Terp to cross with, and no Factory to build the Platform",
+        )
+
+    def test_founders_crosses_by_either_platform_or_terp(self) -> None:
+        # The designer's correction, 2026-09-14: "the enemy actually builds a
+        # land bridge to the starting island, the problem is that it's too bumpy
+        # to put weapons on it normally." A Terp fixes the bumps, so it is a full
+        # route and not hard mode.
+        self.collect_all_but(["Platform"])
+        self.assertTrue(
+            self.can_reach_location("Founders - Nullify 1"),
+            "a Terp should cross the land bridge with no Platform at all",
+        )
+
+        self.remove(self.get_items_by_name("Terp"))
+        self.assertFalse(
+            self.can_reach_location("Founders - Nullify 1"),
+            "with neither a Platform nor a Terp there is no way off the island",
+        )
+
+    def test_a_lone_terp_needs_no_greenar_to_cross(self) -> None:
+        # The half that would break if the mixed group were expanded wrongly.
+        # Terp has no prerequisites, so demanding the Platform's greenar chain
+        # from a Terp route would be a requirement nobody is relying on.
+        self.collect_all_but(["Platform", "Factory"])
+        self.assertTrue(
+            self.can_reach_location("Founders - Nullify 1"),
+            "a Terp route must not pay for a Factory it is not using",
+        )
+
+    def test_founders_chasm_totems_take_the_terp_route_too(self) -> None:
+        # Instances 2, 3 and 4 are across the chasm; 1 and 5 are the
+        # starting-island pair. The three far ones carried a bare Platform.
+        self.collect_all_but(["Platform"])
+        self.assertTrue(
+            self.can_reach_location("Founders - Totem 2"),
+            "the far totems are reachable over a terped land bridge",
+        )
+
+        self.remove(self.get_items_by_name("Terp"))
+        self.assertFalse(
+            self.can_reach_location("Founders - Totem 2"),
+            "without either route the far totems stay unreachable",
+        )
+        self.assertTrue(
+            self.can_reach_location("Founders - Totem 1"),
+            "the starting-island totems never needed a crossing",
         )

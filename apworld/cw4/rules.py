@@ -197,12 +197,23 @@ OBJECTIVE_OWN = {
     (8, "Nullify"): [["Cannon", "Terp", "Miner"]],
     (8, "Reclaim"): [["Cannon", "Terp", "Miner"]],
 
-    # Founders. The nullify targets are on the enemy islands and the starting
-    # island cannot be left without platforms: "You will need Platforms to get
-    # from the safe starter island to get to the enemies (pylon will not work,
-    # and porter might, but would be very hard mode)." _expand adds the greenar
-    # chain a platform needs.
-    (19, "Nullify"): [["Platform"]],
+    # Founders. The nullify targets are on the enemy islands, so the rule is
+    # really "you have to leave the starting island" - which is why the same
+    # requirement appears on Totems, Custom and Collect below.
+    #
+    # PLATFORM OR TERP (designer, 2026-09-14). The original reading was platform
+    # only: "You will need Platforms to get from the safe starter island to get
+    # to the enemies (pylon will not work, and porter might, but would be very
+    # hard mode)." That missed a route the map provides for you - the ENEMY
+    # builds a land bridge across to the starting island, and the only thing
+    # wrong with it is that it is too bumpy to place weapons on. A Terp flattens
+    # it. Graded green, equal to the platform, not hard mode.
+    #
+    # The mixed group is deliberate and _expand handles it: Platform needs the
+    # greenar chain and Terp does not, so the expansion emits
+    # ["Terp", "Factory"] alongside, and a Terp route never pays for a factory
+    # it is not using while a lone Platform still does.
+    (19, "Nullify"): [["Platform", "Terp"]],
 
     # Not My Mars. Both of its optional objectives need a way to move things
     # around the map, which a tower and a weapon do not provide. From the
@@ -305,10 +316,20 @@ OBJECTIVE_OWN = {
 
     # Founders: "The item is in darkness (BEACON), and burried (TERP), and behind
     # enemy lines. You will need Platforms" - pylon explicitly does not work.
-    (19, "Collect"): [["Terp"], ["Chronat"], ["Platform"]],
+    #
+    # THE PLATFORM GROUP IS GONE, and that is a simplification rather than an
+    # omission. "Behind enemy lines" means leaving the starting island, which is
+    # now Platform OR Terp (see (19, "Nullify")) - and this objective already
+    # requires a Terp to dig the item up. The group ["Platform", "Terp"] would
+    # therefore be satisfied by a Terp the rule has already demanded, so it can
+    # never fail and is dropped. Anyone who can dig this out can also cross to
+    # it.
+    (19, "Collect"): [["Terp"], ["Chronat"]],
     # "You need to nullify the 4 obelisk reactors, and 1 neutron reactor to
     # finish the custom 'End the Beginning' objective."
-    (19, "Custom"): [["Nullifier"], ["Platform"]],
+    #
+    # Platform OR Terp for the crossing, as on (19, "Nullify").
+    (19, "Custom"): [["Nullifier"], ["Platform", "Terp"]],
 
     # Ever After: "REFINERY, FACTORY for totems. Nullifier for enemies."
     (20, "Nullify"): [["Nullifier"]],
@@ -444,10 +465,13 @@ OBJECTIVE_INSTANCE_EXTRA = {
     #
     # The Factory is objective-wide (OBJECTIVE_OWN), so _expand's liftic clause
     # for the Platform is already satisfied and simplifies away.
+    #
+    # Platform OR Terp, for the reason recorded on (19, "Nullify"): the enemy
+    # builds a land bridge to the starting island and a Terp makes it usable.
     (19, "Totems"): {
-        2: [["Platform"]],
-        3: [["Platform"]],
-        4: [["Platform"]],
+        2: [["Platform", "Terp"]],
+        3: [["Platform", "Terp"]],
+        4: [["Platform", "Terp"]],
     },
 
     # Sequence's two caches are NOT alike, which an objective-wide Terp got
