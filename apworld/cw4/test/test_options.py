@@ -864,9 +864,18 @@ class TestOwnProgressionFill(bases.CW4TestBase):
     A world cannot catch or retry the main fill, but it can place its own items
     and retry, which is what oot and pokemon_emerald do for the same reason.
 
-    Measured over 8000 seeds: the first attempt failed on 389 of them and a
-    reshuffled retry recovered EVERY time (364 needed 2 attempts, 24 needed 3,
-    1 needed 4, none exhausted 5).
+    Measured over 20,000 default seeds (2026-09-14, superseding an 8,000-seed
+    run made before Not My Mars was tightened): the first attempt failed on 738
+    of them and a reshuffled retry recovered EVERY time - 708 needed 2 attempts,
+    29 needed 3, 1 needed 4, and none reached 5. Zero seeds failed, zero had
+    unreachable locations, zero were unbeatable.
+
+    The cap of 5 is justified by the SHAPE of that tail rather than by the zero:
+    each level is about 3.7 percent of the one above it, matching the per-attempt
+    failure rate, so attempts are near-independent and 5 buys roughly 1 seed in
+    14.6 million. See the OWN_FILL_ATTEMPTS comment in items.py for the full
+    distribution and
+    docs/design/2026-09-14-fill-reliability.md for the method.
     """
     own_fill = True
 

@@ -527,10 +527,39 @@ def weapon_breadth(mission: int, casual: bool = False) -> int:
 
 
 # How many times to re-attempt our own progression fill before the error is
-# allowed out. Each attempt reshuffles, so attempts are near-independent: one
-# attempt fails about 1 seed in 18,000, and every observed failure is the same
+# allowed out. Each attempt reshuffles, and every observed failure is the same
 # shape - the opening does not chain in the first few placements, which a
 # different order almost always fixes.
+#
+# WHY 5, MEASURED (2026-09-14, 20,000 default seeds, cap raised to 25 so the
+# depth each seed NEEDED could be recorded):
+#
+#     1 attempt   19262   96.310 percent
+#     2 attempts    708    3.540
+#     3 attempts     29    0.145
+#     4 attempts      1    0.005
+#     5 or more       0
+#
+# Read the tail, not the zero. Each level is about 3.7 percent of the one above
+# it (708/19262 = 3.68, 29/708 = 4.1, 1/29 = 3.4), which is the same as the
+# per-attempt failure rate p = 0.0369. That geometric decay is the evidence that
+# attempts really are near-independent - the assumption this whole design rests
+# on, and one nothing had actually checked. Because it holds, p**5 is a
+# trustworthy estimate and not hand-waving: about 1 seed in 14.6 million,
+# against 1 in 1,000 with no retry at all.
+#
+# Measuring DEPTH rather than failures is what makes this answerable. A blind
+# sweep can only report "no failure yet", which at a 1-in-a-million rate is
+# almost no information; roughly 4 percent of seeds retry, so the tail is
+# estimable from 20,000 seeds instead of needing millions.
+#
+# OPENING WIDTH IS THE ONLY DRIVER. A further 20,000 seeds across five
+# selectable configurations: casual (bootstraps to a 6-wide opening) and
+# starter_missions 6 (6-wide directly) each retried ZERO times in 4,000, while
+# all-traps, no-traps and no-progressive-ERNs sat at the default 3.6 to 4.6
+# percent. Pool composition barely registers. So the default two starters is
+# the worst case a player can select - starter_missions cannot go below 2 - and
+# that is what the 20,000-seed run above measures.
 OWN_FILL_ATTEMPTS = 5
 
 # Every seed, or only solo ones?
