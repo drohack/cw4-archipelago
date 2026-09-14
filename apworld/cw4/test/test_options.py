@@ -913,3 +913,35 @@ class TestOwnFillCanBeSwitchedOff(bases.CW4TestBase):
 
     def test_nothing_is_pre_placed(self) -> None:
         self.assertEqual([], getattr(self.world, "own_placements", []))
+
+
+class TestFillRunsTheShippedPath(bases.CW4TestBase):
+    """The inherited test_fill must generate the way a real seed generates.
+
+    THE BUG THIS PINS. CW4TestBase turns World.pre_fill's own progression fill
+    off so access assertions keep working, and for a long time that applied to
+    the inherited test_fill too. It should not have: test_fill is about whether
+    the world GENERATES, and generating without our fill is a configuration no
+    player ever gets. CI duly failed on it -
+
+        TestAllWeightsZero.test_fill  seed=43880291297955385029
+        FillError: No more spots to place 25 items.
+
+    - and measuring the two paths over the same seeds separated them cleanly:
+    0 failures in 16,000 seeds with our fill on, 3 in 3,000 with it off. All
+    three off-path failures were recovered on the FIRST attempt when re-run with
+    our fill on, so nothing was unfillable; Archipelago's capped backtracking
+    just could not find an arrangement that existed.
+
+    `own_fill` is left at its default here on purpose. The class is an ORDINARY
+    one, so if the name-keyed exception in CW4TestBase.setUp is ever removed,
+    this fails - which is the whole point.
+    """
+
+    def test_fill(self) -> None:
+        self.assertTrue(
+            getattr(self.world, "own_placements", []),
+            "test_fill generated with our pre_fill disabled. That tests a "
+            "configuration that never ships and fails on roughly 1 seed in "
+            "1000; see CW4TestBase.FILL_TESTS.")
+        super().test_fill()

@@ -3,6 +3,30 @@
 Versions follow semantic versioning. The plugin and the apworld share one number,
 so a release is a matched pair - if you update one, update the other.
 
+## Unreleased
+
+- **Fixed: generation errors in CI.** The test suite could fail with
+  `FillError: No more spots to place 25 items` on roughly 1 seed in 1,000. No
+  seed was ever unfillable, and no released seed was affected - the tests were
+  generating down a path no player uses.
+
+  The world places its own progression during `pre_fill` and retries, because
+  Archipelago's fill is greedy and caps backtracking at two swaps per item, so
+  it can give up on an arrangement that exists. The test base switches that off
+  so access assertions keep working against an untouched pool, and it was doing
+  so for the inherited `test_fill` as well - the one test that is about
+  generating rather than about the rules.
+
+  Measured over the same seeds: 0 failures in 16,000 with the world's own fill
+  on, 3 in 3,000 with it off. All three of those failures had the same shape, a
+  two-location opening that did not chain, and all three were recovered on the
+  first attempt when re-run with the fill on. A mixed multiworld, which takes
+  neither defence, was clean over 1,000 seeds - our progression can live in the
+  other world's locations, which is slack a solo seed does not have.
+
+  `test_fill` now generates the way a real seed generates, and a new test fails
+  if that is ever switched back.
+
 ## v0.1.9 - the log reaches the bottom, and two missions read true
 
 - **Fixed: the message log opened part-way up.** Third time asked, first time
