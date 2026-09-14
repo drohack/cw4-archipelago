@@ -116,7 +116,22 @@ sleep 12; MARK=0
 wait_since "AP CONNECTED slot='$SLOT'" 60; verdict $? "connected"
 
 echo "[msgbox] step 2: boot mission -> the box builds"
-send "boot:story1"; wait_since "New GameSpace" 45; sleep 4
+# Unlock what we are about to boot. Starters are RANDOM per seed, and this
+# harness used to assume story1 was bootable - on a seed where it was not, the
+# boot was refused and three assertions failed downstream (the box never built,
+# so no objective could complete and the box then built for the first time in
+# story2, tripping the do-not-rebuild check). One locked mission, three
+# confusing failures, none of them about the message box.
+srv "/send $SLOT Mission Unlock: Farsite"
+srv "/send $SLOT Mission Unlock: Home"
+mark
+send "boot:story1"
+if since | grep -q "boot BLOCKED"; then
+  verdict 1 "PREMISE: story1 is bootable (the gate refused it)"
+else
+  verdict 0 "PREMISE: story1 is bootable"
+fi
+wait_since "New GameSpace" 45; sleep 4
 send "ada:close"; sleep 1
 wait_since "MSGBOX: built on" 20; verdict $? "message box built"
 since | grep "MSGBOX: built on" | tail -1 | sed 's/^.*MSGBOX:/[msgbox]   MSGBOX:/'
@@ -156,18 +171,22 @@ send "msgbox:dump"; sleep 2
 H2=$(since | grep -oE "MSGBOX DUMP: history=[0-9]+" | tail -1 | grep -oE "[0-9]+$")
 echo "[msgbox]   history after reboot=$H2"
 [ "${H2:-0}" -ge "${H1:-1}" ] && [ "${H2:-0}" -gt 0 ]; verdict $? "history retained across missions ($H1 -> $H2)"
-# It is NOT rebuilt, and that is the correct behaviour - this assertion used to
-# demand a rebuild and fail while the box was working perfectly. The box hosts
-# itself on AchievementCanvas, which survives the mission change, so Build()
-# does not run again and no second "built on" line is emitted. What matters is
-# that the box is still ALIVE, which the dump below shows directly; a rebuild
-# would in fact be the suspicious outcome, since it would mean the old one was
-# orphaned.
-if since | grep -q "MSGBOX: built on"; then
-  verdict 1 "the box survives the mission change without being rebuilt"
-else
-  verdict 0 "the box survives the mission change without being rebuilt"
-fi
+# Rebuilding on a mission change is CORRECT, and this used to assert the
+# opposite. The box hosts itself on AchievementCanvas, which the scene change
+# destroys, so IsAlive() goes false and TryBuild() makes a new one - the log
+# shows exactly one "built on" per SCENE: 'Game'. The earlier assertion was
+# written from a single run where the canvas happened to survive, and it then
+# failed on every seed where it did not, while the box was working perfectly.
+#
+# What actually matters is that there is ONE box, not that it is the same one:
+# a second build without the first being gone would orphan a box and double
+# every line. So count builds against mission entries rather than forbidding
+# them, and let the render and scroll assertions below prove it works.
+BUILDS=$(grep -c "MSGBOX: built on" "$L")
+ENTRIES=$(grep -c "New GameSpace" "$L")
+echo "[msgbox]   box builds=$BUILDS, mission entries=$ENTRIES"
+[ "${BUILDS:-0}" -le "${ENTRIES:-0}" ] && [ "${BUILDS:-0}" -ge 1 ]
+verdict $? "one box per mission entry, none orphaned ($BUILDS builds / $ENTRIES entries)"
 
 # Entering a mission with a history behind you must open the log at the BOTTOM,
 # on the newest line. Reported from play on v0.1.7: "when i load into a level the

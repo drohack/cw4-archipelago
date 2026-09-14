@@ -76,21 +76,12 @@ public sealed class ApMessageBox
     /// <summary>How many frames to keep re-pinning after content changes. Three
     /// is enough for the layout group, the size fitter and TMP to agree in
     /// practice; it costs one assignment per frame while it runs.</summary>
-    /// <summary>Frames to keep re-pinning AT MOST, if the layout never settles.
-    ///
-    /// This was 3, which is what a fixed frame count gets you: it was measured
-    /// against a box holding eight lines and is nowhere near enough for a box
-    /// holding two hundred, because the number of frames TMP needs depends on
-    /// how much text it is measuring. The real stop condition is the content
-    /// height going quiet (see SettleStableFrames); this is only a ceiling so a
-    /// layout that never stabilises cannot pin forever. Three seconds at
-    /// 60fps.</summary>
-    private const int SettleFrameBudget = 180;
-
-    /// <summary>Consecutive frames of UNCHANGED content height that count as
-    /// settled. More than one, because TMP can report the same height for a
-    /// frame mid-pass and then grow again.</summary>
-    private const int SettleStableFrames = 5;
+    /// <summary>How long to keep ignoring scrollbar movement after the content
+    /// height changes. The bar moves as a CONSEQUENCE of the layout, and those
+    /// moves must not be read as the player dragging it - that is what left the
+    /// log in the middle. A few frames covers the callback arriving a frame or
+    /// two after the change.</summary>
+    private const int LayoutGraceFrames = 10;
 
     private ScrollRect? _scroll;
     private GameObject? _body;              // everything but the header (for collapse)
@@ -109,12 +100,17 @@ public sealed class ApMessageBox
     ///
     /// Canvas.ForceUpdateCanvases does not cover it: it flushes the canvas, not
     /// TMP's own pass. Re-applying across a few frames does.</summary>
-    private int _scrollSettle;
+    /// <summary>Content height last frame, and a countdown since it last
+    /// changed. Together these say "the layout is still moving", which is the
+    /// only thing this needs to know.</summary>
+    private float _lastHeight = -1f;
+    private int _layoutGrace;
 
     /// <summary>Content height last frame, and how long it has been unchanged.
     /// The pin stops when the layout stops moving, not after a fixed count.</summary>
-    private float _settleHeight = -1f;
-    private int _settleStable;
+    /// <summary>Set while this code is the one moving the scrollbar, so its
+    /// own writes are not mistaken for the player scrolling.</summary>
+    private bool _applyingScroll;
     private int _geomCountdown;
 
     public void LateTick(string scene)
@@ -129,37 +125,21 @@ public sealed class ApMessageBox
             TryBuild();
             return;
         }
-        // Finish pinning to the bottom while the layout is still settling.
-        // Guarded on _autoScroll so scrolling up during those frames wins - the
-        // scrollbar callback clears it, and a box that yanked itself back down
-        // under the player would be worse than starting in the wrong place.
-        if (_scrollSettle > 0)
+        // FOLLOW THE BOTTOM WHILE THE LAYOUT MOVES. No timer: the content
+        // height changing IS the signal that TMP is still working, and it stays
+        // true for as long as that takes. Previous versions guessed a duration
+        // and both guesses were too short on a full box.
+        float h = _content != null ? _content.rect.height : -1f;
+        if (h != _lastHeight)
         {
-            _scrollSettle--;
+            _lastHeight = h;
+            _layoutGrace = LayoutGraceFrames;
             if (_autoScroll)
-            {
-                // Stop when the CONTENT HEIGHT settles. A fixed frame count
-                // cannot work here: how long TMP takes scales with how much
-                // text it is measuring, so a count tuned on a near-empty box
-                // silently gives up early on a full one.
-                float h = _content != null ? _content.rect.height : -1f;
-                if (h != _settleHeight)
-                {
-                    _settleHeight = h;
-                    _settleStable = 0;
-                }
-                else
-                {
-                    _settleStable++;
-                }
                 ScrollToBottom();
-                if (_settleStable >= SettleStableFrames)
-                    _scrollSettle = 0;      // settled - stop early
-            }
-            else
-            {
-                _scrollSettle = 0;          // the player scrolled up; leave it
-            }
+        }
+        else if (_layoutGrace > 0)
+        {
+            _layoutGrace--;
         }
 
         // Re-track the HUD cluster periodically so the box follows window
@@ -429,9 +409,19 @@ public sealed class ApMessageBox
         _scroll.verticalScrollbar = scrollbar;
         _scroll.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.Permanent;
 
-        // Track whether the user scrolled away from the bottom (pause auto-scroll)
+        // Track whether the USER scrolled away from the bottom (pause
+        // auto-scroll). The hard part is that this fires for layout too: the
+        // bar's value changes whenever the CONTENT does, so adding 150 lines or
+        // re-rendering on a mission change looked exactly like the player
+        // dragging it. _autoScroll went false, the re-pin below was skipped,
+        // and the log settled wherever the half-finished layout left it - the
+        // middle. Measured at rendered=156, scroll=0.499, autoScroll=False.
+        //
+        // So ignore it while WE are moving the bar, and while the layout is
+        // still settling. Outside that window this behaves as it always did.
         scrollbar.onValueChanged.AddListener((UnityEngine.Events.UnityAction<float>)(v =>
         {
+            if (_applyingScroll || _layoutGrace > 0) return;
             _autoScroll = v <= 0.02f;   // BottomToTop: 0 == bottom
         }));
 
@@ -661,13 +651,17 @@ public sealed class ApMessageBox
         }
     }
 
-    /// <summary>Start re-pinning, and forget any previous height reading so a
-    /// stale one cannot be mistaken for "already settled".</summary>
+    /// <summary>Go to the bottom now, and start following again.
+    ///
+    /// Called when the whole log is re-rendered, and when a line is appended
+    /// while already following. The height watcher in LateTick keeps it there
+    /// for as long as the layout keeps moving.</summary>
     private void ArmScrollSettle()
     {
-        _scrollSettle = SettleFrameBudget;
-        _settleHeight = -1f;
-        _settleStable = 0;
+        _autoScroll = true;
+        _lastHeight = -1f;              // force the next tick to see a change
+        _layoutGrace = LayoutGraceFrames;
+        ScrollToBottom();
     }
 
     private void ScrollToBottom()
@@ -675,9 +669,15 @@ public sealed class ApMessageBox
         if (_scroll == null) return;
         // Force the layout to update first, or the scroll position is set
         // against stale content bounds and won't reach the true bottom.
-        try { Canvas.ForceUpdateCanvases(); } catch { }
-        _scroll.verticalNormalizedPosition = 0f;   // 0 == bottom (newest)
-        try { Canvas.ForceUpdateCanvases(); } catch { }
+        _applyingScroll = true;
+        try
+        {
+            try { Canvas.ForceUpdateCanvases(); } catch { }
+            _scroll.verticalNormalizedPosition = 0f;   // 0 == bottom (newest)
+            _autoScroll = true;      // we ARE at the bottom now, by definition
+            try { Canvas.ForceUpdateCanvases(); } catch { }
+        }
+        finally { _applyingScroll = false; }
     }
 
     // ---- UI helpers ----
