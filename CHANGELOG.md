@@ -3,15 +3,19 @@
 Versions follow semantic versioning. The plugin and the apworld share one number,
 so a release is a matched pair - if you update one, update the other.
 
-## Unreleased
+## v0.1.9 - the log reaches the bottom, and two missions read true
 
-- **Fixed (again): the message log still opened part-way up.** v0.1.8 re-pinned
-  it to the bottom for three frames, which is plenty for a nearly empty box and
-  nowhere near enough for a full one - the log holds 200 lines, and how long the
-  text layout takes to settle scales with how much text there is. It now keeps
-  re-pinning until the content stops growing. The test that passed this twice
-  was running against a box with eight lines in it; it now fills the box first
-  and requires at least a hundred.
+- **Fixed: the message log opened part-way up.** Third time asked, first time
+  actually fixed. Scrolling the log switched off its own auto-scroll: the
+  scrollbar treats any movement as you dragging it, and it moves by itself
+  whenever the log grows - so on a full log the mod concluded you had scrolled
+  away and stopped following, leaving the view in the middle. It now keeps up
+  with the layout for as long as the layout is moving, however long that takes.
+
+  The two previous attempts both guessed how many frames the text takes to lay
+  out, and both guesses were far too short once the log is full. The test that
+  passed them was running against a log with eight lines in it; it now fills it
+  to 150 first.
 - **Not My Mars is re-graded.** v0.1.8 demanded a Pylon, Porter or Platform and
   nothing could satisfy it, so the whole planet went red the moment it unlocked.
   It now reads:
