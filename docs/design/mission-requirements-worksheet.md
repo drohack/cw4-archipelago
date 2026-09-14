@@ -155,6 +155,56 @@ figure of speech.
 - Objective notes: has 3 caches of liftic to power totems.
 - Blockers:
 - Notes: You can get the single item if you spawn in the rift lab near it and place a single tower (need to test outside of god mode, but i'm pretty sure it's possible). In the base game it does unlock pylons in this level. You can cheese it by moving the rift lab back and forth and "cheat" the connection while it's flying... but that's hard mode move. You can do this with platforms instead of pylons. and you might be able to do it with porters instead of either as well. confirmed you can move the liftic to the totems via porter.
+- **SETTLED (2026-09-13).** Three readings of this mission in four days, so the
+  final one is stated as a table rather than prose:
+
+  | held | colour |
+  |---|---|
+  | weapon only | RED |
+  | weapon + Miner | YELLOW |
+  | weapon + Miner + Platform | YELLOW |
+  | weapon + Miner + Pylon or Porter | GREEN |
+
+  "to get across the gap you need either platform, pylon, or porter... if you
+  have pylon or porter with miner + weapon it should be green, but with miner +
+  weapon and platform it's yellow", and "weapon only is red".
+
+  So the **Miner is hard** (MISSION_EXTRA) - no power reaches the far island
+  without one. The **mover is soft** (MISSION_SOFT, Pylon or Porter), because
+  the rift-lab hover crosses the gap without any mover, which is why no-mover is
+  yellow rather than red. A **Platform is deliberately excluded from the logic
+  group**: it crosses the gap but is hard work, so it belongs with the hover as
+  possible-but-not-promised. Putting it in the group would make a platform-only
+  seed green.
+
+  How this went wrong twice, worth keeping:
+
+  1. v0.1.8 read the worksheet line below as a REQUIREMENT and made the mover
+     hard. Nothing satisfied it, so the whole planet went RED the moment it
+     unlocked.
+  2. The 2026-09-09 correction over-corrected to "no mover is required at all",
+     which made a platform-only seed green and lost the distinction entirely.
+
+  The line below lists ALTERNATIVE ways to cross. It never said one was
+  required, and it never said they were equivalent - the platform being worse
+  than the others is the part both readings dropped.
+
+  v0.1.8 read the line above as a REQUIREMENT and shipped
+  `(3, "Nullify")` and `(3, "Totems")` needing Pylon-or-Porter-or-Platform. It
+  is not a requirement - it is a list of alternative ways to move liftic, and
+  it never said one was needed. The supporting evidence was a v0.1.7 report
+  that both objectives read GREEN with no mover held; that green was correct.
+
+  What it cost: holding Cannon + Nullifier and no mover, every objective on the
+  mission read RED the moment its unlock arrived, because a hard requirement
+  nothing satisfies makes a location strictly unreachable. Reproduced against
+  the inventory in that session's log. The mission's real gate is the Miner in
+  MISSION_SOFT, which paints these yellow rather than green - correct, and the
+  distinction the red destroyed.
+
+  The lesson for this file: a note listing ways to DO something is not a note
+  saying it must be done. When a worksheet line is turned into a requirement,
+  the requirement needs its own confirmation.
 
 ## 4. Ruins Repurposed
 
@@ -370,6 +420,30 @@ figure of speech.
 - Notes: There's 3 special Wallis weapons on this map (REDDITE crystals, FACTORY) to help you. There's RESO and 3 bluite crystals, will help to power Sprayer, there's 2 purple crystals where AC helps a little, not needed. There's 2 spores, and 2 skimmers, and 1 blob. Snipers and missles (factory) help a lot. There's quite a bit of redite crystals (1 easy to get, 4 more medium to get) to power wallis, and missles. TERP can help with defence, but not needed. This again is a turtle first to establish, then push and advance.
 
 ## 19. Founders
+
+- **Totems need a PLATFORM as well as the factory (2026-09-09).** "you can only
+  get the right 2 totems with factory/refinery. you need platforms to get to
+  anything else in the stage." Nullify, Collect and Custom already required a
+  Platform; the totems did not, so three of the five read as reachable on the
+  Factory alone.
+
+  **Instances 2, 3 and 4 are the three across the chasm; 1 and 5 are the
+  starting-island pair.** Established from PLAY rather than a cell dump: the
+  designer took the two on the right-hand starting island, and the mod - which
+  keys an instance to its map cell - sent `Founders - Totem 1` and
+  `Founders - Totem 5`. Everything else is 2, 3, 4.
+
+  That is better evidence than the dump would have given, and worth
+  remembering as a technique. A dump produces cells that still have to be
+  matched to a verbal description ("the right two"), and that matching step is
+  where a mistake hides. A location check names an instance and the player
+  names the totem they just stood next to, with nothing in between. It also
+  costs nothing and runs during a normal playthrough, where
+  `tools/instance-dump.sh` kills the game and clears the slot cache.
+
+  The false green was visible in exactly the way the rule predicts: the planet
+  read green while the player held no Platform, Porter or Pylon at all,
+  because the three across the chasm were asking only for the Factory.
 
 - Objectives present (required): Collect 1, Custom
 - Objectives (optional): nullify 17, 5 totems

@@ -69,6 +69,15 @@ PREREQUISITES = {
 
 # What COMPLETING a mission needs, beyond offense.
 MISSION_EXTRA = {
+    # Not My Mars. "weapon only is red" (designer, 2026-09-13): the objectives
+    # are on separate islands, towers cannot carry energy across, and without a
+    # Miner there is no way to power anything over there -
+    #   "we should set Not My Mars to require Miners to be unlocked. you can't
+    #    get energy from towers so this is basically impossible to beat."
+    # That note used to make the Miner SOFT, on the grounds that the rift-lab
+    # hover can walk power across. The hover is still why a MOVER is soft (see
+    # MISSION_SOFT); it is no longer taken as a way around the miner itself.
+    3: [["Miner"]],
     # Archon, two entries. An enemy shuts off energy production, and the map
     # rains creeper constantly:
     #   "So I think super hard to do anything without a nullifier."
@@ -123,14 +132,20 @@ MISSION_EXTRA = {
 # Both entries are about energy rather than offense, and both were found by
 # playing a seed where only Mortar had arrived (designer, 2026-09-03).
 #
-# Not My Mars - the objectives sit on separate islands and towers cannot carry
-# energy across:
-#   "we should set Not My Mars to require Miners to be unlocked. you can't get
-#    energy from towers so this is basically impossible to beat."
-# Not literally impossible: the rift lab can be hovered between the islands to
-# walk the power over, and that is explicitly rejected as logic -
+# Not My Mars - the objectives sit on separate islands. Its MINER is no longer
+# here: as of 2026-09-13 it is a hard requirement in MISSION_EXTRA, because
+# "weapon only is red". What sits here instead is the MOVER, and the reason is
+# the same cheese that used to excuse the miner -
 #   "I'd have to use the cheese/hard mode strategy of hovering the rift lab
 #    between the islands to get the power across... which shouldn't be in logic."
+# You can cross without a mover, so no mover never means RED; it does mean the
+# generator will not assume it, so the checks read yellow.
+#
+# Pylon or Porter only. A PLATFORM also crosses the gap and is deliberately
+# absent: "with miner + weapon and platform it's yellow", so it belongs with the
+# rift-lab hover as possible-but-not-promised rather than as a logic route.
+# Adding it to this group would make a platform-only seed GREEN, which is the
+# opposite of what was asked.
 #
 # Ruins Repurposed - the same energy problem, judged one notch easier:
 #   "i just can't get enough ground to get enough energy to support the mortars
@@ -142,7 +157,7 @@ MISSION_EXTRA = {
 # not a requirement." test_miner_gates_only_the_energy_missions pins the
 # exception to these two.
 MISSION_SOFT = {
-    3: [["Miner"]],
+    3: [["Pylon", "Porter"]],
     4: [["Miner"]],
     # Wallis. Beaten with "Miners, Snipers, and Cannons only", and the designer
     # put the miner-less case at yellow rather than red: "You could put just
@@ -193,22 +208,29 @@ OBJECTIVE_OWN = {
     # around the map, which a tower and a weapon do not provide. From the
     # worksheet: "You can do this with platforms instead of pylons. and you
     # might be able to do it with porters instead of either as well. confirmed
-    # you can move the liftic to the totems via porter." The liftic has to reach
-    # the totems and the enemies have to be reachable at all.
+    # you can move the liftic to the totems via porter."
     #
-    # Reported from play on v0.1.7: both read GREEN while holding none of the
-    # three. The base game unlocks pylons on this mission, so vanilla never
-    # exposes the requirement - the randomizer withholds them and does.
+    # WITHDRAWN 2026-09-09, and worth keeping as a worked example of reading a
+    # note wrongly. v0.1.8 turned those lines into
     #
-    # The rift-lab shuffle the worksheet also mentions ("moving the rift lab
-    # back and forth and cheat the connection while it's flying") is explicitly
-    # a "hard mode move", so it stays out of logic.
+    #     (3, "Nullify"): [["Pylon", "Porter", "Platform"]],
+    #     (3, "Totems"):  [["Pylon", "Porter", "Platform"]],
     #
-    # _expand adds nothing here, correctly: it only contributes a prerequisite
-    # every option in the group shares, and Pylon and Porter have none, so this
-    # will not demand the greenar chain that only Platform needs.
-    (3, "Nullify"): [["Pylon", "Porter", "Platform"]],
-    (3, "Totems"): [["Pylon", "Porter", "Platform"]],
+    # on the strength of a v0.1.7 report that both read GREEN while holding
+    # none of the three. But the worksheet line is about ALTERNATIVES for moving
+    # liftic - platforms instead of pylons, porter also works - and never said a
+    # mover was needed at all. The designer, playing it: "Not My Mars can get
+    # the totems and nullify with just cannons (and nullifier for nullify)."
+    #
+    # The cost was not theoretical. Holding Cannon + Nullifier and no mover,
+    # every objective on the mission read RED (strictly unreachable) the instant
+    # its unlock arrived - reproduced exactly against the inventory in that
+    # session's log. The green in the v0.1.7 report was correct; what is
+    # actually missing without a Miner is MISSION_SOFT, which paints these
+    # yellow rather than green, and that is the right answer.
+    #
+    # So mission 3 contributes nothing of its own: offense comes from the
+    # mission rule, the nullifier from the Nullify kind.
 
     # Sequence's reclaim means clearing everything, so it inherits the whole
     # nullify stack including the darkness beacon - the union of every group in
@@ -245,6 +267,9 @@ OBJECTIVE_OWN = {
     # The test that no totem check is reachable without the greenar chain unless
     # its mission has loose liftic is what would have caught this before a
     # player did (designer, 2026-09-03).
+    # Founders' totems all need the factory; three of the five ALSO need a
+    # platform, which is in OBJECTIVE_INSTANCE_EXTRA rather than here - see
+    # there for which three and how that was established.
     (19, "Totems"): [["Factory"]],
 
     # Shattered and Wallis, the last two totem sets logic still called free.
@@ -401,6 +426,28 @@ OBJECTIVE_INSTANCE_EXTRA = {
         12: [["Sniper"], ["Chronat", "Pylon", "Porter", "Platform"]],
         13: [["Sniper"], ["Chronat", "Pylon", "Porter", "Platform"]],
         14: [["Sniper"], ["Chronat", "Pylon", "Porter", "Platform"]],
+    },
+
+    # Founders: "you can only get the right 2 totems with factory/refinery. you
+    # need platforms to get to anything else in the stage" (designer,
+    # 2026-09-09). Without this the three across the chasm read GREEN on the
+    # factory alone - reported from play, where the planet showed green while
+    # the player held no Platform, Porter or Pylon at all.
+    #
+    # WHICH THREE, established from play rather than a dump: the designer took
+    # the two totems on the right-hand starting island, and the mod sent
+    # `Founders - Totem 1` and `Founders - Totem 5`. Since v0.1.8 keys an
+    # instance to its map cell, those two ARE the starting-island pair, so 2, 3
+    # and 4 are the ones across the chasm. That is stronger evidence than the
+    # cell dump: it ties an instance number to a totem the player actually
+    # stood next to and completed, with no matching step in between.
+    #
+    # The Factory is objective-wide (OBJECTIVE_OWN), so _expand's liftic clause
+    # for the Platform is already satisfied and simplifies away.
+    (19, "Totems"): {
+        2: [["Platform"]],
+        3: [["Platform"]],
+        4: [["Platform"]],
     },
 
     # Sequence's two caches are NOT alike, which an objective-wide Terp got

@@ -221,21 +221,45 @@ class TestAccess(CW4TestBase):
         self.assertIn(["Porter", "Platform"], groups)
         self.assertNotIn(["Greenar Refinery"], groups)
 
-    def test_not_my_mars_needs_a_way_to_move_liftic(self) -> None:
-        # From play on v0.1.7, and recorded in the worksheet long before that:
-        # "You can do this with platforms instead of pylons. and you might be
-        # able to do it with porters instead of either as well. confirmed you
-        # can move the liftic to the totems via porter." The totems have to be
-        # powered and the enemies have to be reachable at all, and with none of
-        # the three the checks showed GREEN - the worst way for a randomizer to
-        # be wrong, because a player trusts green and burns an evening on it.
-        self.collect_all_but(["Pylon", "Porter", "Platform"])
-        self.assertFalse(self.can_reach_location("Not My Mars - Totem 1"))
-        self.assertFalse(self.can_reach_location("Not My Mars - Nullify 1"))
-        # The cache is free and must stay reachable - a rule that gated
-        # everything in the mission would pass the two assertions above for the
-        # wrong reason.
-        self.assertTrue(self.can_reach_location("Not My Mars - Cache 1"))
+    def test_not_my_mars_colours_match_the_spec(self) -> None:
+        """The designer's table, asserted row by row (2026-09-13).
+
+        weapon only                   RED     no Miner, no power on the far island
+        weapon + Miner                YELLOW  crossable by hovering the rift lab
+        weapon + Miner + Platform     YELLOW  a platform crosses it, but it is work
+        weapon + Miner + Pylon        GREEN
+        weapon + Miner + Porter       GREEN
+
+        Every row matters. Drop the Miner to soft and row 1 goes yellow; put
+        Platform in the logic group and row 3 goes green; make the movers hard
+        and rows 2 and 3 go red - which is the v0.1.8 bug that turned the whole
+        planet red the moment it unlocked.
+        """
+        from ..rules import location_requirements
+
+        def colour(held):
+            strict = location_requirements("Not My Mars - Totem 1", 3, physical=True)
+            logical = location_requirements("Not My Mars - Totem 1", 3)
+            ok = lambda groups: all(any(i in held for i in g) for g in groups)
+            if not ok(strict):
+                return "RED"
+            return "GREEN" if ok(logical) else "YELLOW"
+
+        self.assertEqual("RED", colour({"Cannon"}))
+        self.assertEqual("YELLOW", colour({"Cannon", "Miner"}))
+        self.assertEqual("YELLOW", colour({"Cannon", "Miner", "Platform", "Factory"}))
+        self.assertEqual("GREEN", colour({"Cannon", "Miner", "Pylon"}))
+        self.assertEqual("GREEN", colour({"Cannon", "Miner", "Porter"}))
+
+    def test_not_my_mars_cache_stays_free(self) -> None:
+        # The mission got harder; its cache must not. Not My Mars waives the
+        # mission's requirements for its cache, which is what lets it open a
+        # seed - and a starter-eligible mission whose cache silently acquired a
+        # Miner requirement would break generation's opening.
+        from ..rules import location_requirements
+        self.assertEqual([], location_requirements("Not My Mars - Cache 1", 3))
+        from ..items import STARTER_ELIGIBLE
+        self.assertIn(3, STARTER_ELIGIBLE)
 
     def test_shattered_needs_movement_for_the_THIRD_totem_only(self) -> None:
         # "You can get 2 of the 3 totems with a refinery (greenar crystal), and
@@ -263,11 +287,11 @@ class TestAccess(CW4TestBase):
         # prerequisite only when EVERY option shared it - which meant it added
         # it to nobody.
         from ..rules import objective_requirements
-        groups = objective_requirements(3, 1)      # Not My Mars - Totems
-        self.assertIn(["Pylon", "Porter", "Platform"], groups)
-        # Pylon and Porter need no liftic, so either routes around the factory;
-        # a Platform on its own does not.
-        self.assertIn(["Pylon", "Porter", "Factory"], groups)
+        groups = objective_requirements(11, 0)     # Shattered - Nullify
+        self.assertIn(["Porter", "Platform"], groups)
+        # Porter needs no liftic, so it routes around the factory; a Platform
+        # on its own does not.
+        self.assertIn(["Porter", "Factory"], groups)
         self.assertNotIn(["Factory"], groups)
 
     # ---------------------------------------------------------------- per instance
@@ -543,8 +567,12 @@ class TestAccess(CW4TestBase):
         #
         # Ever After, Sequence and Wallis are different: the designer stated
         # those as hard requirements, so a Miner there is physical on purpose.
-        PHYSICAL_OK = {17, 18, 20}
-        SOFT_ONLY = {3, 4}
+        # Mission 3 moved OUT of the soft set on 2026-09-13: "weapon only is
+        # red" makes the Miner physical on Not My Mars. Ruins Repurposed keeps
+        # the soft treatment - that one is still "doable, but it's hard
+        # mode/out of logic".
+        PHYSICAL_OK = {3, 17, 18, 20}
+        SOFT_ONLY = {4}
         from ..rules import requirement_groups
         from ..locations import LOCATIONS_PER_MISSION
         soft_locs = set()
@@ -639,41 +667,24 @@ class TestAccess(CW4TestBase):
 
 
 class TestMovementRequirements(CW4TestBase):
-    """Two objectives that read GREEN in play while holding no way to move
-    things around the map. Both were recorded in the worksheet and never
-    implemented, so these pin them.
+    """Objectives that cannot be reached without a way to move things around the
+    map, and the OR-group form of that requirement.
 
     Each test collects everything EXCEPT the movers, so the mover is the only
     missing piece. Asserting from an empty inventory would pass for the wrong
-    reason - Not My Mars also needs a weapon, a Miner and a Nullifier, any of
-    which would make the location unreachable on its own.
+    reason - these missions also need a weapon and a Nullifier, either of which
+    would make the location unreachable on its own.
+
+    Not My Mars used to be the fixture here and no longer is: its mover
+    requirement was withdrawn on 2026-09-09 ("can get the totems and nullify
+    with just cannons"). Worth noting what that exposed - the negative test
+    failed, as it should, while the POSITIVE one kept passing, because "holding
+    a Platform, the totem is reachable" is equally true of a mission with no
+    requirement at all. A fixture where the right and wrong answers coincide is
+    not a fixture.
     """
 
     MOVERS = ["Pylon", "Porter", "Platform"]
-
-    def test_not_my_mars_needs_a_mover_for_totems_and_nullify(self) -> None:
-        # "confirmed you can move the liftic to the totems via porter" - and the
-        # enemies cannot be reached at all without one either. The base game
-        # unlocks pylons here, so vanilla never exposes the requirement.
-        self.collect_all_but(self.MOVERS)
-        for loc in ("Not My Mars - Totem 1", "Not My Mars - Nullify 1"):
-            self.assertFalse(
-                self.can_reach_location(loc),
-                f"{loc} should need Pylon, Porter or Platform",
-            )
-
-    def test_any_of_the_three_movers_satisfies_not_my_mars(self) -> None:
-        # An OR group, not three requirements. One at a time, so a rule that
-        # demanded all three would fail here instead of passing by accident.
-        for mover in self.MOVERS:
-            with self.subTest(mover=mover):
-                self.collect_all_but(self.MOVERS)
-                self.collect_by_name([mover])
-                self.assertTrue(
-                    self.can_reach_location("Not My Mars - Totem 1"),
-                    f"{mover} alone should open the totems",
-                )
-                self.remove_by_name([mover])
 
     def test_shattered_third_totem_needs_a_mover_but_the_first_two_do_not(self) -> None:
         # "You can get 2 of the 3 totems with a refinery (greenar crystal), and
@@ -715,28 +726,32 @@ class TestLifticPrerequisites(CW4TestBase):
         Pylon or Porter or Factory
     """
 
+    # Shattered's Nullify is the fixture: [["Nullifier"], ["Porter", "Platform"]]
+    # is a mixed group, since Platform needs the Factory and Porter does not.
+    LOC = "Shattered - Nullify 1"
+
     def test_a_lone_platform_is_not_enough_without_the_factory(self) -> None:
-        self.collect_all_but(["Pylon", "Porter", "Factory"])
+        self.collect_all_but(["Porter", "Factory"])
         # Platform is held (collect_all_but grants it), Factory is not.
         self.assertFalse(
-            self.can_reach_location("Not My Mars - Totem 1"),
+            self.can_reach_location(self.LOC),
             "a Platform with no Factory cannot be built, so this is not reachable",
         )
 
     def test_a_platform_with_the_factory_is_enough(self) -> None:
-        self.collect_all_but(["Pylon", "Porter"])
+        self.collect_all_but(["Porter"])
         self.assertTrue(
-            self.can_reach_location("Not My Mars - Totem 1"),
+            self.can_reach_location(self.LOC),
             "Platform plus Factory should open it",
         )
 
-    def test_a_pylon_routes_around_the_chain_entirely(self) -> None:
+    def test_a_porter_routes_around_the_chain_entirely(self) -> None:
         # The point of the clause form: an option that needs no liftic must not
         # be made to pay for one that does.
-        self.collect_all_but(["Porter", "Platform", "Factory"])
+        self.collect_all_but(["Platform", "Factory"])
         self.assertTrue(
-            self.can_reach_location("Not My Mars - Totem 1"),
-            "a Pylon needs no liftic, so no Factory should be required",
+            self.can_reach_location(self.LOC),
+            "a Porter needs no liftic, so no Factory should be required",
         )
 
     def test_a_porter_routes_around_it_too(self) -> None:

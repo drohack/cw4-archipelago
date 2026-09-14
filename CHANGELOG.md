@@ -3,6 +3,43 @@
 Versions follow semantic versioning. The plugin and the apworld share one number,
 so a release is a matched pair - if you update one, update the other.
 
+## Unreleased
+
+- **Fixed (again): the message log still opened part-way up.** v0.1.8 re-pinned
+  it to the bottom for three frames, which is plenty for a nearly empty box and
+  nowhere near enough for a full one - the log holds 200 lines, and how long the
+  text layout takes to settle scales with how much text there is. It now keeps
+  re-pinning until the content stops growing. The test that passed this twice
+  was running against a box with eight lines in it; it now fills the box first
+  and requires at least a hundred.
+- **Not My Mars is re-graded.** v0.1.8 demanded a Pylon, Porter or Platform and
+  nothing could satisfy it, so the whole planet went red the moment it unlocked.
+  It now reads:
+
+  | held | colour |
+  |---|---|
+  | weapon only | red |
+  | weapon + Miner | yellow |
+  | weapon + Miner + Platform | yellow |
+  | weapon + Miner + Pylon or Porter | green |
+
+  The Miner is required outright - without one there is no power on the far
+  island. Crossing the gap is not: the rift-lab hover gets you over, and so does
+  a Platform, but both are hard enough that logic will not assume them, so they
+  show yellow rather than green. Its cache is still free, so the mission can
+  still open a seed.
+- **Fixed: Founders showed green with no way to cross the chasm.** Only the two
+  totems on the right-hand starting island can be reached with the factory
+  alone; the other three need a platform, and the totems were the one objective
+  on that map not asking for one - so the planet read green while holding no
+  Platform, Porter or Pylon at all. The platform is now required on those three
+  and not on the other two.
+
+The message-log fix is in the mod, so updating the mod is enough. The **Not My
+Mars and Founders** fixes are apworld logic and take effect in **newly generated
+seeds** only - an existing seed carries its requirements in its slot data and
+will keep showing the old colours.
+
 ## v0.1.8 - checks that belong to the right structure
 
 **Checks now belong to the structure you completed, not to how many you have

@@ -76,7 +76,21 @@ public sealed class ApMessageBox
     /// <summary>How many frames to keep re-pinning after content changes. Three
     /// is enough for the layout group, the size fitter and TMP to agree in
     /// practice; it costs one assignment per frame while it runs.</summary>
-    private const int SettleFrames = 3;
+    /// <summary>Frames to keep re-pinning AT MOST, if the layout never settles.
+    ///
+    /// This was 3, which is what a fixed frame count gets you: it was measured
+    /// against a box holding eight lines and is nowhere near enough for a box
+    /// holding two hundred, because the number of frames TMP needs depends on
+    /// how much text it is measuring. The real stop condition is the content
+    /// height going quiet (see SettleStableFrames); this is only a ceiling so a
+    /// layout that never stabilises cannot pin forever. Three seconds at
+    /// 60fps.</summary>
+    private const int SettleFrameBudget = 180;
+
+    /// <summary>Consecutive frames of UNCHANGED content height that count as
+    /// settled. More than one, because TMP can report the same height for a
+    /// frame mid-pass and then grow again.</summary>
+    private const int SettleStableFrames = 5;
 
     private ScrollRect? _scroll;
     private GameObject? _body;              // everything but the header (for collapse)
@@ -96,6 +110,11 @@ public sealed class ApMessageBox
     /// Canvas.ForceUpdateCanvases does not cover it: it flushes the canvas, not
     /// TMP's own pass. Re-applying across a few frames does.</summary>
     private int _scrollSettle;
+
+    /// <summary>Content height last frame, and how long it has been unchanged.
+    /// The pin stops when the layout stops moving, not after a fixed count.</summary>
+    private float _settleHeight = -1f;
+    private int _settleStable;
     private int _geomCountdown;
 
     public void LateTick(string scene)
@@ -118,7 +137,29 @@ public sealed class ApMessageBox
         {
             _scrollSettle--;
             if (_autoScroll)
+            {
+                // Stop when the CONTENT HEIGHT settles. A fixed frame count
+                // cannot work here: how long TMP takes scales with how much
+                // text it is measuring, so a count tuned on a near-empty box
+                // silently gives up early on a full one.
+                float h = _content != null ? _content.rect.height : -1f;
+                if (h != _settleHeight)
+                {
+                    _settleHeight = h;
+                    _settleStable = 0;
+                }
+                else
+                {
+                    _settleStable++;
+                }
                 ScrollToBottom();
+                if (_settleStable >= SettleStableFrames)
+                    _scrollSettle = 0;      // settled - stop early
+            }
+            else
+            {
+                _scrollSettle = 0;          // the player scrolled up; leave it
+            }
         }
 
         // Re-track the HUD cluster periodically so the box follows window
@@ -168,7 +209,7 @@ public sealed class ApMessageBox
         if (_autoScroll)
         {
             ScrollToBottom();
-            _scrollSettle = SettleFrames;
+            ArmScrollSettle();
         }
     }
 
@@ -183,7 +224,7 @@ public sealed class ApMessageBox
                 AddLineObject(line.Spans);
         TrimLines();
         ScrollToBottom();
-        _scrollSettle = SettleFrames;
+        ArmScrollSettle();
     }
 
     // A single-line chat/command input, hidden by default. Built with the
@@ -618,6 +659,15 @@ public sealed class ApMessageBox
             try { return _content == null ? -1 : _content.childCount; }
             catch { return -1; }
         }
+    }
+
+    /// <summary>Start re-pinning, and forget any previous height reading so a
+    /// stale one cannot be mistaken for "already settled".</summary>
+    private void ArmScrollSettle()
+    {
+        _scrollSettle = SettleFrameBudget;
+        _settleHeight = -1f;
+        _settleStable = 0;
     }
 
     private void ScrollToBottom()

@@ -39,14 +39,45 @@ right-click the game -> Manage -> Browse local files.
 After unzipping, the game folder contains `winhttp.dll`,
 `doorstop_config.ini`, and a `BepInEx` folder next to `CW4.exe`.
 
-## Step 2: First launch
+## Step 2: Stop Steam relaunching the game
 
-Start the game normally and wait until the main menu appears, then quit.
+**Create a file called `steam_appid.txt` next to `CW4.exe`, containing just:**
+
+```
+848480
+```
+
+Without it the mod loads and is then thrown away, which looks like BepInEx not
+working at all. Creeper World 4 asks Steamworks whether it needs restarting, and
+when the exe is started without Steam having told it which app it is, Steamworks
+relaunches the game through Steam and exits the original process - the process
+BepInEx had just injected into. Measured at one-second resolution:
+
+```
+t+1s  PID 42156    BepInEx starting, log being written
+t+2s  no process   the first process EXITS - the mod had loaded
+t+3s  PID 47544    a second process: the game, with no BepInEx in it
+```
+
+The giveaway is the console: **it should stay open for as long as the game is
+running.** If it appears, does some work and closes just before the game window
+comes up, you are watching this happen.
+
+`steam_appid.txt` tells Steamworks the app id up front, so it does not restart
+and the game stays in the process that has the mod.
+
+**Launch by running `CW4.exe` directly** - a desktop shortcut to it is fine.
+Launching from the Steam library does not load BepInEx at all, even with
+`steam_appid.txt` in place, and that is not fully understood.
+
+## Step 3: First launch
+
+Start the game and wait until the main menu appears, then quit.
 
 The first launch takes noticeably longer than usual (up to a few minutes):
 BepInEx is generating interop assemblies for the game. This happens once.
 
-## Step 3: Install the mod
+## Step 4: Install the mod
 
 Unzip `CW4Archipelago-vX.Y.Z.zip` - from
 [this project's releases](https://github.com/drohack/cw4-archipelago/releases/latest) -
@@ -57,7 +88,7 @@ Launch the game. The main menu now shows the Archipelago connection panel;
 menus not relevant to the randomizer (Chronom, Mark V, Colonies, editor) are
 hidden while the mod is active.
 
-## Step 4: Archipelago host setup
+## Step 5: Archipelago host setup
 
 This step is only for whoever GENERATES the multiworld. If you are joining a
 game someone else generated, skip to "Connecting".
@@ -166,6 +197,12 @@ rolled back.
 Your received items and checked locations are cached per slot under
 `Documents/My Games/creeperworld4/archipelago/`.
 
+- **The game starts but there is no Archipelago panel, and the BepInEx console
+  flashed up and closed.** The mod is loading into a process the game then
+  throws away - see Step 2. Add `steam_appid.txt` containing `848480` next to
+  `CW4.exe` and launch the exe directly rather than from Steam. Nothing is
+  corrupt, and reinstalling BepInEx or the game does not help: a clean BepInEx
+  reinstall reproduced it exactly.
 - **The connection drops mid-game.** You keep playing. Checks you make are
   queued, the status line says how many are waiting, and the mod keeps trying to
   reconnect on its own - backing off 5, 10, 20, 40 then 60 seconds, for as long
@@ -188,9 +225,14 @@ Your received items and checked locations are cached per slot under
 
 - **Game starts but no panel / nothing changed**: check
   `BepInEx/LogOutput.log` in the game folder for a line containing
-  `CW4 Archipelago ... loading`. If the file does not exist, BepInEx is not
-  installed (step 1); if the line is missing, the plugin folder is misplaced
-  (step 3).
+  `CW4 Archipelago ... loading`.
+  - File missing entirely: BepInEx is not installed (step 1), or the game was
+    launched from Steam rather than by running the exe (step 2).
+  - File present and the line IS there, but no panel in game: the mod loaded
+    into a process the game then replaced - add `steam_appid.txt` (step 2).
+    Confirm by watching the console: it should stay open for the whole session.
+  - File present but the line is missing: the plugin folder is misplaced
+    (step 4).
 - **Antivirus complains about winhttp.dll**: this is BepInEx's standard
   loader shim; allow it or install to a whitelisted folder.
 

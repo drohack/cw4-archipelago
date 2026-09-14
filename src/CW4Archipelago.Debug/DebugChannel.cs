@@ -159,6 +159,28 @@ public sealed class DebugChannel
         }
         if (lower.StartsWith("ui:keys")) { _keyWatch = line.Substring(7).Trim() != "off"; 
             ModCore.Log.LogInfo($"KEYWATCH: {(_keyWatch ? "on" : "off")}"); return; }
+        if (lower.StartsWith("msgbox:fill"))
+        {
+            // Fill the log with synthetic lines, so a test can exercise a FULL
+            // box. The scroll-to-bottom fix shipped in v0.1.8 was verified
+            // against a box holding eight lines and was still wrong in play,
+            // because how long the layout takes to settle scales with how much
+            // text there is - the one thing an eight-line fixture cannot show.
+            var arg = line.Substring(11).Trim();
+            if (!int.TryParse(arg, out var count) || count <= 0) count = 150;
+            for (int i = 0; i < count; i++)
+            {
+                ModCore.AppendLine(new System.Collections.Generic.List<CW4Archipelago.Appliers.MsgSpan>
+                {
+                    new CW4Archipelago.Appliers.MsgSpan(
+                        $"FILL {i + 1:000}: a synthetic log line long enough to wrap and measure",
+                        "FFFFFF"),
+                });
+            }
+            ModCore.MessageBox.Rerender();
+            ModCore.Log.LogInfo($"MSGBOX FILL: added {count} line(s), history={ModCore.MessageHistory.Count}");
+            return;
+        }
         if (lower == "msgbox:dump")
         {
             var box = ModCore.MessageBox;

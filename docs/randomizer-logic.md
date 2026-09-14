@@ -19,7 +19,7 @@ and counts toward the finale.
 |---|---|---|---|
 | 1 | Farsite | Cannon or Mortar | same |
 | 2 | Home | Cannon or Mortar | same |
-| 3 | Not My Mars | Cannon or Mortar + Miner | same |
+| 3 | Not My Mars | Cannon or Mortar + Miner + Porter or Pylon | same |
 | 4 | Ruins Repurposed | Cannon or Mortar + Miner | same |
 | 5 | We Know Nothing | Cannon or Mortar | same |
 | 6 | We Were Never Alone | Cannon or Mortar | Cannon or Mortar + Missile Launcher or Sniper |
@@ -68,13 +68,13 @@ waiver deliberately drops them (a free first cache, say).
 | Check | Standard | Casual |
 |---|---|---|
 | Cache 1 | - | same |
-| Totem 1 | Platform or Porter or Pylon + Cannon or Mortar + Miner + Factory or Porter or Pylon | same |
-| Totem 2 | Platform or Porter or Pylon + Cannon or Mortar + Miner + Factory or Porter or Pylon | same |
-| Totem 3 | Platform or Porter or Pylon + Cannon or Mortar + Miner + Factory or Porter or Pylon | same |
-| Totem 4 | Platform or Porter or Pylon + Cannon or Mortar + Miner + Factory or Porter or Pylon | same |
-| Nullify 1 | Nullifier + Platform or Porter or Pylon + Cannon or Mortar + Miner + Factory or Porter or Pylon | same |
-| Nullify 2 | Nullifier + Platform or Porter or Pylon + Cannon or Mortar + Miner + Factory or Porter or Pylon | same |
-| Mission Complete | Cannon or Mortar + Miner + Platform or Porter or Pylon + Factory or Porter or Pylon | same |
+| Totem 1 | Cannon or Mortar + Miner + Porter or Pylon | same |
+| Totem 2 | Cannon or Mortar + Miner + Porter or Pylon | same |
+| Totem 3 | Cannon or Mortar + Miner + Porter or Pylon | same |
+| Totem 4 | Cannon or Mortar + Miner + Porter or Pylon | same |
+| Nullify 1 | Nullifier + Cannon or Mortar + Miner + Porter or Pylon | same |
+| Nullify 2 | Nullifier + Cannon or Mortar + Miner + Porter or Pylon | same |
+| Mission Complete | Cannon or Mortar + Miner + Porter or Pylon | same |
 
 ### 4. Ruins Repurposed
 
@@ -344,9 +344,9 @@ waiver deliberately drops them (a free first cache, say).
 |---|---|---|
 | Cache 1 | Terp + Chronat + Platform + Cannon or Mortar + Factory | Terp + Chronat + Platform + Cannon or Mortar + Missile Launcher or Sniper + Factory |
 | Totem 1 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
-| Totem 2 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
-| Totem 3 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
-| Totem 4 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 2 | Factory + Cannon or Mortar + Platform | Factory + Cannon or Mortar + Missile Launcher or Sniper + Platform |
+| Totem 3 | Factory + Cannon or Mortar + Platform | Factory + Cannon or Mortar + Missile Launcher or Sniper + Platform |
+| Totem 4 | Factory + Cannon or Mortar + Platform | Factory + Cannon or Mortar + Missile Launcher or Sniper + Platform |
 | Totem 5 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
 | Nullify 1 | Nullifier + Platform + Cannon or Mortar + Factory | Nullifier + Platform + Cannon or Mortar + Missile Launcher or Sniper + Factory |
 | Nullify 2 | Nullifier + Platform + Cannon or Mortar + Factory | Nullifier + Platform + Cannon or Mortar + Missile Launcher or Sniper + Factory |

@@ -137,6 +137,14 @@ send "disconnect"; sleep 2
 since | grep -q "STATUS TOAST: Archipelago:"; verdict $? "connection status line appended"
 
 echo "[msgbox] step 6: history survives a second mission boot"
+# FILL THE BOX FIRST. The scroll assertion below is the whole point of this
+# harness, and until 2026-09-10 it ran against a box holding eight lines - which
+# settles its layout almost instantly. The bug it was meant to catch only
+# appears once there is enough text that TMP needs many frames to measure it,
+# and the box holds up to 200 lines. An eight-line fixture cannot fail, so it
+# passed while the mod shipped the bug twice.
+send "msgbox:fill 150"; sleep 4
+since | grep -oE "MSGBOX FILL: added [0-9]+ line\(s\), history=[0-9]+" | tail -1 | sed 's/^/[msgbox]   /'
 send "connect"; sleep 6
 send "msgbox:dump"; sleep 2
 H1=$(since | grep -oE "MSGBOX DUMP: history=[0-9]+" | tail -1 | grep -oE "[0-9]+$")
@@ -180,7 +188,10 @@ DUMP=$(since | grep "MSGBOX DUMP:" | tail -1)
 RENDERED=$(echo "$DUMP" | grep -oE "rendered=[0-9-]+" | cut -d= -f2)
 SCROLL=$(echo "$DUMP" | grep -oE "scroll=[0-9.-]+" | cut -d= -f2)
 echo "[msgbox]   $DUMP"
-[ "${RENDERED:-0}" -gt 1 ]; verdict $? "the box actually has lines to scroll ($RENDERED)"
+# A FULL box, not merely a non-empty one. Two lines scroll to the bottom no
+# matter what the code does; the failure needs enough text to make the layout
+# take its time.
+[ "${RENDERED:-0}" -ge 100 ]; verdict $? "the box is genuinely full ($RENDERED lines, want >=100)"
 awk -v s="${SCROLL:--1}" 'BEGIN { exit !(s >= 0 && s <= 0.02) }'
 verdict $? "the log opens at the bottom, not part-way up (scroll=$SCROLL)"
 
