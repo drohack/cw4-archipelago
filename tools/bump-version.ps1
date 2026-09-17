@@ -59,8 +59,18 @@ if ($To) {
 if ($next -eq $current) { throw "already at $next" }
 
 # Refuse to bump ONTO a version that has shipped.
+#
+# Ask the REMOTE and insist on an answer. The local-tag fallback that used to sit
+# here was unsafe for the same reason it is unsafe in package-release.ps1: this
+# clone's `git tag --list` was missing v0.1.10 on 2026-09-17 while origin had it,
+# so the guard would have waved through a bump onto a shipped version. And a
+# failed ls-remote returns empty, which is indistinguishable from "no such tag" -
+# $ErrorActionPreference does not cover native exit codes.
 $tagged = & git ls-remote --tags origin "refs/tags/v$next" 2>$null
-if (-not $tagged) { $tagged = & git tag --list "v$next" }
+if ($LASTEXITCODE -ne 0) {
+    throw ("cannot reach origin to check whether v$next has shipped. Connect, " +
+           "or run 'git fetch --tags' first - local tags alone are not enough.")
+}
 if ($tagged) { throw "v$next is already tagged - pick another version" }
 
 # Write UTF-8 WITHOUT a BOM. Set-Content -Encoding utf8 on Windows PowerShell

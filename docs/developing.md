@@ -806,8 +806,11 @@ assets:
   rule as `<Game> - <Preset>.yaml`.
 
 Versions are semantic and the plugin and world share one number: a release is a
-matched pair. Tag as `vX.Y.Z`. Public numbering starts at v0.1.0 - the 0.4.0 and
-0.2.0 that predate it were internal counters that never left the build machine.
+matched pair. Tag as `vX.Y.Z`. Public numbering starts at v0.1.0. (This used to
+add that "the 0.4.0 and 0.2.0 that predate it were internal counters that never
+left the build machine" - true when written, and misleading the moment public
+numbering reached 0.2.0 for real. Those internal counters are not reachable from
+anything and the note only invited confusion about which 0.2.0 was meant.)
 
 Every release needs notes saying what changed. `CHANGELOG.md` is the source; the
 release notes are its section for that version, plus three things the surveyed
@@ -831,8 +834,13 @@ CI cannot produce the mod zip. `CW4Archipelago.csproj` references
 `$(GameDir)/BepInEx/interop/Assembly-CSharp.dll` and nine more - interop
 assemblies BepInEx generates from Creeper World 4's own IL2CPP code. They are
 derived from the game, so a public runner cannot legitimately have them and they
-must never be committed here. `.github/workflows/ci.yml` therefore covers the
-Core layer, the apworld and the ASCII rule, and stops there.
+must never be committed here. `.github/workflows/ci.yml` therefore cannot build
+the shipping plugin at all. What it does cover is five jobs: `version` (the three
+version files agree, and main is not sitting past a shipped tag), `core`,
+`apworld`, `compliance` (Archipelago's own world suite on a pruned tree) and
+`ascii`. Worth stating precisely, because this sentence used to stop at "the
+Core layer, the apworld and the ASCII rule" - omitting the two jobs that enforce
+the release guarantees the rest of this section describes.
 
 So: run `tools/package-release.ps1` on a machine with the game, then attach the
 three files from `dist/` with `gh release create`. The only route to a fully
@@ -841,25 +849,34 @@ automated plugin build is a self-hosted runner on a machine that owns the game.
 ## Release checklist
 
 1. Game closed; `dotnet build` clean for all projects.
-2. The test tiers, in order: `dotnet test src/CW4Archipelago.Core.Tests`
-   (104 tests) and the apworld suite (108). These are tiers 1 and 2 above and
-   the checklist used to skip both.
+2. The test tiers, in order: `dotnet test src/CW4Archipelago.Core.Tests` and the
+   apworld suite. These are tiers 1 and 2 above and the checklist used to skip
+   both. **No count is quoted here on purpose** - this step said "(104 tests)"
+   and "(108)" for long enough that both drifted to roughly half the real
+   figures, and a stale number that IS the pass criterion is worse than none:
+   it reads as a broken suite. Both runners fail loudly on their own.
 3. `tools/apbattery.sh` and `tools/apbattery2.sh` - the mod's own end-to-end
    batteries against a real server.
-4. `tools/eventdriven-test.sh` passes 22/22 and `tools/devtools-test.sh` has no
+4. `tools/eventdriven-test.sh` and `tools/devtools-test.sh` both report no
    failures - between them they cover the event hooks, which fail silently.
+   (This said "22/22"; the script has 23 verdicts - 17 fixed plus a
+   six-iteration loop - and prints no denominator, so a run that silently
+   skipped one and printed 22 would have read as correct.)
 5. `tools/map-visual-check.sh` and READ the screenshot against the expected
    result in its header. Two map bugs reached a player because every check here
    read the log instead of looking.
 6. Manual smoke: launch, main menu shows the AP panel and slimmed buttons,
    boot two missions, verify unit whitelist and mission locks.
-7. Bump the version in THREE places, not two - they are independent and only
-   in sync by luck: `<Version>` in `src/CW4Archipelago/CW4Archipelago.csproj`,
-   the third argument of `[BepInPlugin]` in `src/CW4Archipelago/Plugin.cs`
-   (this is the string BepInEx logs, and the one the test-install step below
-   has you look for), and
-   `world_version` in `apworld/cw4/archipelago.json`.
-8. Add the version's section to `CHANGELOG.md`.
+7. **Do not bump here.** The version is bumped in the commit AFTER a release,
+   not before it - `tools/package-release.ps1` refuses to package a version that
+   has already shipped, so bumping first would package the next number and burn
+   this one. This step used to say the opposite, and to name "the third argument
+   of `[BepInPlugin]`", which has not been an editable literal since it was
+   changed to read `Plugin.Version`; the real line is
+   `public const string Version` in `src/CW4Archipelago/Plugin.cs`. Following it
+   literally found nothing to edit and double-bumped anyone who persevered.
+8. Add the version's section to `CHANGELOG.md`. The release notes ARE that
+   section, so it has to exist before step 12.
 9. `tools/package-release.ps1` - writes all three assets into `dist/`:
    `CW4Archipelago-vX.Y.Z.zip`, `cw4.apworld` and `Creeper World 4.yaml`.
 10. Sanity-check the yaml asset by generating from it, solo and multiworld. It is
@@ -867,7 +884,16 @@ automated plugin build is a self-hosted runner on a machine that owns the game.
    rather than assuming.
 11. Test-install the zip into a clean game folder; check
    `BepInEx/LogOutput.log` for the mod + MultiClient.Net load lines.
-12. Create the GitHub release with both artifacts.
+12. Create the GitHub release with **all three** assets from `dist/`. (This said
+   "both artifacts", from before the yaml existed.)
+13. **Check the version bumped.** `.github/workflows/post-release-bump.yml`
+   rewrites all three files on `release: published` and pushes to main - for a
+   pre-release too, since publishing under a `vX.Y.Z` tag consumes that number
+   however the release is flagged. It pushes with `GITHUB_TOKEN`, which starts
+   no workflow run, so **nothing re-checks that commit**: pull main and look.
+   If it did not fire, run `tools/bump-version.ps1 -Commit -Push` by hand. Left
+   undone, CI's `version` job fails every subsequent push, because main is then
+   sitting past a shipped tag still claiming that tag's number.
 
 ## Decompiling game code for reference
 

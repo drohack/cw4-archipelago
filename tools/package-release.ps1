@@ -51,10 +51,28 @@ Write-Output "version $version (csproj, Plugin.cs and archipelago.json agree)"
 # second, different "v$version".
 # Tags are created by `gh release create` on the REMOTE, and a clone that has
 # never fetched them sees nothing locally - which is exactly how this check
-# silently passed the first time it ran. Ask the remote, and fall back to local
-# tags when offline.
+# silently passed the first time it ran. Ask the remote.
+#
+# THE OFFLINE FALLBACK USED TO RE-OPEN THE HOLE THIS COMMENT DESCRIBES. It was
+# `if (-not $tagged) { $tagged = & git tag --list "v$version" }`, and local tags
+# are exactly what cannot be trusted: measured in the working clone on
+# 2026-09-17, `git tag --list v0.1.10` was EMPTY while origin had v0.1.10 at
+# 0fe2bef - a version whose zip was sitting in dist/. So the fallback would have
+# cheerfully re-packaged a shipped release.
+#
+# Worse, it could not tell a failure from an answer. $ErrorActionPreference does
+# not apply to a native executable's exit code, so an ls-remote that failed on a
+# dropped network returned empty and read as "not shipped".
+#
+# Fetch instead of guessing, and refuse to proceed if the remote cannot be
+# reached - this check is the only thing standing between a re-used version
+# number and a second, different "v$version" in the wild.
 $tagged = & git ls-remote --tags origin "refs/tags/v$version" 2>$null
-if (-not $tagged) { $tagged = & git tag --list "v$version" }
+if ($LASTEXITCODE -ne 0) {
+    throw ("cannot reach origin to check whether v$version has shipped. Local " +
+           "tags are not a safe substitute - this clone is missing v0.1.10 " +
+           "right now. Connect, or run 'git fetch --tags' and re-run.")
+}
 if ($tagged) {
     throw ("v$version is already tagged, so that version has shipped. Bump " +
            "the csproj Version, Plugin.Version and archipelago.json " +

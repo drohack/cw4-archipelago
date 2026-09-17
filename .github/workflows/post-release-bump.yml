@@ -25,8 +25,19 @@ jobs:
   bump:
     name: Bump to the next patch version
     runs-on: ubuntu-latest
-    # A pre-release is not the shipped version, so it does not consume one.
-    if: github.event.release.prerelease == false
+    # A PRE-RELEASE BUMPS TOO, and the reasoning that said otherwise was wrong.
+    #
+    # This used to be `if: github.event.release.prerelease == false`, on the
+    # grounds that "a pre-release is not the shipped version, so it does not
+    # consume one". It consumes the TAG, which is the only thing the CI rule
+    # above looks at: ci.yml tests bare tag existence and GitHub tags a
+    # pre-release identically. So skipping the bump here left main claiming a
+    # version that was already tagged, and the `version` job went red on the
+    # next push with no automation to fix it - which is exactly the state
+    # v0.2.0 was about to create.
+    #
+    # The rule is now the same on both paths: publishing under a vX.Y.Z tag
+    # consumes that number, however the release is flagged.
     steps:
       - uses: actions/checkout@v4
         with:
@@ -49,6 +60,43 @@ jobs:
           minor=${rest%%.*}
           patch=${rest#*.}
           next="$major.$minor.$((patch + 1))"
+
+          # THE VERSION MAY ONLY EVER GO FORWARD.
+          #
+          # `next` is derived from the released TAG and nothing here had ever
+          # compared it to the tree. Publishing - or re-publishing, or
+          # un-drafting - a release for an OLDER tag therefore rewrote all three
+          # files DOWNWARD onto a number that has already shipped. tools/
+          # bump-version.ps1 has refused to do that since it was written
+          # ("Refuse to bump ONTO a version that has shipped"); the automated
+          # path, which is the one that actually runs, did not.
+          #
+          # It is worse than it looks: the comment at the top of this file notes
+          # that a push made with GITHUB_TOKEN starts no workflow run, so the CI
+          # `version` job never sees the commit that introduces the bad number.
+          # main stays green while carrying a shipped version.
+          current=$(python3 -c "import json;print(json.load(open('apworld/cw4/archipelago.json'))['world_version'])")
+          echo "current=$current released=$released next=$next"
+          # Strictly BACKWARD is the error. Equal is not: re-publishing a release
+          # after the bump has already landed is harmless, the rewrite below is a
+          # no-op, and the `git diff --quiet` at the end already skips the commit.
+          # Failing that case would turn a routine re-publish into a red job.
+          #
+          # sort -V, not a string compare - 0.1.10 is GREATER than 0.1.9 and a
+          # lexical test says the opposite. That trap is live in this repo: it
+          # fooled one audit agent into reporting v0.1.10 as never released.
+          if [ "$(printf '%s\n%s\n' "$current" "$next" | sort -V | tail -1)" != "$next" ]; then
+            echo "::error::refusing to move the version backwards - the tree says $current and this release wants $next"
+            exit 1
+          fi
+
+          # And never onto a tag that already exists, for the same reason
+          # bump-version.ps1:62-64 refuses to.
+          if git rev-parse "v$next" >/dev/null 2>&1; then
+            echo "::error::v$next is already tagged - refusing to bump onto a shipped version"
+            exit 1
+          fi
+
           echo "next=$next" >> "$GITHUB_OUTPUT"
           echo "bumping to $next"
 
