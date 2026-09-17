@@ -10,7 +10,7 @@ WHAT IT MEASURES, per configuration:
   failures        seeds where generation raised. Any non-zero number is a bug,
                   not a tuning result.
   retry depth     how deep place_own_progression had to go. It is capped at
-                  items.OWN_FILL_ATTEMPTS, so the margin that matters is
+                  opening.OWN_FILL_ATTEMPTS, so the margin that matters is
                   (cap - deepest observed). A run whose deepest attempt equals
                   the cap has NO margin left and the next unlucky seed fails.
   roster shape    with SPAN on, how many of the 20 missions came from SPAN, and
@@ -101,7 +101,7 @@ def main():
     # P(fail at cap 5) into the directly observable P(needed more than 5).
     # See docs/design/2026-09-14-fill-reliability.md.
     ap.add_argument("--cap", type=int, default=0,
-                    help="override items.OWN_FILL_ATTEMPTS (0 keeps the shipped value)")
+                    help="override opening.OWN_FILL_ATTEMPTS (0 keeps the shipped value)")
     ap.add_argument("--only", default="",
                     help="substring: run only configurations whose label contains it")
     args = ap.parse_args()
@@ -111,10 +111,10 @@ def main():
         print(f"no configuration matches '{args.only}'", flush=True)
         return 1
 
-    from worlds.cw4 import items as cw4_items
+    from worlds.cw4 import opening as cw4_opening
     if args.cap:
-        cw4_items.OWN_FILL_ATTEMPTS = args.cap
-    cap = cw4_items.OWN_FILL_ATTEMPTS
+        cw4_opening.OWN_FILL_ATTEMPTS = args.cap
+    cap = cw4_opening.OWN_FILL_ATTEMPTS
     print(f"retry cap is {cap}; {args.seeds} seeds x {len(configs)} configs",
           flush=True)
 

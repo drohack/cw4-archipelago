@@ -898,7 +898,7 @@ class TestOwnProgressionFill(bases.CW4TestBase):
     The cap of 5 is justified by the SHAPE of that tail rather than by the zero:
     each level is about 3.7 percent of the one above it, matching the per-attempt
     failure rate, so attempts are near-independent and 5 buys roughly 1 seed in
-    14.6 million. See the OWN_FILL_ATTEMPTS comment in items.py for the full
+    14.6 million. See the OWN_FILL_ATTEMPTS comment in opening.py for the full
     distribution and
     docs/design/2026-09-14-fill-reliability.md for the method.
     """
@@ -1105,3 +1105,43 @@ class TestSlotDataCarriesTheWorldVersion(bases.CW4TestBase):
         with open(manifest, encoding="utf-8") as fh:
             declared = json.load(fh)["world_version"]
         self.assertEqual(declared, self.world.fill_slot_data()["world_version"])
+
+
+class TestOwnFillAttemptsIsAReachablePatchPoint(bases.CW4TestBase):
+    """Setting opening.OWN_FILL_ATTEMPTS to 0 really does disable the own fill.
+
+    WHY THIS EXISTS, and it is not to test the fill. The constant is a PATCH
+    POINT: test/bases.py, tools/audit/realfillrate.py and tools/seed_battery.py
+    all reach in from outside and assign to it, and place_own_progression reads
+    it as a module global. The two therefore have to live in the same module,
+    and when the own-fill block moved into opening.py on 2026-09-17 that was the
+    thing most likely to break.
+
+    Two of the three writers would have failed loudly, because they READ the
+    constant before writing it and would have raised AttributeError against the
+    module it had left. realfillrate.py writes without reading first, so for it
+    the failure is SILENT: the assignment lands on whatever module it names,
+    place_own_progression keeps reading its own, and the measurement quietly
+    reports the shipped retry depth instead of the requested one. No shim can
+    close that - a module __getattr__ fires only on reads of MISSING attributes,
+    and an assignment always succeeds.
+
+    So the guard has to be functional rather than structural: patch it the way
+    those three do, and assert the generator noticed.
+    """
+    # The base class already zeroes this for non-fill tests, which is exactly
+    # the mechanism under test - so assert on what it produced rather than
+    # patching it a second time.
+    own_fill = False
+
+    def test_zeroing_it_places_nothing(self) -> None:
+        self.assertEqual([], self.world.own_placements,
+                         "OWN_FILL_ATTEMPTS was zeroed and the fill ran anyway - "
+                         "the constant and place_own_progression are no longer "
+                         "in the same module")
+
+    def test_the_shipped_value_is_restored_afterwards(self) -> None:
+        # bases.py puts it back in a finally. If that ever stopped working, every
+        # later test in the run would generate with the fill disabled and pass.
+        from .. import opening
+        self.assertGreater(opening.OWN_FILL_ATTEMPTS, 0)

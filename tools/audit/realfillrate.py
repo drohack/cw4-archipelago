@@ -26,7 +26,7 @@ sys.path.insert(0, os.getcwd())
 from test.general import setup_solo_multiworld              # noqa: E402
 import Fill                                              # noqa: E402
 from Fill import FillError                                # noqa: E402
-from worlds.cw4 import CW4World, items as itemsmod          # noqa: E402
+from worlds.cw4 import CW4World, opening as openingmod       # noqa: E402
 
 N = int(os.environ.get("N", "2000"))
 OWN_FILL = os.environ.get("OWN_FILL", "1") != "0"
@@ -46,10 +46,10 @@ if VARIANT not in VARIANTS:
     sys.exit(f"unknown OPTIONS variant {VARIANT}; pick from {sorted(VARIANTS)}")
 
 if not OWN_FILL:
-    itemsmod.OWN_FILL_ATTEMPTS = 0
+    openingmod.OWN_FILL_ATTEMPTS = 0
 
 print(f"variant={VARIANT}  own_fill={'on' if OWN_FILL else 'OFF'}  "
-      f"attempts={itemsmod.OWN_FILL_ATTEMPTS}", flush=True)
+      f"attempts={openingmod.OWN_FILL_ATTEMPTS}", flush=True)
 
 
 def build_and_fill():

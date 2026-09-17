@@ -1,6 +1,6 @@
 from test.bases import WorldTestBase
 
-from .. import items
+from .. import items, opening
 
 
 class CW4TestBase(WorldTestBase):
@@ -9,7 +9,7 @@ class CW4TestBase(WorldTestBase):
     # Our own progression fill is OFF for these tests by default.
     #
     # World.pre_fill places this world's progression itself and retries on
-    # failure (see items.place_own_progression). That is the right behaviour for
+    # failure (see opening.place_own_progression). That is the right behaviour for
     # a real seed and the wrong one for an ACCESS test: assertAccessDependency
     # and collect_all_but work by removing items from the POOL, and a pre-placed
     # item is not in the pool, so those assertions silently stop testing
@@ -49,10 +49,10 @@ class CW4TestBase(WorldTestBase):
     FILL_TESTS = frozenset({"test_fill"})
 
     def setUp(self) -> None:
-        self._own_fill_attempts = items.OWN_FILL_ATTEMPTS
+        self._own_fill_attempts = opening.OWN_FILL_ATTEMPTS
         if not (self.own_fill or self._testMethodName in self.FILL_TESTS):
-            items.OWN_FILL_ATTEMPTS = 0
+            opening.OWN_FILL_ATTEMPTS = 0
         try:
             super().setUp()
         finally:
-            items.OWN_FILL_ATTEMPTS = self._own_fill_attempts
+            opening.OWN_FILL_ATTEMPTS = self._own_fill_attempts

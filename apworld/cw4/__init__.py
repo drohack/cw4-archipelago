@@ -145,8 +145,8 @@ class CW4World(World):
         # Place our own progression, with retries. Archipelago's main fill is
         # not ours to retry, and it gives up on a solvable arrangement about
         # once in 18,000 seeds; oot and pokemon_emerald handle the same problem
-        # the same way. See items.place_own_progression.
-        self.own_placements = items.place_own_progression(self)
+        # the same way. See opening.place_own_progression.
+        self.own_placements = opening.place_own_progression(self)
 
     def create_item(self, name: str) -> items.CW4Item:
         return items.create_item(self, name)
