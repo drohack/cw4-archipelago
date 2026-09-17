@@ -222,7 +222,8 @@ an unlock nobody granted, this is the first thing to check.
   so the output interleaved. A sweep of the process table then found zombie
   harnesses from several EARLIER SESSIONS still alive.
 
-  Two defences, both now in `tools/ern-all-upgrades.sh`:
+  Two defences, now in `tools/ern-all-upgrades.sh`, `tools/span-e2e-test.sh` and
+  `tools/span-data-check.sh`:
 
       guard_command_file    write a sentinel to cw4ap-commands.txt before
                             launching, sleep, and abort if anything overwrote
@@ -230,6 +231,17 @@ an unlock nobody granted, this is the first thing to check.
 
   and give every run its own output file rather than reusing one name, so a
   straggler's output can never be mistaken for this run's.
+
+  **This is not a historical note; it cost an afternoon again on 2026-09-16.** A
+  battery was stopped for a bad argument and restarted seconds later. The stopped
+  one kept running, and `apbattery.sh` - which has NO guard - reported 6 of 21
+  failures across four unrelated steps: the server-side check, the tracker
+  repaint, the unit gate, the objective check, and both mortar assertions. Every
+  one of those had its evidence sitting in `LogOutput.log` in the right order,
+  which is the signature: **when several unrelated assertions fail and the log
+  contains what each was looking for, suspect the command file before the
+  product.** A clean re-run was 21 of 21. `apbattery.sh`, `apbattery2.sh`,
+  `msgbox.sh` and `offline-test.sh` still lack the guard.
 
   To audit by hand:
 
@@ -421,6 +433,25 @@ a product failure for a state the harness had created. Two habits: **assert the
 premise explicitly** so it fails in its own words, and **make the debug command
 report which outcome happened** - `check:` printed "(queued)" whenever offline,
 including when it had queued nothing, which is what made this unreadable.
+
+**On Windows, a value read back out of a file carries a carriage return.**
+`span-e2e-test.sh` wrote its expected mission list with python's `print()`, which
+emits CRLF, then grepped the game log for each name. Every grep failed against a
+log that plainly contained the name, and the harness reported all twenty missions
+missing from a map that had all twenty. `tr -d '
+'` on the way in. The same
+shape bit an earlier version through `IFS="$(printf '	')"` - command
+substitution strips the tab it was asked to produce, so the split never happened.
+**Anywhere a harness compares a string it read from a file against one it read
+from a log, normalise both.**
+
+**Two runs of one harness must not share a path.** `span-e2e-test.sh` starts its
+Archipelago server with its console on a file, and that file lived at a fixed
+path under the run directory. Start a second run before the first has finished
+and the first one's cleanup writes `/exit` into the SECOND one's server: it shut
+down mid-test, and every assertion after it failed with "cannot reach server",
+which reads exactly like a product regression in the connection code. Anything a
+harness writes that a live process is READING needs the pid in its name.
 
 **Assert that a sequence CONTINUES, not that it started.** The one real bug this
 sweep found was a reconnect backoff that scheduled attempt 1 and then stopped

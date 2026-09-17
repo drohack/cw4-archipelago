@@ -53,7 +53,7 @@ whole design rests on and which nothing had previously checked. Because it
 holds, `p**5` is trustworthy rather than hand-waving: **about 1 seed in 14.6
 million**, against 1 in 1,000 with no retry at all.
 
-## Opening width is the only driver
+## Opening width is the only driver - while the roster is fixed
 
 A further 20,000 seeds, 4,000 each across five configurations a player can
 actually select:
@@ -85,6 +85,94 @@ seemed obvious:
   `StarterMissions.range_start` is 2; one starter was measured at 0.25 percent
   failure and the floor was raised deliberately. So there is no narrower opening
   to test, and the 20,000-seed default run above IS the worst case.
+
+## Once the ROSTER varies, weapon breadth is the driver instead (2026-09-16)
+
+The SPAN Experiments made the mission set a per-seed draw: 19 of the 20 missions
+come from a pool of 45 rather than being the campaign every time. That breaks
+the finding above, and it broke it in a way a blind sweep would have missed.
+
+**10,000 SPAN seeds at the shipped cap of 5 reported zero failures.** Re-run
+with the cap at 25, the same configuration produced this:
+
+| attempts needed | seeds |
+|---|---|
+| 1 | 9,709 |
+| 2 | 259 |
+| 3 | 27 |
+| 4 | 4 |
+| 5 | 0 |
+| 6 | 0 |
+| 7 | 1 |
+
+The geometric part is intact and the last row is not part of it: a seed needing
+seven attempts, with nothing at five or six. **At the shipped cap that seed
+fails**, so the true rate was about 1 in 10,000 against the campaign's 1 in 14.6
+million - and the capped run said "zero failures" because a censored histogram
+cannot tell a comfortable margin from a seed one step from disaster.
+
+### What was different about the deep seeds
+
+4,000 further SPAN seeds, recording the shape of each alongside its depth:
+
+| depth | seeds | mean weapon breadth | mean opening | mean early candidates |
+|---|---|---|---|---|
+| 1 | 3,888 | 10.5 | 1.89 | 3.20 |
+| 2 | 98 | 8.9 | 2.00 | 3.06 |
+| 3 | 13 | 8.0 | 2.00 | 2.77 |
+| 4 | 1 | 5.0 | 2.00 | 3.00 |
+
+Opening width does not move at all. **Weapon breadth** - how many of the whole
+roster's checks the first weapon opens, `items.weapon_breadth` summed over the
+seed - falls monotonically. Six of the 4,000 seeds had breadth ZERO: the first
+weapon opened nothing anywhere in the seed.
+
+The cause is variance, not a worse average. The campaign's breadth is 9, held by
+five missions (Farsite 3, Home 2, More and More 1, Tower of Darkness 1,
+Sequence 2), and a campaign seed contains all five every time. SPAN adds 16
+across five more, 14 of it in the three Pod maps whose loose liftic means their
+totems need no factory. So a mixed roster averages 10.5 - more than the campaign
+- and can still draw almost none of the ten.
+
+### Two fixes, and a third thing the fixes taught
+
+1. `MIN_ROSTER_BREADTH`, set to the campaign's own 9 rather than to an invented
+   constant, so the rule reads "a mixed seed never opens narrower than the
+   campaign does". A roster below it swaps breadth in rather than being
+   re-rolled: re-rolling would bias the whole roster, a swap changes only what
+   it must.
+2. `force_early_mission` drew only from `STARTER_ELIGIBLE` inside the roster,
+   and on 1.1 percent of mixed seeds that set was empty - so it returned having
+   granted nothing at all, silently. It now falls back to the rest of the
+   roster. (Its own docstring already said the point was a mission a WEAPON can
+   open checks on; starter-eligibility was a proxy for that, not the
+   requirement.)
+3. That fix shipped a `KeyError` on its first measurement, because the fallback
+   can pick a SPAN mission and the item name was still being built from the
+   campaign-only title table. 2.5 percent of seeds, found in a 200-seed run, and
+   **the unit suite passed throughout** - whether a seed reaches the fallback
+   depends on its draw, and no fixture seed did. The test that pins it now
+   constructs the condition instead of hoping for it.
+
+### After
+
+50,000 seeds, cap 25, five configurations:
+
+| configuration | 1 | 2 | 3 | 4 | 5 | deepest | failures |
+|---|---|---|---|---|---|---|---|
+| span off, default | 9,729 | 253 | 17 | 1 | - | 4 | 0 |
+| span ON, default | 9,758 | 222 | 18 | 2 | - | 4 | 0 |
+| span off, min starters | 9,765 | 223 | 12 | - | - | 3 | 0 |
+| span ON, min starters | 9,782 | 202 | 14 | 1 | 1 | 5 | 0 |
+| span ON, all for finale | 9,793 | 188 | 16 | 3 | - | 4 | 0 |
+
+The outlier is gone and SPAN now sits where the campaign sits. The worst
+configuration still reaches 5, which against a cap of 5 is zero margin, so
+`OWN_FILL_ATTEMPTS` went from 5 to 8. An attempt only happens when the previous
+one failed, so the extra three cost nothing measurable.
+
+Reproduce with `tools/seed-battery.py` (`--cap 25` to see the tail,
+`--only "span ON"` to pick configurations).
 
 ## The test path is not the shipped path
 

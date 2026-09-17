@@ -24,6 +24,7 @@ public static class ModCore
     private static LocationWatcher _locations = null!;
     private static TrackerView _tracker = null!;
     private static FinalePlacement _finale = null!;
+    private static SpiralRoster _spiral = null!;
     private static EnergyGranter _energy = null!;
     private static ErnUpgrades _ernUpgrades = null!;
     private static TrapApplier _traps = null!;
@@ -70,6 +71,7 @@ public static class ModCore
         _locations = new LocationWatcher();
         _tracker = new TrackerView();
         _finale = new FinalePlacement();
+        _spiral = new SpiralRoster();
         _energy = new EnergyGranter();
         _ernUpgrades = new ErnUpgrades();
         _traps = new TrapApplier();
@@ -129,6 +131,11 @@ public static class ModCore
 
     public static void SafeLateTick()
     {
+        // BEFORE the tracker, and before the finale is moved. Both resolve a
+        // planet by what it says it is, so the spiral has to already hold this
+        // seed's missions when they look.
+        try { _spiral.Apply(); }
+        catch (Exception e) { Log.LogError($"spiral roster failed: {e.Message}"); }
         try { _tracker.ApplyTints(); }
         catch (Exception e) { Log.LogError($"late tick failed: {e.Message}"); }
         try { _finale.Apply(); }
@@ -194,6 +201,12 @@ public static class ModCore
         // signature, the lock by building nineteen location names.
         _tracker.Invalidate();
         _finaleLock.Invalidate();
+        // And the spiral, for a reason the other two do not have: it runs ONCE
+        // per visit to the map, so a connection that lands after the first paint
+        // would leave the level select showing the campaign for the rest of that
+        // visit. That is the ordinary case with AutoConnect, where the menu is
+        // already up while the connect is still in flight.
+        _spiral.Invalidate();
 
         var status = Client.Status;
         if (status != _lastStatus)
@@ -220,6 +233,7 @@ public static class ModCore
         Log.LogInfo($"SCENE: '{scene}'");
         _units.OnSceneEnter(scene);
         _finale.OnSceneChanged();
+        _spiral.OnSceneChanged();
         // Leaving or entering a scene destroys and rebuilds the planets, so the
         // tracker's cache is void either way.
         _tracker.Invalidate();

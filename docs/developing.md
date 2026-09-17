@@ -125,6 +125,37 @@ Four tiers, in ascending cost:
      save archiving, the message-box receive path, and the menu-entry
      auto-connect. Both write their own hermetic BepInEx config and start a
      local server from the clone.
+   - `tools/span-e2e-test.sh` - the SPAN Experiments end to end, with the
+     randomizer installed and a real server: it generates a `span_missions`
+     seed, asserts the level-select spiral shows THAT seed's twenty missions by
+     name, that a SPAN map in the seed is gated by its unlock while one outside
+     the seed stays freely playable, that launching it resolves to a real
+     mission, that finishing an objective sends a location the server accepts,
+     and that its autosave lands under `saves/farsite`. Distinct from
+     `tools/span-swap-test.sh`, which proves the swap is POSSIBLE by driving
+     CW4DevTools with the randomizer DISABLED; this proves the shipped mod does
+     it off a generated seed.
+   - `tools/span-off-parity.sh` - answers the question a test suite cannot:
+     with `span_missions` OFF, does this apworld generate the SAME seed the old
+     one did? It extracts the apworld from a base commit with `git archive`,
+     generates the same seed numbers from both, and diffs the real multidata -
+     location ids, every placement, and slot_data row by row. "The span-off
+     tests pass" and "a span-off seed is unchanged" are different claims, and a
+     change that shifted every placement by one would satisfy the first and
+     still hand the player a different game. `tools/parity-check.py` does the
+     comparison and carries a documented allow-list of rows that changed on
+     purpose. Run its negative control before trusting a clean result: two
+     DIFFERENT seeds must report differences, and they do - 230 of 236.
+   - `tools/span-data-check.sh` - boots all 26 SPAN maps and re-derives the
+     frozen table in `apworld/cw4/span_data.py` from the live game: totems,
+     nullify targets, caches and which objective slots each map enables. Needs
+     no server and sends no checks. Every SPAN requirement is computed from
+     those numbers, they were measured once and frozen with mission numbers that
+     can never be reordered, and until this existed nothing re-checked them - a
+     game patch moving one would have shown up as a player unable to finish a
+     mission with no test failing anywhere. `tools/span-data-compare.py` does
+     the comparison and can also be pointed at the original survey dump, which
+     answers the weaker question of whether the GENERATOR garbled anything.
    - `tools/msgbox.sh` - the message box on its own: it builds and anchors to
      the minimap, ingests server item-receive/send lines and connection lines
      with AP colours, and its history survives a second mission boot.

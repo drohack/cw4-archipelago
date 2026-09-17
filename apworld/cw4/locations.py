@@ -35,7 +35,12 @@ No mission in the campaign uses Hold.
 """
 from BaseClasses import Item, ItemClassification, Location
 
-from .items import BASE_ID, MISSION_TITLES
+from .items import ALL_MISSION_TITLES, BASE_ID, MISSION_TITLES
+from .span_data import (
+    SPAN_INSTANCE_COUNTS,
+    SPAN_MISSIONS,
+    SPAN_OBJECTIVE_SLOTS,
+)
 
 LOCATION_BASE_ID = BASE_ID + 1000
 
@@ -83,15 +88,15 @@ KIND_TO_OBJECTIVE = {
 
 
 def instance_location_name(mission: int, kind: str, index: int) -> str:
-    return f"{MISSION_TITLES[mission]} - {kind} {index}"
+    return f"{ALL_MISSION_TITLES[mission]} - {kind} {index}"
 
 
 def single_location_name(mission: int, kind: str) -> str:
-    return f"{MISSION_TITLES[mission]} - {kind}"
+    return f"{ALL_MISSION_TITLES[mission]} - {kind}"
 
 
 def mission_complete_location_name(mission: int) -> str:
-    return f"{MISSION_TITLES[mission]} - Mission Complete"
+    return f"{ALL_MISSION_TITLES[mission]} - Mission Complete"
 
 
 def location_names_for_mission(mission: int) -> list:
@@ -101,18 +106,59 @@ def location_names_for_mission(mission: int) -> list:
     calculation cannot disagree about what a mission contains - they each used to
     rebuild this list from INSTANCE_COUNTS by hand.
     """
-    caches, totems, nullifiable = INSTANCE_COUNTS[mission]
+    caches, totems, nullifiable = ALL_INSTANCE_COUNTS[mission]
     names = [instance_location_name(mission, "Cache", i) for i in range(1, caches + 1)]
     names += [instance_location_name(mission, "Totem", i) for i in range(1, totems + 1)]
     names += [instance_location_name(mission, "Nullify", i)
               for i in range(1, nullifiable + 1)]
-    if mission in RECLAIM_MISSIONS:
+    if mission in ALL_RECLAIM_MISSIONS:
         names.append(single_location_name(mission, "Reclaim"))
-    if mission in CUSTOM_MISSIONS:
+    if mission in ALL_CUSTOM_MISSIONS:
         names.append(single_location_name(mission, "Custom"))
     if mission != FINAL_MISSION:
         names.append(mission_complete_location_name(mission))
     return names
+
+
+# SPAN missions 21..46, merged in for LOOKUP only. The Farsite tables above are
+# untouched: they are what the first 236 ids are built from, and this file's
+# whole contract is that those do not move.
+#
+# Reclaim and Custom come from the measured objective slots (2 and 5). Slot 3,
+# Hold, is absent from SPAN_OBJECTIVE_SLOTS by construction - see span_data.py.
+ALL_INSTANCE_COUNTS = dict(INSTANCE_COUNTS)
+ALL_INSTANCE_COUNTS.update(SPAN_INSTANCE_COUNTS)
+
+ALL_RECLAIM_MISSIONS = set(RECLAIM_MISSIONS) | {
+    n for n, slots in SPAN_OBJECTIVE_SLOTS.items() if 2 in slots}
+ALL_CUSTOM_MISSIONS = set(CUSTOM_MISSIONS) | {
+    n for n, slots in SPAN_OBJECTIVE_SLOTS.items() if 5 in slots}
+
+SPAN_MISSION_NUMBERS = tuple(sorted(SPAN_MISSIONS))
+
+ALL_MISSION_NUMBERS = tuple(range(1, 21)) + SPAN_MISSION_NUMBERS
+
+# What a SPAN map needs completed is the set of objective slots the map itself
+# enables - the game's own answer, read off the live map, not a judgement call.
+# Hold is already absent from SPAN_OBJECTIVE_SLOTS (span_data.py), so a map whose
+# only extra objective is a Hold simply requires one objective fewer here. That
+# under-requires rather than over-requires, which is the wrong direction, but the
+# alternative is inventing a location for an objective the model cannot express.
+# The four maps affected are listed in span_data.SPAN_NOTES.
+ALL_REQUIRED_OBJECTIVES = dict(REQUIRED_OBJECTIVES)
+ALL_REQUIRED_OBJECTIVES.update(
+    {n: sorted(slots) for n, slots in SPAN_OBJECTIVE_SLOTS.items()})
+
+
+def mission_specifier(mission: int) -> str:
+    """What the GAME calls this mission - the string the plugin launches.
+
+    Farsite missions are "storyN"; a SPAN map is its guid. Verified by booting
+    all 26: specifier == guid on every one (docs/design/span-survey.md).
+    """
+    if mission in SPAN_MISSIONS:
+        return SPAN_MISSIONS[mission][0]
+    return f"story{mission}"
 
 
 def _build_locations():
@@ -141,6 +187,22 @@ def _build_locations():
             mission_locs.append(mission_complete_location_name(n))
         per_mission[n] = mission_locs
         names.extend(mission_locs)
+
+    # SPAN, STRICTLY AFTER the loop above.
+    #
+    # This is the whole reason the Farsite block is left alone: ids are assigned
+    # from this sequence in order, so anything emitted before or inside that loop
+    # renumbers locations that already exist in seeds people are playing.
+    # TestLocationIdsNeverMove hashes the first 236 pairs and fails if that ever
+    # happens.
+    #
+    # The names exist whether or not the span_missions option is on - the id
+    # table is class-level and cannot vary per seed. The OPTION decides what gets
+    # instantiated, never what exists.
+    for n in SPAN_MISSION_NUMBERS:
+        mission_locs = location_names_for_mission(n)
+        per_mission[n] = mission_locs
+        names.extend(mission_locs)
     return names, per_mission
 
 
@@ -161,7 +223,7 @@ BEATEN_ITEM = "Mission Beaten"
 
 
 def beaten_event_name(mission: int) -> str:
-    return f"{MISSION_TITLES[mission]} - Beaten"
+    return f"{ALL_MISSION_TITLES[mission]} - Beaten"
 
 
 def location_kind(name: str) -> str:
@@ -178,24 +240,24 @@ class CW4Location(Location):
 
 
 def create_all_locations(world) -> None:
-    for n in range(1, 21):
-        region = world.get_region(f"story{n}")
+    for n in world.mission_roster:
+        region = world.get_region(f"mission{n}")
         for name in LOCATIONS_PER_MISSION[n]:
             region.locations.append(
                 CW4Location(world.player, name, LOCATION_NAME_TO_ID[name], region)
             )
     # Completion events, one per mission that is not the finale.
-    for n in range(1, 21):
+    for n in world.mission_roster:
         if n == FINAL_MISSION:
             continue
-        region = world.get_region(f"story{n}")
+        region = world.get_region(f"mission{n}")
         event = CW4Location(world.player, beaten_event_name(n), None, region)
         event.place_locked_item(
             Item(BEATEN_ITEM, ItemClassification.progression, None, world.player)
         )
         region.locations.append(event)
 
-    final = world.get_region(f"story{FINAL_MISSION}")
+    final = world.get_region(f"mission{FINAL_MISSION}")
     victory = CW4Location(world.player, VICTORY_EVENT, None, final)
     victory.place_locked_item(
         Item(VICTORY_ITEM, ItemClassification.progression, None, world.player)

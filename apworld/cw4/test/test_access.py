@@ -22,7 +22,7 @@ class TestAccess(CW4TestBase):
     def test_starter_eligibility_matches_the_logic(self) -> None:
         # A mission may only start unlocked if its cache is genuinely free -
         # waives the mission's requirements AND has none of its own. Archon
-        # waives the weapon but needs a Terp and Pylon, so it must not qualify.
+        # waives the weapon but still needs a Terp, so it must not qualify.
         from ..items import STARTER_ELIGIBLE
         from ..rules import OBJECTIVE_OWN, WAIVES_INSTANCE, WAIVES_MISSION_REQUIREMENTS
         eligible = {
@@ -116,18 +116,57 @@ class TestAccess(CW4TestBase):
         self.assertTrue(self.can_reach_location("Home - Cache 1"))
         self.assertFalse(self.can_reach_location("Home - Mission Complete"))
 
-    def test_archon_caches_need_terp_and_pylon_but_no_weapon(self) -> None:
-        # "If you have a pylon and a terp you can get the 2nd item (no weapons
-        # needed)."
-        self.collect_all_but(["Cannon", "Mortar"])
-        self.assertTrue(self.can_reach_location("Archon - Cache 1"))
+    # ARCHON'S TWO CACHES ARE NOT ALIKE, and the old rule said they were.
+    #
+    # It required Terp AND Pylon for both, which the worksheet never said - and
+    # because Collect is a required objective there, that made a Pylon
+    # mandatory for Archon's Mission Complete and so for the finale count.
+    #
+    # Caught by the terrain analysis (tools/reachability.py) disagreeing with
+    # this entry and no other: Archon is 100 percent land in a single connected
+    # component, so a Pylon cannot be needed to REACH anything there. The
+    # measurement was right and the table was wrong.
+    #
+    # Corrected spec (designer, 2026-09-16): "the cache nearest the center of
+    # the map you can get with just a terp. the 2nd cache you need weapon + terp
+    # + pylon (yellow), weapon + terp + shield + factory (green)".
+    #
+    # WHICH CACHE IS WHICH, measured rather than assumed: the cells are (144,53)
+    # and (95,74) on a 200x120 map, so the centre is near (100,60). Ranked by
+    # (cellY, cellX) ascending, instance 1 is the FAR cache and instance 2 is
+    # the near-centre one - the reverse of the order they were described in,
+    # which is exactly why it is pinned here.
 
-    def test_archon_caches_need_terp_and_pylon(self) -> None:
-        self.assertAccessDependency(
-            ["Archon - Cache 1"],
-            [["Terp", "Pylon"]],   # one combination, both needed
-            only_check_listed=True,
-        )
+    def test_archon_near_cache_needs_only_a_terp(self) -> None:
+        self.collect_all_but(["Cannon", "Mortar", "Pylon", "Shield", "Factory"])
+        self.assertTrue(
+            self.can_reach_location("Archon - Cache 2"),
+            "the near-centre cache should need nothing but a Terp")
+
+    def test_archon_far_cache_needs_a_weapon(self) -> None:
+        # Supersedes "no weapons needed", which the designer withdrew. The old
+        # test asserted the opposite of this and passed, which is what a stale
+        # source note buys you.
+        self.collect_all_but(["Cannon", "Mortar"])
+        self.assertFalse(
+            self.can_reach_location("Archon - Cache 1"),
+            "the far cache needs a weapon on either route")
+
+    def test_archon_far_cache_routes_differ_by_layer(self) -> None:
+        # The green route is shield-and-factory; the pylon route is physical
+        # only, which is what paints it yellow. BOTH halves are asserted: a rule
+        # that demanded neither would sail through a test that only checked the
+        # logic layer.
+        from ..rules import requirement_groups
+        logic = requirement_groups(False)["location_requirements"]["Archon - Cache 1"]
+        physical = requirement_groups(False, physical=True)[
+            "location_requirements"]["Archon - Cache 1"]
+        self.assertIn(["Shield"], logic)
+        self.assertIn(["Factory"], logic)
+        # Physically either a Pylon or a Shield gets you there...
+        self.assertIn(["Pylon", "Shield"], physical)
+        # ...and the Factory is a logic assumption, not a physical need.
+        self.assertNotIn(["Factory"], physical)
 
     def test_early_totems_run_on_loose_liftic(self) -> None:
         # Missions 2, 3 and 4 power totems from liftic caches on the ground.

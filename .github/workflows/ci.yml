@@ -131,6 +131,30 @@ jobs:
           printf 'name: CITester\ngame: Creeper World 4\nCreeper World 4: {}\n' > Players/cw4.yaml
           python Generate.py --player_files_path Players --outputpath out --seed 1
 
+      # The SPAN Experiments change the location SET and the mission count, and
+      # they are drawn per seed, so the default run above never touches that
+      # path. Three seeds rather than one because the roster is random: a single
+      # seed would only exercise whichever 19 missions it happened to draw.
+      - name: Generate a seed with the SPAN Experiments on
+        working-directory: Archipelago
+        env:
+          SKIP_REQUIREMENTS_UPDATE: '1'
+        run: |
+          mkdir -p SpanPlayers
+          printf 'name: CISpan\ngame: Creeper World 4\nCreeper World 4:\n  span_missions: 1\n' > SpanPlayers/cw4span.yaml
+          for seed in 1 2 3; do
+            python Generate.py --player_files_path SpanPlayers --outputpath spanout --seed $seed
+          done
+
+      # A generated file that is stale is worse than no generated file: the two
+      # sides of the wire silently disagree about what a mission is called, and
+      # a check goes to a location the server never heard of. Re-run the
+      # generator and fail if it moved.
+      - name: SpanMissionTable.g.cs is up to date
+        run: |
+          python tools/gen-spancsharp.py
+          git diff --exit-code src/CW4Archipelago.Core/SpanMissionTable.g.cs
+
       # The apworld is just the package directory zipped, so build it directly
       # rather than depending on an Archipelago internal that may move.
       - name: Package cw4.apworld

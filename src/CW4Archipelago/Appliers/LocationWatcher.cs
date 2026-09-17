@@ -591,8 +591,13 @@ public sealed class LocationWatcher
 
     private static int ResolveMission(GameSpace gs)
     {
-        // gs.specifier is the live current-mission id (storyN), reliable on
-        // both the boot and resume-from-save paths.
+        // gs.specifier is the live current-mission id, reliable on both the boot
+        // and resume-from-save paths. "storyN" for a campaign mission and the map
+        // guid for a SPAN Experiment - MissionRules knows both, which is what
+        // makes a swapped-in SPAN map send its checks at all. It used to
+        // recognise only storyN and returned 0 for everything else, and a mission
+        // of 0 makes Tick return immediately: the map played perfectly and sent
+        // nothing.
         try
         {
             if (MissionRules.TryParseSpecifier(gs.specifier, out var n))

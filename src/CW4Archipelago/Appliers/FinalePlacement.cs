@@ -5,8 +5,12 @@ using UnityEngine;
 namespace CW4Archipelago.Appliers;
 
 /// <summary>
-/// Brings the stranded planet ("Ever After", story20) onto the visible part of
-/// the Farsite level select.
+/// Brings the stranded planet - the twentieth slot of the spiral, "Ever After"
+/// in vanilla - onto the visible part of the Farsite level select.
+///
+/// Everything here is about the SLOT, not about which mission is showing on it.
+/// The twentieth position is parked off the map by the shipped level select, and
+/// it stays parked whatever SpiralRoster has since pointed it at.
 ///
 /// Vanilla parks it at local (40, 0, -80) while all twenty other missions sit
 /// inside roughly a 20x16 box - about 82 units of empty starfield away, with the
@@ -34,11 +38,15 @@ namespace CW4Archipelago.Appliers;
 /// </summary>
 public sealed class FinalePlacement
 {
-    /// <summary>The planet parked off the map.</summary>
+    /// <summary>The SLOT parked off the map - the twentieth position in the
+    /// spiral, which vanilla builds for Ever After. A SLOT rather than a mission,
+    /// because with the SPAN Experiments mixed in the twentieth position can hold
+    /// any mission at all and it is still the position that is stranded.</summary>
     private const int Stranded = 20;
 
-    /// <summary>What it hangs off. Wallis, not Founders: Founders is the goal
-    /// mission, and Ever After is a side branch rather than what follows it.</summary>
+    /// <summary>The slot it hangs off - the nineteenth position, Wallis in
+    /// vanilla. Not the twentieth-from-last: Founders is the goal mission, and
+    /// the stranded planet is a side branch rather than what follows it.</summary>
     private const int Anchor = 18;
 
     /// <summary>How far off the cluster a planet must be before we treat it as
@@ -70,9 +78,12 @@ public sealed class FinalePlacement
         if (planets == null || planets.Length == 0)
             return;
 
-        string strandedGuid = MissionRules.Specifier(Stranded);
-        string anchorGuid = MissionRules.Specifier(Anchor);
-
+        // BY SLOT, NOT BY GUID. This is a geometry fix - the planet in the last
+        // position of the spiral is parked off the map, whatever mission is
+        // showing on it - and SpiralRoster may have rewritten every guid on the
+        // map before this runs. Asking for "story20" after a retarget finds
+        // either nothing or, worse, whichever slot happens to hold Ever After in
+        // a mixed seed, and moves the wrong planet.
         SpanNetworkPlanet? finale = null;
         SpanNetworkPlanet? anchor = null;
         var others = new List<SpanNetworkPlanet>();
@@ -80,9 +91,9 @@ public sealed class FinalePlacement
         {
             if (!GameUtil.IsAlive(p))
                 continue;
-            string guid = GuidOf(p);
-            if (guid == strandedGuid) { finale = p; continue; }
-            if (guid == anchorGuid) anchor = p;
+            int slot = SpiralRoster.SlotOf(p);
+            if (slot == Stranded) { finale = p; continue; }
+            if (slot == Anchor) anchor = p;
             others.Add(p);
         }
 
@@ -111,8 +122,9 @@ public sealed class FinalePlacement
 
         _placed = true;
         ModCore.Log.LogInfo(
-            $"AP: moved '{MissionRules.Titles[Stranded]}' from ({finalePos.x:0.0},{finalePos.z:0.0}) " +
-            $"to ({target.x:0.0},{target.z:0.0}), beside '{MissionRules.Titles[Anchor]}'");
+            $"AP: moved slot {Stranded} ('{TrackerView.TitleOf(finale)}') " +
+            $"from ({finalePos.x:0.0},{finalePos.z:0.0}) to ({target.x:0.0},{target.z:0.0}), " +
+            $"beside slot {Anchor} ('{TrackerView.TitleOf(anchor)}')");
     }
 
     /// <summary>Hide the tutorial planet.

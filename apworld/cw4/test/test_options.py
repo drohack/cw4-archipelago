@@ -615,14 +615,19 @@ class TestArchipelagoConventions(bases.CW4TestBase):
                 self.assertIn(name, LOCATION_NAME_TO_ID, f"group '{group}' names a missing location")
 
     def test_mission_groups_cover_every_location(self) -> None:
-        # The 20 per-mission groups should partition the whole location set, so
+        # The per-mission groups should PARTITION the whole location set, so
         # `exclude_locations: [<mission>]` cannot miss a check.
+        #
+        # Covers all 46 missions, not the original 20. When SPAN locations were
+        # appended this test failed immediately, which is exactly what it is
+        # for: the groups are a yaml-facing promise, and 309 SPAN checks with no
+        # group would have been an exclusion that silently did nothing.
         from ..groups import LOCATION_NAME_GROUPS
-        from ..items import MISSION_TITLES
+        from ..items import ALL_MISSION_TITLES
         from ..locations import LOCATION_NAME_TO_ID
         covered = set()
-        for n in range(1, 21):
-            covered |= LOCATION_NAME_GROUPS[MISSION_TITLES[n]]
+        for n in sorted(ALL_MISSION_TITLES):
+            covered |= LOCATION_NAME_GROUPS[ALL_MISSION_TITLES[n]]
         self.assertEqual(set(LOCATION_NAME_TO_ID), covered)
 
     def test_presets_name_real_options_and_values(self) -> None:
@@ -973,3 +978,51 @@ class TestFillRunsTheShippedPath(bases.CW4TestBase):
             "configuration that never ships and fails on roughly 1 seed in "
             "1000; see CW4TestBase.FILL_TESTS.")
         super().test_fill()
+
+
+class TestLocationIdsNeverMove(bases.CW4TestBase):
+    """The 236 Farsite location ids are frozen, whatever else is added.
+
+    WHY THIS EXISTS. Item ids already had a pin
+    (test_ids_are_pinned_so_nothing_renumbers); locations did not, and locations
+    are what a second campaign appends to. A location id that moves breaks every
+    seed already in flight, silently - the client asks the server for a location
+    number and gets somebody else's check.
+
+    The hash is deliberately over NAME=ID pairs in emission order, so it fails
+    for any of the three ways this can go wrong: a name changed, an id moved, or
+    the order of _build_locations changed. A count check alone would miss all
+    three; pinning a handful of ids would miss a reorder in the middle.
+
+    IF THIS FAILS AND THE CHANGE WAS INTENTIONAL, the fix is not to update the
+    hash. It is to append instead - new missions belong AFTER the range(1, 21)
+    loop in _build_locations, never inside or before it.
+    """
+
+    # Measured 2026-09-16, before any SPAN work.
+    FARSITE_COUNT = 236
+    FARSITE_SHA256 = "c803c5271fee201589976574ad637426859f02031e07c207db32cd1061c06488"
+
+    def test_the_first_236_ids_are_unchanged(self) -> None:
+        import hashlib
+        from ..locations import LOCATION_BASE_ID, LOCATION_NAME_TO_ID, _ALL_NAMES
+
+        head = _ALL_NAMES[:self.FARSITE_COUNT]
+        joined = "|".join("%s=%d" % (n, LOCATION_NAME_TO_ID[n]) for n in head)
+        got = hashlib.sha256(joined.encode()).hexdigest()
+        self.assertEqual(
+            self.FARSITE_SHA256, got,
+            "the first %d location names or ids have MOVED. Append new missions "
+            "after the range(1, 21) loop in _build_locations rather than "
+            "updating this hash." % self.FARSITE_COUNT)
+
+        # Anchors, so a failure says WHERE rather than only THAT.
+        self.assertEqual(LOCATION_BASE_ID + 0, LOCATION_NAME_TO_ID["Farsite - Cache 1"])
+        self.assertEqual(LOCATION_BASE_ID + 227, LOCATION_NAME_TO_ID["Founders - Custom"])
+        self.assertEqual(LOCATION_BASE_ID + 235,
+                         LOCATION_NAME_TO_ID["Ever After - Mission Complete"])
+
+    def test_every_location_id_is_unique(self) -> None:
+        from ..locations import LOCATION_NAME_TO_ID
+        self.assertEqual(len(set(LOCATION_NAME_TO_ID.values())),
+                         len(LOCATION_NAME_TO_ID))

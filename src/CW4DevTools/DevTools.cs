@@ -96,6 +96,66 @@ public static class DevTools
         b => b.sweeperAvailable
     };
 
+    /// <summary>Build keys for Getters, in the SAME ORDER. Paired here rather
+    /// than inline so the two cannot drift: a name list that silently slipped by
+    /// one would report every mission's availability wrongly and look fine.
+    ///
+    /// These are the lowercase build keys the game itself uses - the same
+    /// spelling BuildUnitManager.SetAvailable and the randomizer's UnitRules
+    /// expect.</summary>
+    private static readonly string[] AvailabilityNames =
+    {
+        "riftlab", "tower", "pylon", "miner", "factory", "ernportal",
+        "greenarrefinery", "terp", "porter", "cannon", "mortar", "sprayer",
+        "sniper", "missilelauncher", "nullifier", "runway", "bomberpad",
+        "acbomberpad", "rocketpad", "platform", "shield", "microrift",
+        "chronat", "airship", "bertha", "sweeper"
+    };
+
+    /// <summary>What THIS mission makes available, as the mission set it.
+    ///
+    /// The point is the negative: a map that does not offer a Terp cannot
+    /// require one, so this prunes a map's possible requirements exactly rather
+    /// than by inference - which is the whole problem with 26 SPAN maps nobody
+    /// has played.
+    ///
+    /// TWO LIMITS, both real:
+    ///   - This is the set AT BOOT. Some missions grant units on player
+    ///     progress, so a unit absent here may still arrive later.
+    ///   - The randomizer's UnitGate rewrites all 26 flags every frame, so with
+    ///     it installed this reports the AP-allowed set instead. Park it.
+    /// Reports whether AllBuildings is forcing the flags, because that would
+    /// make every mission look identical and the reading worthless.</summary>
+    public static void DumpAvailability()
+    {
+        var gs = GameSpace.instance;
+        var bum = gs?.buildUnitManager;
+        if (bum == null) { _log.LogWarning("DEVBUILD: no BuildUnitManager - boot a mission first"); return; }
+        if (Getters.Count != AvailabilityNames.Length)
+        {
+            _log.LogWarning($"DEVBUILD: {Getters.Count} getters but {AvailabilityNames.Length} " +
+                            "names - the lists have drifted, refusing to report");
+            return;
+        }
+
+        var on = new System.Text.StringBuilder();
+        var off = new System.Text.StringBuilder();
+        int n = 0;
+        for (int i = 0; i < Getters.Count; i++)
+        {
+            bool v;
+            try { v = Getters[i](bum); }
+            catch (Exception e) { _log.LogWarning($"DEVBUILD {AvailabilityNames[i]}: {e.Message}"); continue; }
+            if (v) { on.Append(on.Length > 0 ? "," : "").Append(AvailabilityNames[i]); n++; }
+            else { off.Append(off.Length > 0 ? "," : "").Append(AvailabilityNames[i]); }
+        }
+
+        string spec = ""; try { spec = GameSpace.specifierToApply ?? ""; } catch { }
+        _log.LogWarning($"DEVBUILD mission='{spec}' forcedByCheat={_forcedAll} available={n}/{Getters.Count}");
+        _log.LogWarning($"DEVBUILD ON : {on}");
+        _log.LogWarning($"DEVBUILD OFF: {off}");
+    }
+
     private static bool[]? _savedAvail;
     private static bool _forcedAll;
 
@@ -142,7 +202,7 @@ public static class DevTools
         "Terp", "TerpDrone", "GreenarDrone", "Platform", "Shield", "Microrift", "Chronat",
     };
 
-    private static bool IsPlayerUnit(UnitManager u)
+    internal static bool IsPlayerUnit(UnitManager u)
     {
         try
         {

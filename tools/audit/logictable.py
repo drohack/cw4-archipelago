@@ -63,6 +63,23 @@ def main() -> int:
         w(f"| {n} | {L.MISSION_TITLES[n]} | {std} | "
           f"{'same' if cas == std else cas} |")
     w("")
+    w("### The SPAN Experiments")
+    w("")
+    w("Off by default (`span_missions`), and the rows below are DERIVED rather")
+    w("than played - read them as a floor, not as the truth. Every campaign")
+    w("requirement above traces to somebody finishing that mission and saying")
+    w("what they needed; these trace to a measurement taken on an empty map,")
+    w("which cannot see creep advance, non-terrain reach or environmental")
+    w("hazards. See docs/design/span-requirements-worksheet.md.")
+    w("")
+    w("| # | Mission | Standard | Casual |")
+    w("|---|---|---|---|")
+    for n in L.SPAN_MISSION_NUMBERS:
+        std = fmt(R.mission_requirements(n, casual=False))
+        cas = fmt(R.mission_requirements(n, casual=True))
+        w(f"| {n} | {I.ALL_MISSION_TITLES[n]} | {std} | "
+          f"{'same' if cas == std else cas} |")
+    w("")
 
     # --- per location ----------------------------------------------------
     w("## What each check requires")
@@ -71,11 +88,11 @@ def main() -> int:
     w("mission's own requirements are folded in, except where a per-instance")
     w("waiver deliberately drops them (a free first cache, say).")
     w("")
-    for n in range(1, 21):
+    for n in tuple(range(1, 21)) + L.SPAN_MISSION_NUMBERS:
         names = L.location_names_for_mission(n)
         if not names:
             continue
-        w(f"### {n}. {L.MISSION_TITLES[n]}")
+        w(f"### {n}. {I.ALL_MISSION_TITLES[n]}")
         w("")
         w("| Check | Standard | Casual |")
         w("|---|---|---|")
@@ -134,7 +151,7 @@ def main() -> int:
         name for name in all_units
         if not any(
             name in group
-            for n in range(1, 21)
+            for n in tuple(range(1, 21)) + L.SPAN_MISSION_NUMBERS
             for loc in L.location_names_for_mission(n)
             for group in R.location_requirements(loc, n, casual=True)
         )

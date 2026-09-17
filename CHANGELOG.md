@@ -3,6 +3,110 @@
 Versions follow semantic versioning. The plugin and the apworld share one number,
 so a release is a matched pair - if you update one, update the other.
 
+## v0.2.0 - The SPAN Experiments, experimental and off by default
+
+**This is a pre-release.** The feature below is off unless you turn it on, and a
+seed that leaves it off plays exactly as v0.1.10 did: the campaign's 236 location
+ids did not move, a test now fails if they ever do, and the roster of a
+campaign-only seed is still story1 to story20 in order, so the level-select
+retarget is a no-op there.
+
+One thing DOES change for every seed: the world's own progression fill retries up
+to 8 times rather than 5 (see the last entry). That can only turn a failure into
+a success, and no released seed ever hit the old limit.
+
+- **`span_missions`: the game's 26 SPAN Experiment maps can be mixed into a
+  seed.** The level select still holds 20 planets, the goal is still Founders,
+  and the other 19 are now drawn from the 19 remaining campaign missions and the
+  26 SPAN maps together. Locked slots still show the native "?" and still cannot
+  be clicked into a dead popup.
+
+  The planets themselves are retargeted rather than added: each of the twenty
+  authored positions in the spiral is pointed at whichever mission the seed drew
+  for that slot, which keeps the map people already know, keeps the lines
+  between the planets, and keeps every tracker and gate working by title exactly
+  as they did.
+
+  Founders keeps the nineteenth position it has in the untouched campaign, and
+  everything else fills the spiral in mission order. That is cosmetic - missions
+  are open, so any unlocked one is playable in any order - but a plain sort put
+  the goal in the middle with ten maps drawn after it, because the SPAN maps
+  number 21 to 46 and all sort past Founders at 19.
+
+  **The logic for those 26 maps was DERIVED, not played,** and that is the whole
+  reason this ships off by default. Every campaign requirement in this
+  randomizer traces to somebody finishing the mission and writing down what they
+  needed. For SPAN, three detectors were built instead - one for whether an
+  objective needs a mover, one for whether a cache is buried, one for what a
+  totem is authored to want - and each was validated against the campaign first,
+  28 assertions with 0 failures. That found 23 of the 26 maps need the Factory
+  for their totems, 3 need a mover, and exactly one map in the whole set has an
+  item cache at all.
+
+  What no measurement can see: creeper advancing over a route that was open at
+  tick zero, reach problems that are not about terrain (Archon is 100 percent
+  land and still needs a Pylon), and environmental hazards (Archon again - it
+  rains). So the logic over-requires rather than under-requires, and a seed
+  should be harder than it needs to be rather than impossible.
+
+  If you play these maps, `docs/design/span-requirements-worksheet.md` is
+  pre-filled with every measurement and blank where only play can answer.
+- **The finale now counts SPAN completions**, and locked SPAN maps really are
+  locked. `MissionGate` used to let anything that was not a `storyN` specifier
+  through untouched, so a SPAN map in a seed would have been launchable whatever
+  Archipelago said; a map the seed does NOT contain stays freely playable,
+  because it is the game's own content rather than part of the randomizer.
+- **Checks send from SPAN maps.** The watcher resolved a running mission by
+  parsing `storyN` out of the live specifier and returned 0 for anything else,
+  and a mission of 0 makes it return immediately - the map would have played
+  perfectly and sent nothing.
+- **A mixed roster never opens narrower than the campaign does.** Found by
+  measurement rather than by reasoning, and it was a real defect: with the retry
+  cap raised to 25 so the true tail was visible, 1 seed in 10,000 needed SEVEN
+  attempts at the world's own progression fill, against a shipped cap of 5 and a
+  campaign worst case of 4 in 20,000.
+
+  Correlating retry depth against seed shape over 4,000 more seeds found exactly
+  one driver, and it was not the one expected: not the opening width, but
+  WEAPON BREADTH - how many of the whole roster's checks the first weapon opens.
+
+  | retry depth | seeds | mean weapon breadth |
+  |---|---|---|
+  | 1 | 3,888 | 10.5 |
+  | 2 | 98 | 8.9 |
+  | 3 | 13 | 8.0 |
+  | 4 | 1 | 5.0 |
+
+  The campaign's breadth is 9, concentrated in five missions, and a campaign
+  seed always contains all five. SPAN carries 16 more across five maps, so a
+  mixed roster averages MORE than the campaign - the problem is variance:
+  drawing 19 from 45 can miss nearly all ten, and 6 of those 4,000 seeds had
+  zero breadth, meaning the first weapon opened nothing anywhere in the seed.
+
+  Two fixes. The roster now swaps breadth in until it reaches the campaign's own
+  9, stated as "never narrower than the campaign" rather than as an invented
+  constant. And the early mission grant, which used to draw only from the
+  starter-eligible set and silently granted nothing on 1.1 percent of mixed
+  seeds when that set was empty inside the roster, now falls back to the rest of
+  the roster.
+
+  Re-measured over 50,000 seeds with the cap at 25: 0 failures, the outlier
+  gone, and SPAN sitting exactly where the campaign sits. The worst
+  configuration still reaches depth 5, so **the retry cap goes from 5 to 8** -
+  a cap equal to the deepest thing observed is no margin at all, and the extra
+  attempts cost nothing because an attempt only happens when the last one
+  failed. Full numbers in
+  [docs/design/2026-09-14-fill-reliability.md](docs/design/2026-09-14-fill-reliability.md).
+- **Known gap: the shipped cache-cell table does not cover SPAN.** One map in
+  the 26 has a cache at all (Far York Farm), and the watcher falls back to
+  counting for it, which is exactly right when there is only one cache to tell
+  apart. A SPAN map with two would need its cells added to `MapCells`; none has
+  two.
+- **The opening always keeps a campaign mission.** One map in the whole SPAN
+  roster has a cache, so SPAN cannot reliably supply an opening at all, and
+  whether creep covers that one cache is unverified. The first starter is
+  therefore always drawn from the campaign.
+
 ## v0.1.10 - Founders opens up, and ERN upgrades stop arriving dead
 
 - **Founders: a Terp crosses the chasm, not just a Platform.** The enemy builds

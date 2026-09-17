@@ -38,6 +38,44 @@ and counts toward the finale.
 | 19 | Founders | Cannon or Mortar | Cannon or Mortar + Missile Launcher or Sniper |
 | 20 | Ever After | Miner + Cannon + Mortar | Miner + Cannon + Mortar + Missile Launcher or Sniper |
 
+### The SPAN Experiments
+
+Off by default (`span_missions`), and the rows below are DERIVED rather
+than played - read them as a floor, not as the truth. Every campaign
+requirement above traces to somebody finishing that mission and saying
+what they needed; these trace to a measurement taken on an empty map,
+which cannot see creep advance, non-terrain reach or environmental
+hazards. See docs/design/span-requirements-worksheet.md.
+
+| # | Mission | Standard | Casual |
+|---|---|---|---|
+| 21 | Forgotten Fortress | Cannon or Mortar | Cannon or Mortar + Missile Launcher or Sniper |
+| 22 | Four Pieces | Cannon or Mortar | Cannon or Mortar + Missile Launcher or Sniper |
+| 23 | Neuron | Cannon or Mortar | Cannon or Mortar + Missile Launcher or Sniper |
+| 24 | Creeper++ | Cannon or Mortar | Cannon or Mortar + Missile Launcher or Sniper |
+| 25 | Turtle | Cannon or Mortar | Cannon or Mortar + Missile Launcher or Sniper |
+| 26 | Valley of the Shadow of Death | Cannon or Mortar | Cannon or Mortar + Missile Launcher or Sniper |
+| 27 | Parasite | Cannon or Mortar | Cannon or Mortar + Missile Launcher or Sniper |
+| 28 | Cheap Construction | Cannon or Mortar | Cannon or Mortar + Missile Launcher or Sniper |
+| 29 | Sector L | Cannon or Mortar | Cannon or Mortar + Missile Launcher or Sniper |
+| 30 | Gort | Cannon or Mortar | Cannon or Mortar + Missile Launcher or Sniper |
+| 31 | Creepers Pieces | Cannon or Mortar + Platform or Porter or Pylon + Factory or Porter or Pylon | Cannon or Mortar + Platform or Porter or Pylon + Missile Launcher or Sniper + Factory or Porter or Pylon |
+| 32 | Special | Cannon or Mortar | Cannon or Mortar + Missile Launcher or Sniper |
+| 33 | Highway to helheim | Cannon or Mortar + Platform or Porter or Pylon + Factory or Porter or Pylon | Cannon or Mortar + Platform or Porter or Pylon + Missile Launcher or Sniper + Factory or Porter or Pylon |
+| 34 | Creeperpeace | Cannon or Mortar | Cannon or Mortar + Missile Launcher or Sniper |
+| 35 | Islands | Cannon or Mortar | Cannon or Mortar + Missile Launcher or Sniper |
+| 36 | Enchanted Forest | Cannon or Mortar | Cannon or Mortar + Missile Launcher or Sniper |
+| 37 | The Dark Side | Cannon or Mortar | Cannon or Mortar + Missile Launcher or Sniper |
+| 38 | Far York Farm | Cannon or Mortar | Cannon or Mortar + Missile Launcher or Sniper |
+| 39 | Chanson | Cannon or Mortar | Cannon or Mortar + Missile Launcher or Sniper |
+| 40 | Invasion | Cannon or Mortar + Platform or Porter or Pylon + Factory or Porter or Pylon | Cannon or Mortar + Platform or Porter or Pylon + Missile Launcher or Sniper + Factory or Porter or Pylon |
+| 41 | Razor | Cannon or Mortar | Cannon or Mortar + Missile Launcher or Sniper |
+| 42 | Holdem 2 | Cannon or Mortar | Cannon or Mortar + Missile Launcher or Sniper |
+| 43 | Mark V Sample | Cannon or Mortar | Cannon or Mortar + Missile Launcher or Sniper |
+| 44 | Before Time | Cannon or Mortar | Cannon or Mortar + Missile Launcher or Sniper |
+| 45 | Day of Infamy | Cannon or Mortar | Cannon or Mortar + Missile Launcher or Sniper |
+| 46 | Shaka | Cannon or Mortar | Cannon or Mortar + Missile Launcher or Sniper |
+
 ## What each check requires
 
 Every check, in mission order. A location entry is COMPLETE - the
@@ -202,8 +240,8 @@ waiver deliberately drops them (a free first cache, say).
 
 | Check | Standard | Casual |
 |---|---|---|
-| Cache 1 | Terp + Pylon | same |
-| Cache 2 | Terp + Pylon | same |
+| Cache 1 | Terp + Cannon or Mortar + Shield + Factory | same |
+| Cache 2 | Terp | same |
 | Totem 1 | Factory + Cannon or Mortar + Nullifier + Shield | Factory + Cannon or Mortar + Nullifier + Shield + Missile Launcher or Sniper |
 | Totem 2 | Factory + Cannon or Mortar + Nullifier + Shield | Factory + Cannon or Mortar + Nullifier + Shield + Missile Launcher or Sniper |
 | Totem 3 | Factory + Cannon or Mortar + Nullifier + Shield | Factory + Cannon or Mortar + Nullifier + Shield + Missile Launcher or Sniper |
@@ -211,7 +249,7 @@ waiver deliberately drops them (a free first cache, say).
 | Nullify 2 | Nullifier + Cannon or Mortar + Shield | Nullifier + Cannon or Mortar + Shield + Missile Launcher or Sniper |
 | Nullify 3 | Nullifier + Cannon or Mortar + Shield | Nullifier + Cannon or Mortar + Shield + Missile Launcher or Sniper |
 | Reclaim | Nullifier + Cannon or Mortar + Shield | Nullifier + Cannon or Mortar + Shield + Missile Launcher or Sniper |
-| Mission Complete | Cannon or Mortar + Nullifier + Shield + Factory + Terp + Pylon | Cannon or Mortar + Nullifier + Shield + Missile Launcher or Sniper + Factory + Terp + Pylon |
+| Mission Complete | Cannon or Mortar + Nullifier + Shield + Factory + Terp | Cannon or Mortar + Nullifier + Shield + Missile Launcher or Sniper + Factory + Terp |
 
 ### 13. The Experiment
 
@@ -379,6 +417,445 @@ waiver deliberately drops them (a free first cache, say).
 | Reclaim | Nullifier + Miner + Cannon + Mortar | Nullifier + Miner + Cannon + Mortar + Missile Launcher or Sniper |
 | Custom | Miner + Cannon + Mortar | Miner + Cannon + Mortar + Missile Launcher or Sniper |
 | Mission Complete | Miner + Cannon + Mortar + Nullifier + Factory | Miner + Cannon + Mortar + Missile Launcher or Sniper + Nullifier + Factory |
+
+### 21. Forgotten Fortress
+
+| Check | Standard | Casual |
+|---|---|---|
+| Totem 1 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 2 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 3 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 4 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 1 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 2 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 3 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 4 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 5 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Reclaim | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Mission Complete | Cannon or Mortar + Factory | Cannon or Mortar + Missile Launcher or Sniper + Factory |
+
+### 22. Four Pieces
+
+| Check | Standard | Casual |
+|---|---|---|
+| Totem 1 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 2 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 3 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 4 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 1 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 2 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 3 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 4 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 5 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Reclaim | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Mission Complete | Cannon or Mortar + Factory | Cannon or Mortar + Missile Launcher or Sniper + Factory |
+
+### 23. Neuron
+
+| Check | Standard | Casual |
+|---|---|---|
+| Totem 1 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 2 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 1 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 2 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 3 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 4 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 5 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 6 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 7 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 8 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Reclaim | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Mission Complete | Cannon or Mortar + Factory | Cannon or Mortar + Missile Launcher or Sniper + Factory |
+
+### 24. Creeper++
+
+| Check | Standard | Casual |
+|---|---|---|
+| Totem 1 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 2 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 3 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 1 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 2 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 3 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 4 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Reclaim | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Mission Complete | Cannon or Mortar + Factory | Cannon or Mortar + Missile Launcher or Sniper + Factory |
+
+### 25. Turtle
+
+| Check | Standard | Casual |
+|---|---|---|
+| Totem 1 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 2 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 3 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 4 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 5 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 6 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 7 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 8 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 9 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 10 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 11 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 1 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 2 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 3 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 4 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Mission Complete | Cannon or Mortar + Factory | Cannon or Mortar + Missile Launcher or Sniper + Factory |
+
+### 26. Valley of the Shadow of Death
+
+| Check | Standard | Casual |
+|---|---|---|
+| Totem 1 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 2 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 1 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 2 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 3 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 4 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 5 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 6 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Reclaim | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Mission Complete | Cannon or Mortar + Factory | Cannon or Mortar + Missile Launcher or Sniper + Factory |
+
+### 27. Parasite
+
+| Check | Standard | Casual |
+|---|---|---|
+| Totem 1 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 2 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 3 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 4 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 5 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 6 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 7 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 8 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 9 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 10 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 1 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 2 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Reclaim | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Mission Complete | Cannon or Mortar + Factory | Cannon or Mortar + Missile Launcher or Sniper + Factory |
+
+### 28. Cheap Construction
+
+| Check | Standard | Casual |
+|---|---|---|
+| Totem 1 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 2 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 3 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 1 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 2 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 3 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 4 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 5 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 6 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Reclaim | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Mission Complete | Cannon or Mortar + Factory | Cannon or Mortar + Missile Launcher or Sniper + Factory |
+
+### 29. Sector L
+
+| Check | Standard | Casual |
+|---|---|---|
+| Totem 1 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 2 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 3 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 1 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 2 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 3 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 4 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 5 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Reclaim | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Mission Complete | Cannon or Mortar + Factory | Cannon or Mortar + Missile Launcher or Sniper + Factory |
+
+### 30. Gort
+
+| Check | Standard | Casual |
+|---|---|---|
+| Totem 1 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 2 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 1 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 2 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 3 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 4 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Reclaim | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Mission Complete | Cannon or Mortar + Factory | Cannon or Mortar + Missile Launcher or Sniper + Factory |
+
+### 31. Creepers Pieces
+
+| Check | Standard | Casual |
+|---|---|---|
+| Totem 1 | Factory + Cannon or Mortar + Platform or Porter or Pylon | Factory + Cannon or Mortar + Platform or Porter or Pylon + Missile Launcher or Sniper |
+| Totem 2 | Factory + Cannon or Mortar + Platform or Porter or Pylon | Factory + Cannon or Mortar + Platform or Porter or Pylon + Missile Launcher or Sniper |
+| Totem 3 | Factory + Cannon or Mortar + Platform or Porter or Pylon | Factory + Cannon or Mortar + Platform or Porter or Pylon + Missile Launcher or Sniper |
+| Nullify 1 | Nullifier + Cannon or Mortar + Platform or Porter or Pylon + Factory or Porter or Pylon | Nullifier + Cannon or Mortar + Platform or Porter or Pylon + Missile Launcher or Sniper + Factory or Porter or Pylon |
+| Nullify 2 | Nullifier + Cannon or Mortar + Platform or Porter or Pylon + Factory or Porter or Pylon | Nullifier + Cannon or Mortar + Platform or Porter or Pylon + Missile Launcher or Sniper + Factory or Porter or Pylon |
+| Nullify 3 | Nullifier + Cannon or Mortar + Platform or Porter or Pylon + Factory or Porter or Pylon | Nullifier + Cannon or Mortar + Platform or Porter or Pylon + Missile Launcher or Sniper + Factory or Porter or Pylon |
+| Nullify 4 | Nullifier + Cannon or Mortar + Platform or Porter or Pylon + Factory or Porter or Pylon | Nullifier + Cannon or Mortar + Platform or Porter or Pylon + Missile Launcher or Sniper + Factory or Porter or Pylon |
+| Nullify 5 | Nullifier + Cannon or Mortar + Platform or Porter or Pylon + Factory or Porter or Pylon | Nullifier + Cannon or Mortar + Platform or Porter or Pylon + Missile Launcher or Sniper + Factory or Porter or Pylon |
+| Reclaim | Nullifier + Cannon or Mortar + Platform or Porter or Pylon + Factory or Porter or Pylon | Nullifier + Cannon or Mortar + Platform or Porter or Pylon + Missile Launcher or Sniper + Factory or Porter or Pylon |
+| Mission Complete | Cannon or Mortar + Platform or Porter or Pylon + Factory or Porter or Pylon + Factory | Cannon or Mortar + Platform or Porter or Pylon + Missile Launcher or Sniper + Factory or Porter or Pylon + Factory |
+
+### 32. Special
+
+| Check | Standard | Casual |
+|---|---|---|
+| Totem 1 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 1 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 2 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 3 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 4 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Reclaim | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Mission Complete | Cannon or Mortar + Factory | Cannon or Mortar + Missile Launcher or Sniper + Factory |
+
+### 33. Highway to helheim
+
+| Check | Standard | Casual |
+|---|---|---|
+| Totem 1 | Factory + Cannon or Mortar + Platform or Porter or Pylon | Factory + Cannon or Mortar + Platform or Porter or Pylon + Missile Launcher or Sniper |
+| Totem 2 | Factory + Cannon or Mortar + Platform or Porter or Pylon | Factory + Cannon or Mortar + Platform or Porter or Pylon + Missile Launcher or Sniper |
+| Nullify 1 | Nullifier + Cannon or Mortar + Platform or Porter or Pylon + Factory or Porter or Pylon | Nullifier + Cannon or Mortar + Platform or Porter or Pylon + Missile Launcher or Sniper + Factory or Porter or Pylon |
+| Nullify 2 | Nullifier + Cannon or Mortar + Platform or Porter or Pylon + Factory or Porter or Pylon | Nullifier + Cannon or Mortar + Platform or Porter or Pylon + Missile Launcher or Sniper + Factory or Porter or Pylon |
+| Nullify 3 | Nullifier + Cannon or Mortar + Platform or Porter or Pylon + Factory or Porter or Pylon | Nullifier + Cannon or Mortar + Platform or Porter or Pylon + Missile Launcher or Sniper + Factory or Porter or Pylon |
+| Nullify 4 | Nullifier + Cannon or Mortar + Platform or Porter or Pylon + Factory or Porter or Pylon | Nullifier + Cannon or Mortar + Platform or Porter or Pylon + Missile Launcher or Sniper + Factory or Porter or Pylon |
+| Nullify 5 | Nullifier + Cannon or Mortar + Platform or Porter or Pylon + Factory or Porter or Pylon | Nullifier + Cannon or Mortar + Platform or Porter or Pylon + Missile Launcher or Sniper + Factory or Porter or Pylon |
+| Reclaim | Nullifier + Cannon or Mortar + Platform or Porter or Pylon + Factory or Porter or Pylon | Nullifier + Cannon or Mortar + Platform or Porter or Pylon + Missile Launcher or Sniper + Factory or Porter or Pylon |
+| Mission Complete | Cannon or Mortar + Platform or Porter or Pylon + Factory or Porter or Pylon + Factory | Cannon or Mortar + Platform or Porter or Pylon + Missile Launcher or Sniper + Factory or Porter or Pylon + Factory |
+
+### 34. Creeperpeace
+
+| Check | Standard | Casual |
+|---|---|---|
+| Totem 1 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 2 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 3 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 1 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 2 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 3 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 4 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 5 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 6 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Reclaim | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Mission Complete | Cannon or Mortar + Factory | Cannon or Mortar + Missile Launcher or Sniper + Factory |
+
+### 35. Islands
+
+| Check | Standard | Casual |
+|---|---|---|
+| Totem 1 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 2 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 3 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 1 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 2 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 3 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 4 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Reclaim | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Mission Complete | Cannon or Mortar + Factory | Cannon or Mortar + Missile Launcher or Sniper + Factory |
+
+### 36. Enchanted Forest
+
+| Check | Standard | Casual |
+|---|---|---|
+| Totem 1 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 2 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 3 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 1 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 2 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 3 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 4 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 5 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Reclaim | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Mission Complete | Cannon or Mortar + Factory | Cannon or Mortar + Missile Launcher or Sniper + Factory |
+
+### 37. The Dark Side
+
+| Check | Standard | Casual |
+|---|---|---|
+| Totem 1 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 2 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 1 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 2 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 3 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 4 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 5 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 6 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 7 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 8 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 9 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 10 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 11 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 12 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 13 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Reclaim | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Mission Complete | Cannon or Mortar + Factory | Cannon or Mortar + Missile Launcher or Sniper + Factory |
+
+### 38. Far York Farm
+
+| Check | Standard | Casual |
+|---|---|---|
+| Cache 1 | Cannon or Mortar | Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 1 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 2 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 3 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 1 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 2 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 3 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 4 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 5 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 6 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 7 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Reclaim | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Mission Complete | Cannon or Mortar + Factory | Cannon or Mortar + Missile Launcher or Sniper + Factory |
+
+### 39. Chanson
+
+| Check | Standard | Casual |
+|---|---|---|
+| Totem 1 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 2 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 3 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 4 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 1 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 2 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 3 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 4 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 5 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 6 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 7 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 8 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 9 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 10 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Reclaim | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Custom | Cannon or Mortar | Cannon or Mortar + Missile Launcher or Sniper |
+| Mission Complete | Cannon or Mortar + Factory | Cannon or Mortar + Missile Launcher or Sniper + Factory |
+
+### 40. Invasion
+
+| Check | Standard | Casual |
+|---|---|---|
+| Totem 1 | Factory + Cannon or Mortar + Platform or Porter or Pylon | Factory + Cannon or Mortar + Platform or Porter or Pylon + Missile Launcher or Sniper |
+| Totem 2 | Factory + Cannon or Mortar + Platform or Porter or Pylon | Factory + Cannon or Mortar + Platform or Porter or Pylon + Missile Launcher or Sniper |
+| Totem 3 | Factory + Cannon or Mortar + Platform or Porter or Pylon | Factory + Cannon or Mortar + Platform or Porter or Pylon + Missile Launcher or Sniper |
+| Nullify 1 | Nullifier + Cannon or Mortar + Platform or Porter or Pylon + Factory or Porter or Pylon | Nullifier + Cannon or Mortar + Platform or Porter or Pylon + Missile Launcher or Sniper + Factory or Porter or Pylon |
+| Nullify 2 | Nullifier + Cannon or Mortar + Platform or Porter or Pylon + Factory or Porter or Pylon | Nullifier + Cannon or Mortar + Platform or Porter or Pylon + Missile Launcher or Sniper + Factory or Porter or Pylon |
+| Nullify 3 | Nullifier + Cannon or Mortar + Platform or Porter or Pylon + Factory or Porter or Pylon | Nullifier + Cannon or Mortar + Platform or Porter or Pylon + Missile Launcher or Sniper + Factory or Porter or Pylon |
+| Nullify 4 | Nullifier + Cannon or Mortar + Platform or Porter or Pylon + Factory or Porter or Pylon | Nullifier + Cannon or Mortar + Platform or Porter or Pylon + Missile Launcher or Sniper + Factory or Porter or Pylon |
+| Nullify 5 | Nullifier + Cannon or Mortar + Platform or Porter or Pylon + Factory or Porter or Pylon | Nullifier + Cannon or Mortar + Platform or Porter or Pylon + Missile Launcher or Sniper + Factory or Porter or Pylon |
+| Nullify 6 | Nullifier + Cannon or Mortar + Platform or Porter or Pylon + Factory or Porter or Pylon | Nullifier + Cannon or Mortar + Platform or Porter or Pylon + Missile Launcher or Sniper + Factory or Porter or Pylon |
+| Nullify 7 | Nullifier + Cannon or Mortar + Platform or Porter or Pylon + Factory or Porter or Pylon | Nullifier + Cannon or Mortar + Platform or Porter or Pylon + Missile Launcher or Sniper + Factory or Porter or Pylon |
+| Nullify 8 | Nullifier + Cannon or Mortar + Platform or Porter or Pylon + Factory or Porter or Pylon | Nullifier + Cannon or Mortar + Platform or Porter or Pylon + Missile Launcher or Sniper + Factory or Porter or Pylon |
+| Reclaim | Nullifier + Cannon or Mortar + Platform or Porter or Pylon + Factory or Porter or Pylon | Nullifier + Cannon or Mortar + Platform or Porter or Pylon + Missile Launcher or Sniper + Factory or Porter or Pylon |
+| Mission Complete | Cannon or Mortar + Platform or Porter or Pylon + Factory or Porter or Pylon + Factory | Cannon or Mortar + Platform or Porter or Pylon + Missile Launcher or Sniper + Factory or Porter or Pylon + Factory |
+
+### 41. Razor
+
+| Check | Standard | Casual |
+|---|---|---|
+| Totem 1 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 2 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 3 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 4 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 5 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 6 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 1 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 2 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 3 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 4 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 5 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 6 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 7 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 8 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 9 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Reclaim | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Mission Complete | Cannon or Mortar + Factory | Cannon or Mortar + Missile Launcher or Sniper + Factory |
+
+### 42. Holdem 2
+
+| Check | Standard | Casual |
+|---|---|---|
+| Totem 1 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 2 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 1 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 2 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 3 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 4 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 5 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 6 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 7 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 8 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Reclaim | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Mission Complete | Cannon or Mortar + Factory | Cannon or Mortar + Missile Launcher or Sniper + Factory |
+
+### 43. Mark V Sample
+
+| Check | Standard | Casual |
+|---|---|---|
+| Totem 1 | Cannon or Mortar | Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 2 | Cannon or Mortar | Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 3 | Cannon or Mortar | Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 4 | Cannon or Mortar | Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 1 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 2 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 3 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 4 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 5 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 6 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Mission Complete | Cannon or Mortar | Cannon or Mortar + Missile Launcher or Sniper |
+
+### 44. Before Time
+
+| Check | Standard | Casual |
+|---|---|---|
+| Totem 1 | Cannon or Mortar | Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 2 | Cannon or Mortar | Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 3 | Cannon or Mortar | Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 1 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 2 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 3 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 4 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 5 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 6 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 7 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 8 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Mission Complete | Cannon or Mortar | Cannon or Mortar + Missile Launcher or Sniper |
+
+### 45. Day of Infamy
+
+| Check | Standard | Casual |
+|---|---|---|
+| Totem 1 | Cannon or Mortar | Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 2 | Cannon or Mortar | Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 3 | Cannon or Mortar | Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 4 | Cannon or Mortar | Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 1 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 2 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 3 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 4 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 5 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 6 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 7 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 8 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Reclaim | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Mission Complete | Cannon or Mortar | Cannon or Mortar + Missile Launcher or Sniper |
+
+### 46. Shaka
+
+| Check | Standard | Casual |
+|---|---|---|
+| Totem 1 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 2 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 3 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 4 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Totem 5 | Factory + Cannon or Mortar | Factory + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 1 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 2 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 3 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 4 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 5 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 6 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 7 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Nullify 8 | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Reclaim | Nullifier + Cannon or Mortar | Nullifier + Cannon or Mortar + Missile Launcher or Sniper |
+| Mission Complete | Cannon or Mortar + Factory | Cannon or Mortar + Missile Launcher or Sniper + Factory |
 
 ## What is placed early, and what is not
 

@@ -56,6 +56,12 @@ class CW4World(World):
     location_name_groups = groups.LOCATION_NAME_GROUPS
 
     starter_missions: list
+    # The 20 missions this seed actually contains. With span_missions off this is
+    # always 1..20; with it on, 19 of the 20 are drawn from the campaign and the
+    # SPAN Experiments together. Every table in the apworld covers all 46 -
+    # location and item ids are class-level and cannot vary with a yaml option -
+    # so this is the only thing that says which 20 exist for THIS seed.
+    mission_roster: list
     early_weapon: str
     bootstrapped: list = []
 
@@ -63,6 +69,9 @@ class CW4World(World):
         # Chosen before regions are built, because which missions start unlocked
         # decides which regions need no unlock item.
         self.starter_missions = items.starter_missions(self)
+        # STRICTLY AFTER the starters: the roster is built around them, so that a
+        # seed can never start with a mission it does not contain.
+        self.mission_roster = items.mission_roster(self)
         items.force_early_mission(self)
         items.force_early_weapon(self)
 
@@ -125,7 +134,8 @@ class CW4World(World):
         return items.get_filler_item_name(self)
 
     def fill_slot_data(self) -> Mapping[str, Any]:
-        data = dict(rules.requirement_groups(rules.is_casual(self)))
+        data = dict(rules.requirement_groups(
+            rules.is_casual(self), missions_in_seed=self.mission_roster))
         # The PHYSICAL layer as well: what a player genuinely cannot proceed
         # without, as opposed to what logic is willing to assume. It lets the
         # in-game tracker paint red only where a check cannot be reached at all,
@@ -134,7 +144,9 @@ class CW4World(World):
         # MISSION_SOFT entry applies (energy on Not My Mars and Ruins
         # Repurposed) or casual logic has added anti-air.
         data["strict_location_requirements"] = (
-            rules.requirement_groups(physical=True)["location_requirements"])
+            rules.requirement_groups(
+                physical=True,
+                missions_in_seed=self.mission_roster)["location_requirements"])
         # Which objective SLOTS each mission requires in order to be won.
         #
         # The plugin needs this to close a real hole: Farsite was beaten in full
@@ -147,10 +159,37 @@ class CW4World(World):
         # the plugin can send those checks on completion rather than depending
         # on a per-objective query that can lag or never flip.
         data["required_objectives"] = {
-            f"story{n}": sorted(locations.REQUIRED_OBJECTIVES[n])
-            for n in range(1, 21)
+            locations.mission_specifier(n):
+                sorted(locations.ALL_REQUIRED_OBJECTIVES[n])
+            for n in self.mission_roster
         }
-        data["starter_missions"] = [f"story{n}" for n in self.starter_missions]
+        data["starter_missions"] = [locations.mission_specifier(n)
+                                    for n in self.starter_missions]
+        # WHICH MISSION SITS IN WHICH SLOT of the level select.
+        #
+        # The spiral has 20 planets and the plugin retargets each one, so it
+        # needs the roster in the order the slots run. Sent for every seed, SPAN
+        # or not: a campaign-only seed's roster is simply story1..story20 in
+        # order, which is what the untouched game already shows, so an older
+        # plugin ignoring this key still behaves correctly.
+        data["mission_roster"] = [locations.mission_specifier(n)
+                                  for n in self.mission_roster]
+        # Titles alongside - for READERS OTHER THAN THE PLUGIN. The plugin does
+        # not use this, and must not: a mission's title is its location-name
+        # prefix, the key the tracker resolves a planet by, and the unlock item's
+        # name all at once, so it has to be ONE value. That value is the
+        # generated table in src/CW4Archipelago.Core/SpanMissionTable.g.cs, which
+        # CI regenerates and diffs against this same span_data.py, so the two
+        # cannot drift. Wiring the plugin to prefer this key instead would create
+        # exactly the divergence the single table exists to prevent.
+        #
+        # It is sent because an external tracker has no such table and would
+        # otherwise see twenty opaque guids.
+        data["mission_titles"] = {
+            locations.mission_specifier(n): items.ALL_MISSION_TITLES[n]
+            for n in self.mission_roster
+        }
+        data["span_missions"] = bool(self.options.span_missions)
         data["ern_per_item"] = 1
         data["missions_for_finale"] = self.options.missions_for_finale.value
         # Amounts for the energy upgrades. They are here rather than in the item

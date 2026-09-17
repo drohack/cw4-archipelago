@@ -1,0 +1,735 @@
+# SPAN Experiments: requirements worksheet
+
+**This sheet is for people who PLAY these maps.** The randomizer can already mix
+the 26 SPAN Experiments into a seed (the `span_missions` yaml toggle), and it
+does so on requirements that were DERIVED rather than played. Derived logic is a
+floor, not the truth. Filling in a block below is how a guess becomes a fact.
+
+## What is already known, and how
+
+Every campaign requirement in this randomizer came from somebody finishing the
+mission and writing down what they needed. Nothing like that exists for SPAN, so
+three detectors were built and each was VALIDATED AGAINST THE CAMPAIGN before
+being pointed at a SPAN map - 28 assertions, 0 failures:
+
+| what | how it is measured | how it was validated |
+|---|---|---|
+| does an objective need a mover | tower-connected components over land, at `Tower.PLACEMENT_RANGE` = 11 | 26 campaign totem assertions, plus Shattered's 4 and Founders' 17 nullify targets, all correctly outside the free component |
+| is a cache buried | `worldY` below the terrain column at that cell | 10 of 10 classified campaign caches, including Sequence's pair where one is buried and one is not |
+| what a totem wants | the ware the totem is authored for, named by the game's own `DeliveryPadControls.GetWareName`; free only if a Pod on the map carries it | the campaign's 17-of-17 Factory verdict reproduced exactly |
+
+That is why each block below arrives with its objective counts, its totem ware
+and its Factory verdict already filled in. **Those lines are measurements. If one
+disagrees with what you saw in play, that is a finding worth reporting - say so.**
+
+## What NO measurement can see, which is why this sheet exists
+
+Three whole classes of requirement are invisible to every detector above, and
+the campaign proves each class is real:
+
+1. **Creep advance.** Every measurement is taken on an empty map at tick zero. A
+   route that exists then can be gone by the time you need it. Two campaign
+   missions (More and More, Tower of Darkness) need a weapon purely because
+   creep covers a cache that is otherwise free.
+2. **Reach that is not about terrain.** Archon is 100 percent land in one
+   component, and still needs a Pylon to get to its second cache. A terrain
+   analysis says that map needs nothing.
+3. **Environmental hazards.** Archon again: it rains creeper constantly, so one
+   cache sits inside the starting shield and the other does not, and the mission
+   needs Shields and a Factory for reasons the map's shape never mentions.
+
+So the randomizer's SPAN logic is deliberately conservative - it over-requires
+rather than under-requires - and the failure mode is a seed that is HARDER than
+it needs to be, not one that cannot be finished. Your answers make it accurate
+instead of merely safe.
+
+## How to fill this in
+
+Play the map and answer the questions in its block. Terse is fine: `cannon
+only`, `needed terp for the ridge`, `porter mandatory`. **Leave a field blank
+rather than guessing - blank is information, a wrong guess is not.**
+
+The goal is the MINIMUM to finish, not what is comfortable. Where something only
+made it easier, put it under "Helped but not needed": that feeds the difficulty
+tiers rather than core logic.
+
+Known-good defaults, so you only note deviations:
+
+- Offense is cannon or mortar. If cannon alone sufficed, just write `cannon`.
+- Nullify objectives need the Nullifier.
+- Reclaim needs the Nullifier too - it is "clear the map", and nothing is clear
+  while an emitter is still producing.
+- The randomizer merges Refinery and Factory into ONE item, so "needs the
+  factory" covers the whole refine-and-convert chain.
+
+Send a filled-in block (or the whole file) to
+<https://github.com/drohack/cw4-archipelago/issues>.
+
+## Setup: CW4 Dev Tools
+
+Surveying 20 missions at real speed is not the job. `CW4DevTools` is a separate
+plugin (not part of the randomizer) that removes the grind without changing what
+a mission requires. Config:
+`<game>/BepInEx/config/com.droha.cw4devtools.cfg`, all keys hot-toggleable:
+
+| Key | Cheat |
+|---|---|
+| **F5** | Instant build - buildings finish on placement, free |
+| **F6** | All buildings - ignore the campaign unlock schedule |
+| **F7** | Infinite resources - energy, ammo and wares topped up |
+| **F8** | Indestructible - your units cannot be destroyed |
+| **F9** | Freeze creeper - nothing flows, so you can study a map safely |
+| **F10** | Game speed - cycles off/2/4/8/16 (the in-game buttons stop at 4x) |
+| **F11** | Reveal fog (one-shot) |
+| **End** | Complete all objectives (one-shot) - leave a mission once you know |
+
+Currently on: instant build, infinite resources, indestructible. `AllBuildings`
+is OFF so you see each mission's normal schedule - press F6 when you want
+everything.
+
+A strip at the bottom centre lists EVERY option with its key, green when on and
+grey when off, so the state is readable at a glance and it is never a guess
+whether a mission was surveyed vanilla. All grey means vanilla.
+
+Not shown as hotkeys but available: a file-command channel at
+`<game>/BepInEx/cw4dev-commands.txt` (`boot:storyN`, `ada:close`,
+`sim:run [speed]`, `spawn:<RealUnitName> [n]`, `shot:<path>`, `dump`,
+`set:<cheat>=on|off`) for driving the tools without a keyboard.
+
+Everything is scoped to your units. Enemies, creeper, terrain and objectives are
+untouched, so **what a mission requires is unchanged** - which is what makes the
+notes below trustworthy. Note "place anywhere" is deliberately absent: whether
+somewhere is reachable without air or a porter is exactly what you are
+measuring.
+
+To play with no mod at all, move `BepInEx/plugins/CW4DevTools` out of the
+plugins folder (renaming it `.disabled` does not work - BepInEx scans
+subfolders).
+
+---
+
+## Legend
+
+- **Min units to complete** - the smallest set you could have won with. Assume
+  rift lab and tower are always available; they are, in the randomizer too.
+- **Openable with nothing?** - could you take ANY objective on this map holding
+  no items at all, with just a rift lab and towers? This is the single most
+  valuable answer on the sheet: a map that can open a seed is what lets the
+  generator start, and no measurement can answer it because creep coverage is
+  invisible to all of them. Exactly one SPAN map even has a cache.
+- **Does it rain, or any other hazard?** - anything on the map that damages or
+  disables your units on its own, without an enemy doing it. Archon is the
+  worked example and the reason this question exists.
+- **Does the map change shape as it plays?** - Founders grows a land bridge to
+  the starting island as the mission runs, which is why a Terp substitutes for a
+  Platform there. No other campaign map does this and NOTHING is known about
+  SPAN. If a route appeared or closed while you played, say so.
+- **Required for an OBJECTIVE only** - needed for one objective but not to
+  finish the mission.
+- **Helped but not needed** - difficulty-tier material.
+- **Blockers** - anything that made the map unwinnable, or nearly so, without a
+  specific unit.
+
+---
+
+## Forgotten Fortress - `knucracker1`
+
+### Measured
+
+- Map: 200x150, 1 tower-connected land component(s)
+- Objectives the map enables: Nullify, Totems, Reclaim
+- Counted objectives: 5 nullify target(s), 4 totem(s), 0 cache(s)
+- Totems want: Liftic
+- **Factory required for totems: YES** (no Pod on the map carries that ware)
+- No mover found necessary from the terrain alone. **This is the weakest line in the block** - it cannot see creep, and Archon needs a Pylon on a map this test calls clear.
+
+### To fill in
+
+- Openable with nothing (rift lab + towers only)?
+- Min units to complete:
+- Required for an OBJECTIVE only:
+- Does it rain, or any other hazard?
+- Does the map change shape as it plays?
+- Helped but not needed:
+- Blockers:
+- Anything the measurements above got wrong:
+- Notes:
+
+## Four Pieces - `knucracker2`
+
+### Measured
+
+- Map: 200x150, 1 tower-connected land component(s)
+- Objectives the map enables: Nullify, Totems, Reclaim
+- Counted objectives: 5 nullify target(s), 4 totem(s), 0 cache(s)
+- Totems want: Liftic
+- **Factory required for totems: YES** (no Pod on the map carries that ware)
+- No mover found necessary from the terrain alone. **This is the weakest line in the block** - it cannot see creep, and Archon needs a Pylon on a map this test calls clear.
+
+### To fill in
+
+- Openable with nothing (rift lab + towers only)?
+- Min units to complete:
+- Required for an OBJECTIVE only:
+- Does it rain, or any other hazard?
+- Does the map change shape as it plays?
+- Helped but not needed:
+- Blockers:
+- Anything the measurements above got wrong:
+- Notes:
+
+## Neuron - `knucracker3`
+
+### Measured
+
+- Map: 200x150, 1 tower-connected land component(s)
+- Objectives the map enables: Nullify, Totems, Reclaim
+- Counted objectives: 8 nullify target(s), 2 totem(s), 0 cache(s)
+- Totems want: Liftic
+- **Factory required for totems: YES** (no Pod on the map carries that ware)
+- No mover found necessary from the terrain alone. **This is the weakest line in the block** - it cannot see creep, and Archon needs a Pylon on a map this test calls clear.
+
+### To fill in
+
+- Openable with nothing (rift lab + towers only)?
+- Min units to complete:
+- Required for an OBJECTIVE only:
+- Does it rain, or any other hazard?
+- Does the map change shape as it plays?
+- Helped but not needed:
+- Blockers:
+- Anything the measurements above got wrong:
+- Notes:
+
+## Creeper++ - `knucracker4`
+
+### Measured
+
+- Map: 200x150, 1 tower-connected land component(s)
+- Objectives the map enables: Nullify, Totems, Reclaim
+- Counted objectives: 4 nullify target(s), 3 totem(s), 0 cache(s)
+- Totems want: Liftic
+- **Factory required for totems: YES** (no Pod on the map carries that ware)
+- No mover found necessary from the terrain alone. **This is the weakest line in the block** - it cannot see creep, and Archon needs a Pylon on a map this test calls clear.
+- Note: Hold/Survive objective present; no location is created for it
+
+### To fill in
+
+- Openable with nothing (rift lab + towers only)?
+- Min units to complete:
+- Required for an OBJECTIVE only:
+- Does it rain, or any other hazard?
+- Does the map change shape as it plays?
+- Helped but not needed:
+- Blockers:
+- Anything the measurements above got wrong:
+- Notes:
+
+## Turtle - `knucracker5`
+
+### Measured
+
+- Map: 200x150, 1 tower-connected land component(s)
+- Objectives the map enables: Nullify, Totems
+- Counted objectives: 4 nullify target(s), 11 totem(s), 0 cache(s)
+- Totems want: Arg, Liftic
+- **Factory required for totems: YES** (no Pod on the map carries that ware)
+- No mover found necessary from the terrain alone. **This is the weakest line in the block** - it cannot see creep, and Archon needs a Pylon on a map this test calls clear.
+
+### To fill in
+
+- Openable with nothing (rift lab + towers only)?
+- Min units to complete:
+- Required for an OBJECTIVE only:
+- Does it rain, or any other hazard?
+- Does the map change shape as it plays?
+- Helped but not needed:
+- Blockers:
+- Anything the measurements above got wrong:
+- Notes:
+
+## Valley of the Shadow of Death - `knucracker6`
+
+### Measured
+
+- Map: 200x150, 1 tower-connected land component(s)
+- Objectives the map enables: Nullify, Totems, Reclaim
+- Counted objectives: 6 nullify target(s), 2 totem(s), 0 cache(s)
+- Totems want: Arg
+- **Factory required for totems: YES** (no Pod on the map carries that ware)
+- No mover found necessary from the terrain alone. **This is the weakest line in the block** - it cannot see creep, and Archon needs a Pylon on a map this test calls clear.
+
+### To fill in
+
+- Openable with nothing (rift lab + towers only)?
+- Min units to complete:
+- Required for an OBJECTIVE only:
+- Does it rain, or any other hazard?
+- Does the map change shape as it plays?
+- Helped but not needed:
+- Blockers:
+- Anything the measurements above got wrong:
+- Notes:
+
+## Parasite - `knucracker7`
+
+### Measured
+
+- Map: 300x150, 1 tower-connected land component(s)
+- Objectives the map enables: Nullify, Totems, Reclaim
+- Counted objectives: 2 nullify target(s), 10 totem(s), 0 cache(s)
+- Totems want: Arg
+- **Factory required for totems: YES** (no Pod on the map carries that ware)
+- No mover found necessary from the terrain alone. **This is the weakest line in the block** - it cannot see creep, and Archon needs a Pylon on a map this test calls clear.
+
+### To fill in
+
+- Openable with nothing (rift lab + towers only)?
+- Min units to complete:
+- Required for an OBJECTIVE only:
+- Does it rain, or any other hazard?
+- Does the map change shape as it plays?
+- Helped but not needed:
+- Blockers:
+- Anything the measurements above got wrong:
+- Notes:
+
+## Cheap Construction - `knucracker8`
+
+### Measured
+
+- Map: 200x150, 1 tower-connected land component(s)
+- Objectives the map enables: Nullify, Totems, Reclaim
+- Counted objectives: 6 nullify target(s), 3 totem(s), 0 cache(s)
+- Totems want: Liftic
+- **Factory required for totems: YES** (no Pod on the map carries that ware)
+- No mover found necessary from the terrain alone. **This is the weakest line in the block** - it cannot see creep, and Archon needs a Pylon on a map this test calls clear.
+
+### To fill in
+
+- Openable with nothing (rift lab + towers only)?
+- Min units to complete:
+- Required for an OBJECTIVE only:
+- Does it rain, or any other hazard?
+- Does the map change shape as it plays?
+- Helped but not needed:
+- Blockers:
+- Anything the measurements above got wrong:
+- Notes:
+
+## Sector L - `knucracker9`
+
+### Measured
+
+- Map: 200x150, 1 tower-connected land component(s)
+- Objectives the map enables: Nullify, Totems, Reclaim
+- Counted objectives: 5 nullify target(s), 3 totem(s), 0 cache(s)
+- Totems want: Liftic
+- **Factory required for totems: YES** (no Pod on the map carries that ware)
+- No mover found necessary from the terrain alone. **This is the weakest line in the block** - it cannot see creep, and Archon needs a Pylon on a map this test calls clear.
+
+### To fill in
+
+- Openable with nothing (rift lab + towers only)?
+- Min units to complete:
+- Required for an OBJECTIVE only:
+- Does it rain, or any other hazard?
+- Does the map change shape as it plays?
+- Helped but not needed:
+- Blockers:
+- Anything the measurements above got wrong:
+- Notes:
+
+## Gort - `knucracker10`
+
+### Measured
+
+- Map: 200x150, 1 tower-connected land component(s)
+- Objectives the map enables: Nullify, Totems, Reclaim
+- Counted objectives: 4 nullify target(s), 2 totem(s), 0 cache(s)
+- Totems want: Liftic
+- **Factory required for totems: YES** (no Pod on the map carries that ware)
+- No mover found necessary from the terrain alone. **This is the weakest line in the block** - it cannot see creep, and Archon needs a Pylon on a map this test calls clear.
+
+### To fill in
+
+- Openable with nothing (rift lab + towers only)?
+- Min units to complete:
+- Required for an OBJECTIVE only:
+- Does it rain, or any other hazard?
+- Does the map change shape as it plays?
+- Helped but not needed:
+- Blockers:
+- Anything the measurements above got wrong:
+- Notes:
+
+## Creepers Pieces - `knucracker11`
+
+### Measured
+
+- Map: 400x160, 4 tower-connected land component(s)
+- Objectives the map enables: Nullify, Totems, Reclaim
+- Counted objectives: 5 nullify target(s), 3 totem(s), 0 cache(s)
+- Totems want: Liftic
+- **Factory required for totems: YES** (no Pod on the map carries that ware)
+- **A mover is required**: the objectives do not all share one tower-connected component, so some of them cannot be reached by towers alone. WHICH ones depends on where you land, which is why the randomizer requires it for the whole map.
+
+### To fill in
+
+- Openable with nothing (rift lab + towers only)?
+- Min units to complete:
+- Required for an OBJECTIVE only:
+- Does it rain, or any other hazard?
+- Does the map change shape as it plays?
+- Helped but not needed:
+- Blockers:
+- Anything the measurements above got wrong:
+- Notes:
+
+## Special - `knucracker12`
+
+### Measured
+
+- Map: 320x200, 1 tower-connected land component(s)
+- Objectives the map enables: Nullify, Totems, Reclaim
+- Counted objectives: 4 nullify target(s), 1 totem(s), 0 cache(s)
+- Totems want: Liftic
+- **Factory required for totems: YES** (no Pod on the map carries that ware)
+- No mover found necessary from the terrain alone. **This is the weakest line in the block** - it cannot see creep, and Archon needs a Pylon on a map this test calls clear.
+
+### To fill in
+
+- Openable with nothing (rift lab + towers only)?
+- Min units to complete:
+- Required for an OBJECTIVE only:
+- Does it rain, or any other hazard?
+- Does the map change shape as it plays?
+- Helped but not needed:
+- Blockers:
+- Anything the measurements above got wrong:
+- Notes:
+
+## Highway to helheim - `knucracker13`
+
+### Measured
+
+- Map: 256x160, 3 tower-connected land component(s)
+- Objectives the map enables: Nullify, Totems, Reclaim
+- Counted objectives: 5 nullify target(s), 2 totem(s), 0 cache(s)
+- Totems want: Liftic
+- **Factory required for totems: YES** (no Pod on the map carries that ware)
+- **A mover is required**: the objectives do not all share one tower-connected component, so some of them cannot be reached by towers alone. WHICH ones depends on where you land, which is why the randomizer requires it for the whole map.
+
+### To fill in
+
+- Openable with nothing (rift lab + towers only)?
+- Min units to complete:
+- Required for an OBJECTIVE only:
+- Does it rain, or any other hazard?
+- Does the map change shape as it plays?
+- Helped but not needed:
+- Blockers:
+- Anything the measurements above got wrong:
+- Notes:
+
+## Creeperpeace - `knucracker14`
+
+### Measured
+
+- Map: 256x160, 1 tower-connected land component(s)
+- Objectives the map enables: Nullify, Totems, Reclaim
+- Counted objectives: 6 nullify target(s), 3 totem(s), 0 cache(s)
+- Totems want: Liftic
+- **Factory required for totems: YES** (no Pod on the map carries that ware)
+- No mover found necessary from the terrain alone. **This is the weakest line in the block** - it cannot see creep, and Archon needs a Pylon on a map this test calls clear.
+
+### To fill in
+
+- Openable with nothing (rift lab + towers only)?
+- Min units to complete:
+- Required for an OBJECTIVE only:
+- Does it rain, or any other hazard?
+- Does the map change shape as it plays?
+- Helped but not needed:
+- Blockers:
+- Anything the measurements above got wrong:
+- Notes:
+
+## Islands - `knucracker15`
+
+### Measured
+
+- Map: 256x192, 2 tower-connected land component(s)
+- Objectives the map enables: Nullify, Totems, Reclaim
+- Counted objectives: 4 nullify target(s), 3 totem(s), 0 cache(s)
+- Totems want: Liftic
+- **Factory required for totems: YES** (no Pod on the map carries that ware)
+- No mover found necessary from the terrain alone. **This is the weakest line in the block** - it cannot see creep, and Archon needs a Pylon on a map this test calls clear.
+
+### To fill in
+
+- Openable with nothing (rift lab + towers only)?
+- Min units to complete:
+- Required for an OBJECTIVE only:
+- Does it rain, or any other hazard?
+- Does the map change shape as it plays?
+- Helped but not needed:
+- Blockers:
+- Anything the measurements above got wrong:
+- Notes:
+
+## Enchanted Forest - `knucracker16`
+
+### Measured
+
+- Map: 192x120, 1 tower-connected land component(s)
+- Objectives the map enables: Nullify, Totems, Reclaim
+- Counted objectives: 5 nullify target(s), 3 totem(s), 0 cache(s)
+- Totems want: Liftic
+- **Factory required for totems: YES** (no Pod on the map carries that ware)
+- No mover found necessary from the terrain alone. **This is the weakest line in the block** - it cannot see creep, and Archon needs a Pylon on a map this test calls clear.
+
+### To fill in
+
+- Openable with nothing (rift lab + towers only)?
+- Min units to complete:
+- Required for an OBJECTIVE only:
+- Does it rain, or any other hazard?
+- Does the map change shape as it plays?
+- Helped but not needed:
+- Blockers:
+- Anything the measurements above got wrong:
+- Notes:
+
+## The Dark Side - `knucracker17`
+
+### Measured
+
+- Map: 256x160, 1 tower-connected land component(s)
+- Objectives the map enables: Nullify, Totems, Reclaim
+- Counted objectives: 13 nullify target(s), 2 totem(s), 0 cache(s)
+- Totems want: Liftic
+- **Factory required for totems: YES** (no Pod on the map carries that ware)
+- No mover found necessary from the terrain alone. **This is the weakest line in the block** - it cannot see creep, and Archon needs a Pylon on a map this test calls clear.
+
+### To fill in
+
+- Openable with nothing (rift lab + towers only)?
+- Min units to complete:
+- Required for an OBJECTIVE only:
+- Does it rain, or any other hazard?
+- Does the map change shape as it plays?
+- Helped but not needed:
+- Blockers:
+- Anything the measurements above got wrong:
+- Notes:
+
+## Far York Farm - `knucracker18`
+
+### Measured
+
+- Map: 320x200, 1 tower-connected land component(s)
+- Objectives the map enables: Nullify, Totems, Reclaim
+- Counted objectives: 7 nullify target(s), 3 totem(s), 1 cache(s)
+- Totems want: Liftic
+- **Factory required for totems: YES** (no Pod on the map carries that ware)
+- No mover found necessary from the terrain alone. **This is the weakest line in the block** - it cannot see creep, and Archon needs a Pylon on a map this test calls clear.
+
+### To fill in
+
+- Openable with nothing (rift lab + towers only)?
+- Min units to complete:
+- Required for an OBJECTIVE only:
+- Does it rain, or any other hazard?
+- Does the map change shape as it plays?
+- Helped but not needed:
+- Blockers:
+- Anything the measurements above got wrong:
+- Notes:
+
+## Chanson - `knucracker19`
+
+### Measured
+
+- Map: 180x140, 1 tower-connected land component(s)
+- Objectives the map enables: Nullify, Totems, Reclaim, Custom
+- Counted objectives: 10 nullify target(s), 4 totem(s), 0 cache(s)
+- Totems want: Liftic
+- **Factory required for totems: YES** (no Pod on the map carries that ware)
+- No mover found necessary from the terrain alone. **This is the weakest line in the block** - it cannot see creep, and Archon needs a Pylon on a map this test calls clear.
+
+### To fill in
+
+- Openable with nothing (rift lab + towers only)?
+- Min units to complete:
+- Required for an OBJECTIVE only:
+- Does it rain, or any other hazard?
+- Does the map change shape as it plays?
+- Helped but not needed:
+- Blockers:
+- Anything the measurements above got wrong:
+- Notes:
+
+## Invasion - `knucracker20`
+
+### Measured
+
+- Map: 320x204, 11 tower-connected land component(s)
+- Objectives the map enables: Nullify, Totems, Reclaim
+- Counted objectives: 8 nullify target(s), 3 totem(s), 0 cache(s)
+- Totems want: Liftic
+- **Factory required for totems: YES** (no Pod on the map carries that ware)
+- **A mover is required**: the objectives do not all share one tower-connected component, so some of them cannot be reached by towers alone. WHICH ones depends on where you land, which is why the randomizer requires it for the whole map.
+
+### To fill in
+
+- Openable with nothing (rift lab + towers only)?
+- Min units to complete:
+- Required for an OBJECTIVE only:
+- Does it rain, or any other hazard?
+- Does the map change shape as it plays?
+- Helped but not needed:
+- Blockers:
+- Anything the measurements above got wrong:
+- Notes:
+
+## Razor - `knucrackerbonus0`
+
+### Measured
+
+- Map: 256x160, 3 tower-connected land component(s)
+- Objectives the map enables: Nullify, Totems, Reclaim
+- Counted objectives: 9 nullify target(s), 6 totem(s), 0 cache(s)
+- Totems want: Liftic
+- **Factory required for totems: YES** (no Pod on the map carries that ware)
+- No mover found necessary from the terrain alone. **This is the weakest line in the block** - it cannot see creep, and Archon needs a Pylon on a map this test calls clear.
+- Note: Hold/Survive objective present; no location is created for it
+
+### To fill in
+
+- Openable with nothing (rift lab + towers only)?
+- Min units to complete:
+- Required for an OBJECTIVE only:
+- Does it rain, or any other hazard?
+- Does the map change shape as it plays?
+- Helped but not needed:
+- Blockers:
+- Anything the measurements above got wrong:
+- Notes:
+
+## Holdem 2 - `knucrackerbonus1`
+
+### Measured
+
+- Map: 192x120, 1 tower-connected land component(s)
+- Objectives the map enables: Nullify, Totems, Reclaim
+- Counted objectives: 8 nullify target(s), 2 totem(s), 0 cache(s)
+- Totems want: Liftic
+- **Factory required for totems: YES** (no Pod on the map carries that ware)
+- No mover found necessary from the terrain alone. **This is the weakest line in the block** - it cannot see creep, and Archon needs a Pylon on a map this test calls clear.
+- Note: Hold/Survive objective present; no location is created for it
+
+### To fill in
+
+- Openable with nothing (rift lab + towers only)?
+- Min units to complete:
+- Required for an OBJECTIVE only:
+- Does it rain, or any other hazard?
+- Does the map change shape as it plays?
+- Helped but not needed:
+- Blockers:
+- Anything the measurements above got wrong:
+- Notes:
+
+## Mark V Sample - `demobonus`
+
+### Measured
+
+- Map: 180x135, 1 tower-connected land component(s)
+- Objectives the map enables: Nullify, Totems
+- Counted objectives: 6 nullify target(s), 4 totem(s), 0 cache(s)
+- Totems want: Liftic
+- **Factory required for totems: no** (a Pod on the map carries it, so it is free)
+- No mover found necessary from the terrain alone. **This is the weakest line in the block** - it cannot see creep, and Archon needs a Pylon on a map this test calls clear.
+
+### To fill in
+
+- Openable with nothing (rift lab + towers only)?
+- Min units to complete:
+- Required for an OBJECTIVE only:
+- Does it rain, or any other hazard?
+- Does the map change shape as it plays?
+- Helped but not needed:
+- Blockers:
+- Anything the measurements above got wrong:
+- Notes:
+
+## Before Time - `demobonus2`
+
+### Measured
+
+- Map: 200x150, 1 tower-connected land component(s)
+- Objectives the map enables: Nullify, Totems
+- Counted objectives: 8 nullify target(s), 3 totem(s), 0 cache(s)
+- Totems want: Liftic
+- **Factory required for totems: no** (a Pod on the map carries it, so it is free)
+- No mover found necessary from the terrain alone. **This is the weakest line in the block** - it cannot see creep, and Archon needs a Pylon on a map this test calls clear.
+
+### To fill in
+
+- Openable with nothing (rift lab + towers only)?
+- Min units to complete:
+- Required for an OBJECTIVE only:
+- Does it rain, or any other hazard?
+- Does the map change shape as it plays?
+- Helped but not needed:
+- Blockers:
+- Anything the measurements above got wrong:
+- Notes:
+
+## Day of Infamy - `demobonus3`
+
+### Measured
+
+- Map: 162x121, 1 tower-connected land component(s)
+- Objectives the map enables: Nullify, Totems, Reclaim
+- Counted objectives: 8 nullify target(s), 4 totem(s), 0 cache(s)
+- Totems want: Liftic
+- **Factory required for totems: no** (a Pod on the map carries it, so it is free)
+- No mover found necessary from the terrain alone. **This is the weakest line in the block** - it cannot see creep, and Archon needs a Pylon on a map this test calls clear.
+
+### To fill in
+
+- Openable with nothing (rift lab + towers only)?
+- Min units to complete:
+- Required for an OBJECTIVE only:
+- Does it rain, or any other hazard?
+- Does the map change shape as it plays?
+- Helped but not needed:
+- Blockers:
+- Anything the measurements above got wrong:
+- Notes:
+
+## Shaka - `demobonus4`
+
+### Measured
+
+- Map: 163x122, 2 tower-connected land component(s)
+- Objectives the map enables: Nullify, Totems, Reclaim
+- Counted objectives: 8 nullify target(s), 5 totem(s), 0 cache(s)
+- Totems want: Arg
+- **Factory required for totems: YES** (no Pod on the map carries that ware)
+- No mover found necessary from the terrain alone. **This is the weakest line in the block** - it cannot see creep, and Archon needs a Pylon on a map this test calls clear.
+- Note: Hold/Survive objective present; no location is created for it
+
+### To fill in
+
+- Openable with nothing (rift lab + towers only)?
+- Min units to complete:
+- Required for an OBJECTIVE only:
+- Does it rain, or any other hazard?
+- Does the map change shape as it plays?
+- Helped but not needed:
+- Blockers:
+- Anything the measurements above got wrong:
+- Notes:

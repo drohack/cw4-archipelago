@@ -214,7 +214,16 @@ public sealed class MenuUi
         int hid = 0;
         foreach (var go in new[] { ggm.chronomButton, ggm.markVButton, ggm.coloniesButton, ggm.editorButton })
             if (go != null) { go.SetActive(false); hid++; }
-        // SPAN Experiments: hidden by default (future expansion, config toggle).
+        // SPAN Experiments: hidden by default, and STILL HIDDEN when a seed mixes
+        // SPAN maps into the spiral.
+        //
+        // That looks backwards and is not. A seed's SPAN maps are reached through
+        // the level select, the same as every other mission, and MissionGate locks
+        // them until their unlock arrives. The SPAN menu is a second route to the
+        // same 26 maps where only the ones in the roster are gated - so it would
+        // show a list that is half locked missions and half free play, which is
+        // exactly the confusion the spiral exists to avoid. The config toggle
+        // still opens it for anyone who wants the vanilla menu back.
         if (!ModCore.Config.ShowSpan.Value && ggm.spanButton != null)
         {
             ggm.spanButton.SetActive(false);

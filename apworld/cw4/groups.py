@@ -18,12 +18,12 @@ from .items import (
     PROGRESSIVE_ERN,
     UNIT_ITEMS,
 )
-from .items import MISSION_TITLES
+from .items import ALL_MISSION_TITLES
 from .locations import (
-    CUSTOM_MISSIONS,
+    ALL_CUSTOM_MISSIONS,
+    ALL_INSTANCE_COUNTS,
+    ALL_RECLAIM_MISSIONS,
     FINAL_MISSION,
-    INSTANCE_COUNTS,
-    RECLAIM_MISSIONS,
     instance_location_name,
     location_names_for_mission,
     mission_complete_location_name,
@@ -54,6 +54,9 @@ ITEM_NAME_GROUPS = {
 }
 
 
+ALL_MISSION_NUMBERS = tuple(sorted(ALL_MISSION_TITLES))
+
+
 def _mission_locations(n: int) -> set:
     """Every location belonging to one mission."""
     return set(location_names_for_mission(n))
@@ -61,8 +64,8 @@ def _mission_locations(n: int) -> set:
 
 def _by_kind(kind: str) -> set:
     out = set()
-    for n in range(1, 21):
-        caches, totems, nullify = INSTANCE_COUNTS[n]
+    for n in ALL_MISSION_NUMBERS:
+        caches, totems, nullify = ALL_INSTANCE_COUNTS[n]
         count = {"Cache": caches, "Totem": totems, "Nullify": nullify}[kind]
         for i in range(1, count + 1):
             out.add(instance_location_name(n, kind, i))
@@ -72,13 +75,20 @@ def _by_kind(kind: str) -> set:
 # One group per mission, named exactly as the mission is - so a player can write
 # `exclude_locations: [Tower of Darkness]` without listing fourteen checks - plus
 # one per kind, for "I do not want to hunt every cache".
-LOCATION_NAME_GROUPS = {MISSION_TITLES[n]: _mission_locations(n) for n in range(1, 21)}
+# SPAN missions get groups too. Without them the per-mission groups stop
+# PARTITIONING the location set, so `exclude_locations: [<mission>]` would
+# silently miss every SPAN check - which is what
+# test_mission_groups_cover_every_location caught the moment SPAN locations
+# existed.
+LOCATION_NAME_GROUPS = {ALL_MISSION_TITLES[n]: _mission_locations(n)
+                        for n in ALL_MISSION_NUMBERS}
 LOCATION_NAME_GROUPS.update({
     "Caches": _by_kind("Cache"),
     "Totems": _by_kind("Totem"),
     "Nullify Targets": _by_kind("Nullify"),
-    "Reclaim": {single_location_name(n, "Reclaim") for n in RECLAIM_MISSIONS},
-    "Custom Objectives": {single_location_name(n, "Custom") for n in CUSTOM_MISSIONS},
+    "Reclaim": {single_location_name(n, "Reclaim") for n in ALL_RECLAIM_MISSIONS},
+    "Custom Objectives": {single_location_name(n, "Custom")
+                          for n in ALL_CUSTOM_MISSIONS},
     "Mission Completions": {mission_complete_location_name(n)
-                            for n in range(1, 21) if n != FINAL_MISSION},
+                            for n in ALL_MISSION_NUMBERS if n != FINAL_MISSION},
 })

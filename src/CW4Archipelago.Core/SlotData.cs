@@ -14,6 +14,40 @@ public sealed class SlotData
     [JsonPropertyName("starter_missions")]
     public List<string> StarterMissions { get; set; } = new() { "story1" };
 
+    /// <summary>The 20 missions this seed contains, IN LEVEL-SELECT ORDER.
+    ///
+    /// Sent for every seed, not just a SPAN one: a campaign seed's roster is
+    /// story1..story20 in order, which is exactly what the untouched galaxy view
+    /// already shows, so the retarget is a no-op there. That is deliberate -
+    /// there is one code path, and the common case exercises it.
+    ///
+    /// EMPTY MEANS AN OLD SEED. A seed generated before this key existed sends
+    /// nothing, and the fallbacks below give it the campaign roster, which is
+    /// what it was built with.</summary>
+    [JsonPropertyName("mission_roster")]
+    public List<string> MissionRoster { get; set; } = new();
+
+    /// <summary>Specifier to display title, for the missions in the roster.
+    ///
+    /// DELIBERATELY UNREAD BY THIS PLUGIN, and it must stay that way. A title is
+    /// the location-name prefix, the key TrackerView resolves a planet by, and
+    /// the unlock item's name, all at once - so it has to be ONE value, and that
+    /// value is <see cref="SpanMissionTable.Titles"/>, which CI regenerates from
+    /// the apworld's span_data.py and fails on any diff. Preferring this field
+    /// instead would let a seed and a plugin disagree about what a mission is
+    /// called, and the symptom would be checks sent to names the server has never
+    /// heard of - silent, because a location the server does not know is simply
+    /// ignored.
+    ///
+    /// It is deserialised so an external tracker reading the same slot data has
+    /// the names without needing the table.</summary>
+    [JsonPropertyName("mission_titles")]
+    public Dictionary<string, string> MissionTitles { get; set; } = new();
+
+    /// <summary>Whether this seed mixed in the SPAN Experiments.</summary>
+    [JsonPropertyName("span_missions")]
+    public bool SpanMissions { get; set; }
+
     [JsonPropertyName("mission_requirements")]
     public Dictionary<string, List<List<string>>> MissionRequirements { get; set; } = new();
 

@@ -70,8 +70,19 @@ public sealed class DevCommands
         if (lower == "story:open") { StoryOpen(); return; }
         if (lower == "planets:dump") { PlanetsDump(); return; }
         if (lower == "obj:dump") { ObjectiveDump(); return; }
+        if (lower == "buildings:dump") { DevTools.DumpAvailability(); return; }
+        if (lower.StartsWith("map:dump")) { MapDump(line.Substring(8).Trim()); return; }
+        if (lower == "totems:dump") { TotemWares(); return; }
+        if (lower == "wares:names") { WareNames(); return; }
         if (lower.StartsWith("null:")) { Nullify(line.Substring(5).Trim()); return; }
         if (lower.StartsWith("energy:")) { Energy(line.Substring(7).Trim()); return; }
+        if (lower == "span:open") { SpanOpen(); return; }
+        if (lower == "span:list") { SpanList(); return; }
+        if (lower.StartsWith("span:swap")) { SpanSwap(line.Substring(9).Trim()); return; }
+        if (lower.StartsWith("span:icons")) { SpanIcons(line.Substring(10).Trim()); return; }
+        if (lower.StartsWith("span:play")) { SpanPlay(line.Substring(9).Trim()); return; }
+        if (lower == "save:auto") { SaveAuto(); return; }
+        if (lower.StartsWith("span:boot")) { SpanBoot(line.Substring(9).Trim()); return; }
         if (lower.StartsWith("span:goto")) { SpanGoto(line.Substring(9).Trim()); return; }
         if (lower.StartsWith("set:")) { Set(line.Substring(4).Trim()); return; }
         if (lower == "overlay:dump") { OverlayDump(); return; }
@@ -79,8 +90,14 @@ public sealed class DevCommands
         _log.LogWarning($"DEVCMD unknown: {line} " +
                         "(boot:storyN | ada:close | sim:run [speed] | sim:pause | " +
                         "spawn:<UnitName> [n] | shot:<path> | dump | story:open | " +
-                        "planets:dump | obj:dump | overlay:dump | null:* | energy:* | " +
-                        "span:goto | set:<cheat>=on|off)");
+                        "planets:dump | obj:dump | buildings:dump | map:dump <path> | " +
+                        "totems:dump | wares:names | " +
+                        "overlay:dump | " +
+                        "null:* | energy:* | " +
+                        "span:open | span:list | span:boot <guid> | " +
+                        "span:swap <planet> <spanguid> | span:icons <planet> <slots> | " +
+                        "span:play <planet> | span:goto | " +
+                        "set:<cheat>=on|off)");
     }
 
     /// <summary>Loads a mission directly. Unlike the randomizer's boot, there is
@@ -412,8 +429,19 @@ public sealed class DevCommands
         try { foreach (var c in gs.infocaches) { if (c != null) caches++; } } catch { }
         int maxCollect = 0; try { maxCollect = gs.maxMustCollect; } catch { }
 
+        // IS THE MISSION ALREADY WON? The SPAN survey found 25 of 26 maps with
+        // no REQUIRED objective, which raises a specific danger: if
+        // IsMissionComplete() is vacuously true when nothing is required, the
+        // randomizer would mark those maps complete the moment they load.
+        // Measure it rather than reason about it.
+        string won = "?";
+        try { won = world.IsMissionComplete().ToString(); } catch (Exception e) { won = "!" + e.Message; }
+        string persisted = "?";
+        try { persisted = MissionCompletionStats.IsMissionComplete(spec).ToString(); } catch (Exception e) { persisted = "!" + e.Message; }
+
         _log.LogWarning($"DEVOBJ mission={spec} totems={totemsOn}/{totems} nullifiable={nullifiable} " +
-                        $"mustCollect={mustCollect} maxMustCollect={maxCollect} infocaches={caches}");
+                        $"mustCollect={mustCollect} maxMustCollect={maxCollect} infocaches={caches} " +
+                        $"IsMissionComplete={won} persistedComplete={persisted}");
 
         try
         {
@@ -834,6 +862,745 @@ public sealed class DevCommands
     /// answer whether an off-cluster planet is REACHABLE - the map is drag-panned
     /// with a clamp, so "it has a position" and "you can get to it" are separate
     /// questions and only the second one matters.</summary>
+    /// <summary>Open the SPAN Experiments grid, the way story:open opens Farsite.
+    ///
+    /// The randomizer hides this button by default (ModConfig.ShowSpan), and a
+    /// click on an inactive GameObject does nothing and reports nothing - so
+    /// check and SAY so rather than logging a success that did not happen.</summary>
+    /// <summary>Terrain, unit cells and reach constants for the live mission,
+    /// written to a file for offline reachability analysis.
+    ///
+    /// WHAT IT IS FOR. "Does this objective need a Terp, Platform, Porter or
+    /// Pylon to reach?" is a connectivity question: can a tower chain get from
+    /// the rift lab to the objective, and if not, which bridge works. That needs
+    /// the terrain, the objective cells, and each unit's reach - none of which
+    /// anything in this repo has ever read.
+    ///
+    /// A FILE, not the log: a 200x150 map is 30,000 cells.
+    ///
+    /// GetTerrain(x, y) is used rather than the raw World.terrain array on
+    /// purpose. That array has a sectored layout, and indexing it wrongly would
+    /// yield a plausible but scrambled map - a silent failure of exactly the
+    /// kind that survives review. 30,000 accessor calls is the cheaper mistake.
+    ///
+    /// THREE terrain signals are dumped because which one means "buildable" is
+    /// unverified, and picking one here would bake in a guess. The Farsite
+    /// control decides it: those missions' mover requirements are already known
+    /// from play, so whichever signal reproduces them is the right one.</summary>
+    private void MapDump(string path)
+    {
+        if (path.Length == 0) { _log.LogWarning("DEVCMD map:dump: need a path"); return; }
+        var gs = GameSpace.instance;
+        var w = gs?.world;
+        if (w == null) { _log.LogWarning("DEVCMD map:dump: no world - boot a mission first"); return; }
+
+        try
+        {
+            int W = World.WORLD_CELL_WIDTH, H = World.WORLD_CELL_HEIGHT;
+            var sb = new System.Text.StringBuilder();
+            string spec = ""; try { spec = GameSpace.specifierToApply ?? ""; } catch { }
+
+            sb.Append("mission=").Append(spec).Append('\n');
+            sb.Append("cells=").Append(W).Append('x').Append(H).Append('\n');
+            sb.Append("maxLandHeight=").Append(World.MAX_LAND_HEIGHT).Append('\n');
+            try { sb.Append("towerPlacementRange=").Append(Tower.PLACEMENT_RANGE).Append('\n'); }
+            catch (Exception e) { sb.Append("towerPlacementRange=!").Append(e.Message).Append('\n'); }
+
+            // Every unit on the map with its cell and its reach. The rift lab,
+            // the totems, the caches and the nullify targets are all in here;
+            // which is which is the analyser's problem, not this command's.
+            int units = 0;
+            try
+            {
+                foreach (var u in gs.units)
+                {
+                    if (u == null) continue;
+                    string nm = ""; try { nm = u.GetDataName() ?? ""; } catch { }
+                    int cx = -1, cy = -1, cr = -1, rng = -1;
+                    bool conn = false, mine = false, nullifiable = false;
+                    float wy = 0f;
+                    try { cx = u.cellX; cy = u.cellY; } catch { }
+                    try { cr = UnitManager.CONNECT_RANGE; } catch { }
+                    try { rng = u.RANGE; } catch { }
+                    try { conn = u.CONNECTABLE; } catch { }
+                    try { mine = DevTools.IsPlayerUnit(u); } catch { }
+                    // Whether this is a NULLIFY objective. Without it the
+                    // reachability analysis could only cover totems, and nullify
+                    // targets are the larger class by some margin.
+                    try { nullifiable = u.CAN_NULLIFY; } catch { }
+                    // Elevation, for the BURIED question. What makes a cache
+                    // buried is sitting below the terrain above it, which the
+                    // column height alone cannot express.
+                    try { wy = u.transform.position.y; } catch { }
+                    var held = new System.Text.StringBuilder();
+                    try
+                    {
+                        var wh = u.waresHeld;
+                        if (wh != null)
+                            foreach (var kv in wh)
+                            {
+                                if (kv.Value <= 0) continue;
+                                if (held.Length > 0) held.Append(',');
+                                held.Append('w').Append(kv.Key).Append('x').Append(kv.Value);
+                            }
+                    }
+                    catch { }
+                    // WHAT A POD CONTAINS. The designer, 2026-09-16: "pods can
+                    // have different resources in them". So "this map has a Pod"
+                    // does NOT mean "this map hands you liftic" - the resource
+                    // has to be read, not inferred from the unit's name. Pod
+                    // carries it on resourceType; waresHeld is empty at load.
+                    string pod = "";
+                    try
+                    {
+                        var pd = u.TryCast<Pod>();
+                        if (pd != null) pod = pd.resourceType.ToString();
+                    }
+                    catch { }
+                    sb.Append("unit ").Append(nm).Append(' ').Append(cx).Append(',').Append(cy)
+                      .Append(" connect=").Append(cr).Append(" range=").Append(rng)
+                      .Append(" connectable=").Append(conn).Append(" mine=").Append(mine)
+                      .Append(" nullifiable=").Append(nullifiable)
+                      .Append(" worldY=").Append(wy.ToString("0.00"))
+                      .Append(" holds=").Append(held.Length == 0 ? "-" : held.ToString())
+                      .Append(" podWare=").Append(pod.Length == 0 ? "-" : pod)
+                      .Append('\n');
+                    units++;
+                }
+            }
+            catch (Exception e) { sb.Append("units=!").Append(e.Message).Append('\n'); }
+
+            // Three grids, one row per y, one character per x.
+            sb.Append("terrain\n");
+            for (int y = 0; y < H; y++)
+            {
+                for (int x = 0; x < W; x++)
+                {
+                    int v = 0;
+                    try { v = w.GetTerrain(x, y); } catch { v = -1; }
+                    // 0-9 then A-K, so the full 0..MAX_LAND_HEIGHT (20) range
+                    // survives. This used to clamp at 9, which was harmless for
+                    // land-versus-void but silently flattened every column above
+                    // 9 - and that broke the buried-cache test, where a cache at
+                    // elevation 15 under a height-15 column looked like it was
+                    // sitting 6 units ABOVE a height-9 one.
+                    sb.Append(v < 0 ? '?' : (v < 10 ? (char)('0' + v) : (char)('A' + v - 10)));
+                }
+                sb.Append('\n');
+            }
+
+            sb.Append("platform\n");
+            for (int y = 0; y < H; y++)
+            {
+                for (int x = 0; x < W; x++)
+                {
+                    bool v = false;
+                    try { v = w.GetPlatform(x, y); } catch { }
+                    sb.Append(v ? '1' : '0');
+                }
+                sb.Append('\n');
+            }
+
+            sb.Append("legal\n");
+            for (int y = 0; y < H; y++)
+            {
+                for (int x = 0; x < W; x++)
+                {
+                    bool v = false;
+                    try { v = w.GetLegalUnitCellIfSet(x, y); } catch { }
+                    sb.Append(v ? '1' : '0');
+                }
+                sb.Append('\n');
+            }
+
+            System.IO.File.WriteAllText(path, sb.ToString());
+            _log.LogWarning($"DEVMAP wrote '{path}' mission={spec} cells={W}x{H} units={units}");
+        }
+        catch (Exception e) { _log.LogWarning($"DEVCMD map:dump: {e.Message}"); }
+    }
+
+    /// <summary>What every totem on this map wants, per totem, with its cell.
+    ///
+    /// WHY IT MATTERS. Campaign totems all want liftic, which is why the
+    /// randomizer's totem rules demand the Factory - liftic comes from the
+    /// greenar chain. But the wanted ware is authored PER MAP, and a map that
+    /// wants something else would be gated behind an item it does not need.
+    /// With 95 totems across the SPAN roster, guessing this wrong is expensive.
+    ///
+    /// The cell is included so demand can be tied to the mod's instance
+    /// numbering, which orders structures by (cellY, cellX) ascending.
+    /// GetAmmoWareWanted is probed across all 16 ware slots rather than assuming
+    /// which one liftic is - the point is to find out.</summary>
+    /// <summary>What each ware index is called, as the game itself names it.
+    ///
+    /// Totem demand is reported as a ware INDEX (w29, w30), which says nothing
+    /// about what the player is being asked for. The campaign only ever uses
+    /// one of them, so the index alone could not distinguish "this map wants
+    /// liftic like every other" from "this map wants something else entirely" -
+    /// and four SPAN maps turned out to want ware29.
+    ///
+    /// DeliveryPadControls.GetWareName is the lookup the delivery pad UI uses,
+    /// so it gives the same word a player sees on hover. An earlier attempt
+    /// recovered the names from the IL2CPP string heap instead
+    /// (Anticreeper/Arg/Liftic/Resistium/Fluxygen/Tuffium) but that heap is
+    /// unordered, so pairing them with indices would have been a guess.</summary>
+    private void WareNames()
+    {
+        try
+        {
+            DeliveryPadControls? dpc = null;
+            foreach (var c in Resources.FindObjectsOfTypeAll<DeliveryPadControls>())
+            {
+                if (c != null) { dpc = c; break; }
+            }
+            if (dpc == null)
+            {
+                _log.LogWarning("DEVWARE: no DeliveryPadControls in the scene - boot a mission first");
+                return;
+            }
+            for (int w = 0; w < 48; w++)
+            {
+                string nm;
+                try { nm = dpc.GetWareName(w) ?? ""; } catch (Exception e) { nm = "!" + e.Message; }
+                if (nm.Length == 0) continue;
+                _log.LogWarning($"DEVWARE {w} = {nm}");
+            }
+        }
+        catch (Exception e) { _log.LogWarning($"DEVCMD wares:names: {e.Message}"); }
+    }
+
+    private void TotemWares()
+    {
+        var gs = GameSpace.instance;
+        if (gs == null) { _log.LogWarning("DEVTOTEM: no GameSpace - boot a mission first"); return; }
+
+        string spec = ""; try { spec = GameSpace.specifierToApply ?? ""; } catch { }
+        int totems = 0;
+        var tally = new System.Collections.Generic.Dictionary<int, int>();
+
+        foreach (var u in gs.units)
+        {
+            if (u == null) continue;
+            try { if (u.GetIl2CppType().Name != "Totem") continue; } catch { continue; }
+            totems++;
+            int cx = -1, cy = -1;
+            try { cx = u.cellX; cy = u.cellY; } catch { }
+
+            // AUTHORED demand. AMMO_WARES is the ware-type-to-amount map the
+            // mission designer set; GetAmmoWareWanted is only the CURRENT
+            // shortfall, which is zero on an inactive totem and reported
+            // wares[NONE] across all 17 campaign missions.
+            var authored = new System.Text.StringBuilder();
+            try
+            {
+                var aw = u.AMMO_WARES;
+                if (aw != null)
+                {
+                    foreach (var kv in aw)
+                    {
+                        if (authored.Length > 0) authored.Append(',');
+                        authored.Append('w').Append(kv.Key).Append('x').Append(kv.Value);
+                        tally[kv.Key] = tally.TryGetValue(kv.Key, out var c)
+                            ? c + kv.Value : kv.Value;
+                    }
+                }
+            }
+            catch (Exception e) { authored.Append('!').Append(e.Message); }
+
+            // Kept alongside so the difference between the two is visible in
+            // the data rather than only asserted in a comment.
+            var wanted = new System.Text.StringBuilder();
+            for (int w = 0; w < 16; w++)
+            {
+                int amt;
+                try { amt = u.GetAmmoWareWanted(w); } catch { continue; }
+                if (amt <= 0) continue;
+                if (wanted.Length > 0) wanted.Append(',');
+                wanted.Append('w').Append(w).Append('x').Append(amt);
+            }
+
+            _log.LogWarning($"DEVTOTEM mission={spec} cell={cx},{cy} " +
+                            $"authored={(authored.Length == 0 ? "NONE" : authored.ToString())} " +
+                            $"wantedNow={(wanted.Length == 0 ? "NONE" : wanted.ToString())}");
+        }
+
+        var totals = new System.Text.StringBuilder();
+        foreach (var kv in tally)
+        {
+            if (totals.Length > 0) totals.Append(',');
+            totals.Append("ware").Append(kv.Key).Append('=').Append(kv.Value);
+        }
+        _log.LogWarning($"DEVTOTEMS mission={spec} count={totems} " +
+                        $"wares[{(totals.Length == 0 ? "NONE" : totals.ToString())}]");
+    }
+
+    private void SpanOpen()
+    {
+        try
+        {
+            var gg = GameGalaxy.instance;
+            var go = gg?.spanButton;
+            if (go == null) { _log.LogWarning("DEVCMD span:open: no span button (are you on the main menu?)"); return; }
+            if (!go.activeInHierarchy)
+            {
+                _log.LogWarning("DEVCMD span:open: the span button is HIDDEN - the randomizer " +
+                                "plugin hides it unless Missions/ShowSpan is true. Park the " +
+                                "randomizer out of plugins/, or set ShowSpan=true.");
+                return;
+            }
+            var btn = go.GetComponent<UnityEngine.UI.Button>();
+            if (btn == null) { _log.LogWarning("DEVCMD span:open: span button has no Button component"); return; }
+            btn.onClick.Invoke();
+            _log.LogInfo("DEVCMD span:open");
+        }
+        catch (Exception e) { _log.LogWarning($"DEVCMD span:open: {e.Message}"); }
+    }
+
+    /// <summary>Enumerate the SPAN Experiments grid: every tile, its address,
+    /// its difficulty, and which objective types it advertises.
+    ///
+    /// WHY THIS EXISTS. SPAN maps are not storyN-addressed and cannot be listed
+    /// offline - data.unity3d is compressed and the names appear nowhere in the
+    /// repo. But the grid itself knows: SpanTile carries (x, y, page), a
+    /// difficulty grade and one indicator GameObject per objective type, so the
+    /// roster and a first cut of every map's shape can be read from the MENU
+    /// without booting anything.
+    ///
+    /// Tiles are found with FindObjectsOfTypeAll rather than by walking
+    /// SpanSector.spanTiles0/1/2: the off-page arrays belong to pages that are
+    /// not active, and this avoids depending on the element type of an
+    /// Il2CppReferenceArray.
+    ///
+    /// ARGUMENT ORDER IS DELIBERATELY NOT ASSUMED. SpanSector.GetLoc and GetGUID
+    /// both take three ints and the interop metadata does not say whether they
+    /// are (x, y, page) or (page, x, y). BOTH orders are printed so the data
+    /// settles it - guessing would silently address the wrong map, and a wrong
+    /// guid is exactly the kind of error that looks like it worked.</summary>
+    private void SpanList()
+    {
+        try
+        {
+            // WHICH SCREEN ARE WE ON. The first run found the grid object but
+            // no instantiated tiles, which can mean "wrong screen" or "grid not
+            // yet enabled" and those need different fixes. Report the active
+            // state of everything Span-ish rather than inferring it.
+            try
+            {
+                foreach (var t2 in Resources.FindObjectsOfTypeAll<TheSpanSector>())
+                {
+                    if (t2 == null) continue;
+                    int names = -1;
+                    try { names = TheSpanSector.planetNames == null ? -1 : TheSpanSector.planetNames.Count; } catch { }
+                    try
+                    {
+                        var pn = TheSpanSector.planetNames;
+                        if (pn != null)
+                            for (int i = 0; i < pn.Count; i++)
+                                _log.LogWarning($"DEVSPANNAME {i}: {pn[i]}");
+                    }
+                    catch (Exception e) { _log.LogWarning($"DEVSPANNAME: {e.Message}"); }
+                    _log.LogWarning($"DEVSPANSYS '{t2.gameObject.name}' active={t2.gameObject.activeInHierarchy} " +
+                                    $"systems={TheSpanSector.SYSTEM_COUNT} sections={TheSpanSector.SECTION_COUNT} " +
+                                    $"planetNames={names} complete={TheSpanSector.GetCompleteCount()}");
+                }
+            }
+            catch (Exception e) { _log.LogWarning($"DEVSPANSYS: {e.Message}"); }
+
+            try
+            {
+                int cur = MissionCompletionStats.GetCurrentSpanSystem();
+                int items = -1;
+                try { items = SpanItems.spanItems == null ? -1 : SpanItems.spanItems.Count; } catch { }
+                _log.LogWarning($"DEVSPANPROGRESS currentSystem={cur} initialized={SpanItems.initialized} " +
+                                $"spanItems={items}");
+            }
+            catch (Exception e) { _log.LogWarning($"DEVSPANPROGRESS: {e.Message}"); }
+
+            try
+            {
+                foreach (var sp in Resources.FindObjectsOfTypeAll<Span>())
+                {
+                    if (sp == null) continue;
+                    _log.LogWarning($"DEVSPANVIEW '{sp.gameObject.name}' category={sp.category} " +
+                                    $"active={sp.gameObject.activeInHierarchy}");
+                }
+            }
+            catch (Exception e) { _log.LogWarning($"DEVSPANVIEW: {e.Message}"); }
+
+            var tiles = Resources.FindObjectsOfTypeAll<SpanTile>();
+            if (tiles == null || tiles.Length == 0)
+            {
+                _log.LogWarning("DEVCMD span:list: no tiles - open the grid first (span:open)");
+                return;
+            }
+
+            foreach (var s in Resources.FindObjectsOfTypeAll<SpanSector>())
+            {
+                if (s == null) continue;
+                try
+                {
+                    _log.LogWarning($"DEVSPANSECTOR '{s.gameObject.name}' category={s.category} " +
+                                    $"W={SpanSector.WIDTH} H={SpanSector.HEIGHT} maxPage={SpanSector.MAXPAGE} " +
+                                    $"page={s.page} itemCount={s.itemCount} " +
+                                    $"active={s.gameObject.activeInHierarchy}");
+                }
+                catch (Exception e) { _log.LogWarning($"DEVSPANSECTOR: {e.Message}"); }
+            }
+
+            _log.LogWarning($"DEVSPANTILES count={tiles.Length}");
+            foreach (var tl in tiles)
+            {
+                if (tl == null) continue;
+                int x = -1, y = -1, page = -1, diff = -1;
+                try { x = tl.x; y = tl.y; page = tl.page; diff = tl.difficulty; } catch { }
+
+                string act;
+                try
+                {
+                    act = $"nullify={Act(tl.objectiveNullify)} totem={Act(tl.objectiveTotem)} " +
+                          $"reclaim={Act(tl.objectiveReclaim)}";
+                }
+                catch (Exception e) { act = "objectives=" + e.Message; }
+
+                string inter = ""; try { inter = tl.interactable.ToString(); } catch { }
+                string sector = ""; try { sector = tl.sector?.gameObject.name ?? ""; } catch { }
+
+                string locA = "", locB = "", guidA = "", guidB = "";
+                try { locA = SpanSector.GetLoc(x, y, page) ?? ""; } catch (Exception e) { locA = "!" + e.Message; }
+                try { locB = SpanSector.GetLoc(page, x, y) ?? ""; } catch (Exception e) { locB = "!" + e.Message; }
+                try { guidA = SpanSector.GetGUID(x, y, page) ?? ""; } catch (Exception e) { guidA = "!" + e.Message; }
+                try { guidB = SpanSector.GetGUID(page, x, y) ?? ""; } catch (Exception e) { guidB = "!" + e.Message; }
+
+                _log.LogWarning($"DEVSPANTILE page={page} x={x} y={y} diff={diff} " +
+                                $"interactable={inter} {act} sector='{sector}' " +
+                                $"loc(x,y,page)='{locA}' loc(page,x,y)='{locB}' " +
+                                $"guid(x,y,page)='{guidA}' guid(page,x,y)='{guidB}'");
+            }
+
+            // What the panel currently holds for the selected tile - the title,
+            // specifier and guid a boot would need. If this is empty, selecting a
+            // tile is a required step before a map can be identified.
+            foreach (var gmp in Resources.FindObjectsOfTypeAll<GalaxyMissionPanel>())
+            {
+                if (gmp == null) continue;
+                try
+                {
+                    var d = gmp.gmd;
+                    if (d == null)
+                    {
+                        _log.LogWarning($"DEVSPANGMP '{gmp.gameObject.name}' category={gmp.category} gmd=null");
+                        continue;
+                    }
+                    _log.LogWarning($"DEVSPANGMP '{gmp.gameObject.name}' category={gmp.category} " +
+                                    $"title='{d.missionTitle}' specifier='{d.specifier}' " +
+                                    $"guid='{d.guid}' map={d.mapWidth}x{d.mapHeight}");
+                }
+                catch (Exception e) { _log.LogWarning($"DEVSPANGMP: {e.Message}"); }
+            }
+        }
+        catch (Exception e) { _log.LogWarning($"DEVCMD span:list: {e.Message}"); }
+    }
+
+    private static string Act(GameObject? go) => go == null ? "null" : (go.activeSelf ? "ON" : "off");
+
+    /// <summary>Launch a SPAN Experiment by its planet guid, e.g.
+    /// span:boot knucracker1.
+    ///
+    /// The Farsite boot above hardcodes specifier=storyN, guid="" and
+    /// embeddedLoad=true. At least two of those are wrong for SPAN: its maps are
+    /// not in the embedded story assets, and its identity is a guid rather than
+    /// a storyN string. Rather than guess the replacements - a wrong guid would
+    /// load the wrong map and still look like it worked - this does what a click
+    /// does: select the planet, let the game fill GalaxyMissionPanel.gmd, and
+    /// read the specifier and guid back out of it. IsEmbeddedCategory settles
+    /// the third argument.
+    ///
+    /// Requires the SPAN screen to be open (span:open).</summary>
+    private void SpanBoot(string guid)
+    {
+        if (guid.Length == 0) { _log.LogWarning("DEVCMD span:boot: need a planet guid, e.g. knucracker1"); return; }
+        try
+        {
+            SpanNetworkPlanet? planet = null;
+            foreach (var p in UnityEngine.Object.FindObjectsOfType<SpanNetworkPlanet>())
+            {
+                if (p == null) continue;
+                string g = ""; try { g = p.planetGUID ?? ""; } catch { }
+                if (string.Equals(g, guid, StringComparison.OrdinalIgnoreCase)) { planet = p; break; }
+            }
+            if (planet == null)
+            {
+                // DIRECT ROUTE. No SPAN screen, so no GalaxyMissionData to read:
+                // assume specifier == guid, which is what the screen-based route
+                // measured on Forgotten Fortress. Labelled UNVERIFIED because a
+                // map whose specifier differs would load the wrong thing and
+                // look successful - obj:dump reports the mission that actually
+                // loaded, so the caller can catch it.
+                bool emb;
+                try { emb = GalaxyMissionPanel.IsEmbeddedCategory(GameSpace.CATEGORY.SPAN); } catch { emb = true; }
+                _log.LogWarning($"DEVSPANBOOT guid='{guid}' route=DIRECT-UNVERIFIED " +
+                                $"specifier='{guid}' embedded={emb}");
+                GameSpace.specifierToApply = guid;
+                GameSpace.titleToApply = guid;
+                GameSpace.guidToApply = guid;
+                LoadingScreen.LoadGame(guid, emb, false, GameSpace.CATEGORY.SPAN, -1);
+                _log.LogWarning($"DEVCMD span:boot: {guid} (direct)");
+                return;
+            }
+
+            // Select it the way a click would, so the panel populates.
+            Span? view = null;
+            foreach (var sp in UnityEngine.Object.FindObjectsOfType<Span>())
+            {
+                if (sp == null) continue;
+                if (sp.category == GameSpace.CATEGORY.SPAN) { view = sp; break; }
+            }
+            if (view == null) { _log.LogWarning("DEVCMD span:boot: no active SPAN view"); return; }
+            try { view.SelectPlanet(planet); } catch (Exception e) { _log.LogWarning($"DEVCMD span:boot SelectPlanet: {e.Message}"); }
+            try { view.SetMission(planet); } catch (Exception e) { _log.LogWarning($"DEVCMD span:boot SetMission: {e.Message}"); }
+
+            var gmp = view.gmp;
+            var d = gmp?.gmd;
+            if (d == null)
+            {
+                _log.LogWarning($"DEVCMD span:boot: selecting '{guid}' did not populate a mission record");
+                return;
+            }
+
+            bool embedded = true;
+            try { embedded = GalaxyMissionPanel.IsEmbeddedCategory(GameSpace.CATEGORY.SPAN); } catch { }
+
+            _log.LogWarning($"DEVSPANBOOT guid='{guid}' route=PANEL title='{d.missionTitle}' " +
+                            $"specifier='{d.specifier}' gmdGuid='{d.guid}' " +
+                            $"map={d.mapWidth}x{d.mapHeight} embedded={embedded}");
+
+            GameSpace.specifierToApply = d.specifier ?? "";
+            GameSpace.titleToApply = d.missionTitle ?? "";
+            GameSpace.guidToApply = d.guid ?? "";
+            LoadingScreen.LoadGame(d.specifier, embedded, false, GameSpace.CATEGORY.SPAN, -1);
+            _log.LogWarning($"DEVCMD span:boot: {guid} ({d.missionTitle})");
+        }
+        catch (Exception e) { _log.LogWarning($"DEVCMD span:boot: {e.Message}"); }
+    }
+
+    /// <summary>Retarget a Farsite level-select planet at a SPAN map.
+    ///
+    ///     span:swap story5 knucracker1
+    ///
+    /// Sets every field that identifies the mission behind a planet, because
+    /// which one the launch path reads is exactly what this is testing:
+    /// planetGUID, map_guid, map_title, map_desc, map_width, map_height and
+    /// map_objectives. The last is the objective bitmask the map draws its icons
+    /// from - the randomizer already rebuilds that icon set in TrackerView, so
+    /// this only has to make the underlying data right.
+    ///
+    /// Prints before and after so a swap that silently did nothing is visible
+    /// rather than inferred from the launch failing later.</summary>
+    private void SpanSwap(string arg)
+    {
+        var tok = arg.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+        if (tok.Length < 2)
+        {
+            _log.LogWarning("DEVCMD span:swap: need <planetGuid> <spanGuid>, e.g. span:swap story5 knucracker1");
+            return;
+        }
+        string from = tok[0], to = tok[1];
+        try
+        {
+            SpanNetworkPlanet? target = null;
+            foreach (var p in Resources.FindObjectsOfTypeAll<SpanNetworkPlanet>())
+            {
+                if (p == null) continue;
+                string g = ""; try { g = p.planetGUID ?? ""; } catch { }
+                if (string.Equals(g, from, StringComparison.OrdinalIgnoreCase)) { target = p; break; }
+            }
+            if (target == null) { _log.LogWarning($"DEVCMD span:swap: no planet '{from}' - open the map first (story:open)"); return; }
+
+            string beforeTitle = "", beforeMapGuid = "";
+            int beforeObj = -1;
+            try { beforeTitle = target.map_title ?? ""; } catch { }
+            try { beforeMapGuid = target.map_guid ?? ""; } catch { }
+            try { beforeObj = target.map_objectives; } catch { }
+            _log.LogWarning($"DEVSWAP before planet='{from}' mapGuid='{beforeMapGuid}' " +
+                            $"title='{beforeTitle}' objectives={beforeObj}");
+
+            try { target.planetGUID = to; } catch (Exception e) { _log.LogWarning($"  planetGUID: {e.Message}"); }
+            try { target.map_guid = to; } catch (Exception e) { _log.LogWarning($"  map_guid: {e.Message}"); }
+            try { target.map_title = to; } catch (Exception e) { _log.LogWarning($"  map_title: {e.Message}"); }
+            try { if (target.title != null) target.title.text = to; } catch { }
+            try { target.forceUnlocked = true; target.unlocked = true; target.unlockedSet = true; } catch { }
+            // THE OBJECTIVE BITMASK, which drives the icons the map draws.
+            // Omitting it left the swapped planet showing the ORIGINAL
+            // mission's icons - visible in a screenshot and invisible in every
+            // log line, which is why the first version of this looked like it
+            // had worked. Bit k = objective slot k (0 Nullify, 1 Totems,
+            // 2 Reclaim, 3 Hold, 4 Collect, 5 Custom).
+            if (tok.Length >= 3 && int.TryParse(tok[2], out var objMask))
+            {
+                try { target.map_objectives = (byte)objMask; }
+                catch (Exception e) { _log.LogWarning($"  map_objectives: {e.Message}"); }
+            }
+
+            string afterTitle = "", afterMapGuid = "", afterPlanet = "";
+            try { afterTitle = target.map_title ?? ""; } catch { }
+            try { afterMapGuid = target.map_guid ?? ""; } catch { }
+            try { afterPlanet = target.planetGUID ?? ""; } catch { }
+            _log.LogWarning($"DEVSWAP after  planet='{afterPlanet}' mapGuid='{afterMapGuid}' " +
+                            $"title='{afterTitle}'");
+        }
+        catch (Exception e) { _log.LogWarning($"DEVCMD span:swap: {e.Message}"); }
+    }
+
+    /// <summary>Select a level-select planet and launch it, the way a click
+    /// would - so a swapped planet is tested through the REAL path rather than
+    /// through span:boot, which bypasses the map entirely.
+    ///
+    /// Reports the panel's category and the mission record it produced before
+    /// launching, because those are what decide whether a SPAN map loads at all
+    /// and which save folder it lands in.</summary>
+    /// <summary>Spacing between objective icons, in the container's local units.
+    /// Measured off the shipped map: icon k sits at x = 0.55 * k.</summary>
+    private const float GlyphSpacing = 0.55f;
+
+    /// <summary>Rebuild a planet's objective icons to an arbitrary slot set.
+    ///
+    ///     span:icons knucracker1 0,1,2      Nullify, Totems, Reclaim
+    ///
+    /// Setting SpanNetworkPlanet.map_objectives does NOT do this: that byte is
+    /// read when the map is built, so writing it afterwards leaves the icons
+    /// already on screen untouched. The icons are real GameObjects and have to
+    /// be reconfigured.
+    ///
+    /// Mirrors TrackerView.ReconcileGlyphs in the randomizer, including three
+    /// details that each cost something to learn there: search with
+    /// includeInactive (a locked planet's whole container is deactivated), HIDE
+    /// surplus markers rather than destroy them (they are the game's), and clone
+    /// the material when cloning a marker (Instantiate shares it, so one recolour
+    /// would hit every copy).</summary>
+    private void SpanIcons(string arg)
+    {
+        var tok = arg.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+        if (tok.Length < 2)
+        {
+            _log.LogWarning("DEVCMD span:icons: need <planetGuid> <slots>, e.g. span:icons knucracker1 0,1,2");
+            return;
+        }
+        var want = new System.Collections.Generic.List<int>();
+        foreach (var s in tok[1].Split(','))
+        {
+            if (int.TryParse(s.Trim(), out var v) && v >= 0 && v < 6) want.Add(v);
+        }
+        if (want.Count == 0) { _log.LogWarning("DEVCMD span:icons: no valid slots"); return; }
+
+        try
+        {
+            SpanNetworkPlanet? target = null;
+            foreach (var p in Resources.FindObjectsOfTypeAll<SpanNetworkPlanet>())
+            {
+                if (p == null) continue;
+                string g = ""; try { g = p.planetGUID ?? ""; } catch { }
+                if (string.Equals(g, tok[0], StringComparison.OrdinalIgnoreCase)) { target = p; break; }
+            }
+            if (target == null) { _log.LogWarning($"DEVCMD span:icons: no planet '{tok[0]}'"); return; }
+
+            Transform container;
+            try { container = target.objectiveContainer; } catch { _log.LogWarning("DEVICONS: no objectiveContainer"); return; }
+            if (container == null) { _log.LogWarning("DEVICONS: objectiveContainer is null"); return; }
+
+            // includeInactive MUST be true - a locked planet has its whole
+            // container deactivated, so an active-only walk finds nothing.
+            var markers = container.GetComponentsInChildren<SpanNetworkPlanetObjective>(true);
+            if (markers == null || markers.Length == 0) { _log.LogWarning("DEVICONS: no markers found"); return; }
+
+            var live = new System.Collections.Generic.List<SpanNetworkPlanetObjective>();
+            foreach (var m in markers) if (m != null) live.Add(m);
+            int before = live.Count;
+
+            for (int k = 0; k < want.Count; k++)
+            {
+                SpanNetworkPlanetObjective slot;
+                if (k < live.Count) slot = live[k];
+                else
+                {
+                    SpanNetworkPlanetObjective? made = null;
+                    try
+                    {
+                        var go = UnityEngine.Object.Instantiate(live[0].gameObject, container, false);
+                        go.name = "AddedGlyph";
+                        made = go.GetComponent<SpanNetworkPlanetObjective>();
+                        // Instantiate SHARES the material - clone it or a later
+                        // recolour of one icon repaints all of them.
+                        try { var mr = go.GetComponent<MeshRenderer>(); mr.material = new Material(mr.material); } catch { }
+                    }
+                    catch (Exception e) { _log.LogWarning($"DEVICONS clone: {e.Message}"); }
+                    if (made == null) break;
+                    slot = made; live.Add(made);
+                }
+                try { if (!slot.gameObject.activeSelf) slot.gameObject.SetActive(true); } catch { }
+                try { slot.objective = want[k]; } catch (Exception e) { _log.LogWarning($"DEVICONS objective: {e.Message}"); }
+                try { slot.transform.localPosition = new Vector3(GlyphSpacing * k, 0f, 0f); } catch { }
+            }
+            // Surplus markers are HIDDEN, never destroyed - they are the game's.
+            for (int k = want.Count; k < live.Count; k++)
+            {
+                try { live[k].gameObject.SetActive(false); } catch { }
+            }
+
+            _log.LogWarning($"DEVICONS planet='{tok[0]}' markers {before} -> {live.Count}, " +
+                            $"showing [{string.Join(",", want)}]");
+        }
+        catch (Exception e) { _log.LogWarning($"DEVCMD span:icons: {e.Message}"); }
+    }
+
+    private void SpanPlay(string guid)
+    {
+        if (guid.Length == 0) { _log.LogWarning("DEVCMD span:play: need a planet guid"); return; }
+        try
+        {
+            SpanNetworkPlanet? target = null;
+            foreach (var p in UnityEngine.Object.FindObjectsOfType<SpanNetworkPlanet>())
+            {
+                if (p == null) continue;
+                string g = ""; try { g = p.planetGUID ?? ""; } catch { }
+                if (string.Equals(g, guid, StringComparison.OrdinalIgnoreCase)) { target = p; break; }
+            }
+            if (target == null) { _log.LogWarning($"DEVCMD span:play: no planet '{guid}'"); return; }
+
+            var view = target.span;
+            if (view == null) { _log.LogWarning("DEVCMD span:play: planet has no Span view"); return; }
+            try { view.SelectPlanet(target); } catch (Exception e) { _log.LogWarning($"  SelectPlanet: {e.Message}"); }
+            try { view.SetMission(target); } catch (Exception e) { _log.LogWarning($"  SetMission: {e.Message}"); }
+
+            var gmp = view.gmp;
+            var d = gmp?.gmd;
+            _log.LogWarning($"DEVPLAY planet='{guid}' panelCategory={(gmp == null ? "?" : gmp.category.ToString())} " +
+                            $"gmd={(d == null ? "null" : $"title='{d.missionTitle}' specifier='{d.specifier}' guid='{d.guid}'")}");
+            if (gmp == null) return;
+            try { gmp.OnPlay(); _log.LogWarning("DEVPLAY: OnPlay invoked"); }
+            catch (Exception e) { _log.LogWarning($"DEVPLAY OnPlay: {e.Message}"); }
+        }
+        catch (Exception e) { _log.LogWarning($"DEVCMD span:play: {e.Message}"); }
+    }
+
+    /// <summary>Force an autosave, and say whether autosave is even on.
+    ///
+    /// The swap test could not tell "saves do not work for a swapped mission"
+    /// from "20 seconds is shorter than the autosave interval" - and those need
+    /// very different responses. Calling GameSpace.AutoSave() directly removes
+    /// the timing question, and GameSettings.noAutoSave removes the other
+    /// obvious confound.</summary>
+    private void SaveAuto()
+    {
+        var gs = GameSpace.instance;
+        if (gs == null) { _log.LogWarning("DEVSAVE: no GameSpace - boot a mission first"); return; }
+        bool off = false;
+        try { off = GameSettings.noAutoSave; } catch { }
+        string spec = ""; try { spec = GameSpace.specifierToApply ?? ""; } catch { }
+        _log.LogWarning($"DEVSAVE mission='{spec}' noAutoSave={off} - calling AutoSave()");
+        try { gs.AutoSave(); _log.LogWarning("DEVSAVE: AutoSave() returned"); }
+        catch (Exception e) { _log.LogWarning($"DEVSAVE: {e.Message}"); }
+    }
+
     private void SpanGoto(string guid)
     {
         if (guid.Length == 0) { _log.LogWarning("DEVCMD span:goto: need a planet guid, e.g. story20"); return; }

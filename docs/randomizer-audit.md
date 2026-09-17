@@ -191,6 +191,18 @@ Every one of these produced a confidently wrong number first.
 | 2026-09-02 | `7ef049c`+ | `derive.py` stale-cache guard | caught its own false 12/12 pass |
 | 2026-09-02 | `4637887` | CASUAL logic fill, 0.6.7, control-verified | **1/100 then 1/600 FillError** - long-standing, not new |
 | 2026-09-02 | working tree | Same after `bootstrap_threshold` +1 for casual | 0/800, and the bootstrap provably engages |
+| 2026-09-16 | working tree | SPAN retry tail, cap raised to 25, 10,000 seeds | **one seed needed 7 attempts** against a shipped cap of 5 - invisible at the shipped cap, which reported 0 failures |
+| 2026-09-16 | working tree | Retry depth vs seed shape, 4,000 SPAN seeds | driver is WEAPON BREADTH (10.5 / 8.9 / 8.0 / 5.0 by depth), not opening width (flat 2.00); 6 seeds at breadth 0 |
+| 2026-09-16 | working tree | After `MIN_ROSTER_BREADTH` and the early-mission fallback, 50,000 seeds, cap 25 | 0 failures, deepest 5, SPAN now level with the campaign; cap raised 5 -> 8 |
+| 2026-09-16 | working tree | `span_data.py` vs the survey dump, all 26 maps | 26/26 totems, nullify, caches and objective slots agree |
+| 2026-09-16 | working tree | `apbattery.sh`, fresh campaign seed | 21/21 (a first run showed 6 failures, all caused by a stray harness writing the command file) |
+| 2026-09-16 | working tree | `apbattery2.sh`, same seed | 15/15 |
+| 2026-09-16 | working tree | `apbattery.sh` against a seed generated BEFORE `mission_roster` existed | 21/21, and 0 retargets logged - the fallback to the campaign roster works |
+| 2026-09-16 | working tree | `tools/generic-suite.py`, unpruned | 322 tests, the one known allow-listed failure (`test_itempool_not_modified`) and nothing new |
+| 2026-09-16 | working tree | `tools/span-e2e-test.sh`, 8 steps incl. a 6-map sweep and a quit-relaunch-resume | **41/41** (a first run was 37/39; both failures were the harness's own resume step looking for the mission panel while the game was inside a mission) |
+| 2026-09-16 | working tree | `tools/span-off-parity.sh` vs `0fe2bef`, span OFF, 5 seeds | same 236 location ids, **every one of 236 placements identical**, slot_data gains exactly 3 keys; the only rows that moved are Archon's three, which is the deliberate logic fix |
+| 2026-09-16 | working tree | Negative control for the above: two DIFFERENT seeds | 230 of 236 placements differ, so the comparison can see a change |
+| 2026-09-16 | working tree | `tools/span-data-check.sh` - all 26 maps BOOTED FRESH and re-measured | **26/26** totems, nullify, caches and objective slots still match the frozen table |
 
 ## Open, from the numbers above
 

@@ -81,8 +81,12 @@ check(len(ids) == len(set(ids)), "location ids unique")
 check(sorted(ids) == list(range(min(ids), min(ids) + len(ids))), "location ids contiguous")
 
 kinds = {"Cache": 0, "Totem": 0, "Nullify": 0, "Reclaim": 0, "Custom": 0, "Mission Complete": 0}
-per_mission = {n: 0 for n in range(1, 21)}
-title_to_n = {t: n for n, t in I.MISSION_TITLES.items()}
+# ALL 46, not the campaign's 20. The name tables are class-level and always
+# hold every mission, whether or not a seed uses the SPAN Experiments, so an
+# audit that only knew about story1..story20 would file 309 real locations as
+# unparseable.
+per_mission = {n: 0 for n in L.ALL_MISSION_NUMBERS}
+title_to_n = {t: n for n, t in I.ALL_MISSION_TITLES.items()}
 unparsed = []
 for name in loc_names:
     title, _, tail = name.partition(" - ")
@@ -101,16 +105,33 @@ for k, v in kinds.items():
     print(f"        {k:<18} {v}", flush=True)
 
 print(f"[1/6] step 2/6: counts match INSTANCE_COUNTS", flush=True)
-expect_cache = sum(c for c, _, _ in L.INSTANCE_COUNTS.values())
-expect_totem = sum(t for _, t, _ in L.INSTANCE_COUNTS.values())
-expect_null = sum(u for _, _, u in L.INSTANCE_COUNTS.values())
+expect_cache = sum(c for c, _, _ in L.ALL_INSTANCE_COUNTS.values())
+expect_totem = sum(t for _, t, _ in L.ALL_INSTANCE_COUNTS.values())
+expect_null = sum(u for _, _, u in L.ALL_INSTANCE_COUNTS.values())
 check(kinds["Cache"] == expect_cache, "cache count", f"{kinds['Cache']} vs {expect_cache}")
 check(kinds["Totem"] == expect_totem, "totem count", f"{kinds['Totem']} vs {expect_totem}")
 check(kinds["Nullify"] == expect_null, "nullify count", f"{kinds['Nullify']} vs {expect_null}")
-check(kinds["Reclaim"] == len(L.RECLAIM_MISSIONS), "reclaim count")
-check(kinds["Custom"] == len(L.CUSTOM_MISSIONS), "custom count")
-check(kinds["Mission Complete"] == 19, "mission-complete count (20 minus the finale)",
-      str(kinds["Mission Complete"]))
+check(kinds["Reclaim"] == len(L.ALL_RECLAIM_MISSIONS), "reclaim count",
+      f"{kinds['Reclaim']} vs {len(L.ALL_RECLAIM_MISSIONS)}")
+check(kinds["Custom"] == len(L.ALL_CUSTOM_MISSIONS), "custom count",
+      f"{kinds['Custom']} vs {len(L.ALL_CUSTOM_MISSIONS)}")
+# Every mission but the finale has one. 46 missions, Founders excluded.
+expect_complete = len(L.ALL_MISSION_NUMBERS) - 1
+check(kinds["Mission Complete"] == expect_complete,
+      "mission-complete count (every mission but the finale)",
+      f"{kinds['Mission Complete']} vs {expect_complete}")
+
+# HOW MANY LOCATIONS ONE SEED HOLDS, which stopped being "all of them" when
+# the SPAN Experiments were added. The name table covers all 46 missions because
+# Archipelago computes location_name_to_id once per CLASS and it cannot vary
+# with a yaml option; a seed instantiates the 20 in its roster. Comparing a
+# generated seed against the table is therefore comparing 20 missions to 46.
+#
+# A campaign seed is exactly story1..story20, which is what every configuration
+# below generates - the SPAN toggle is off by default and this audit does not
+# turn it on. tools/seed-battery.py is what exercises a mixed roster.
+seed_loc_names = [name for n in range(1, 21)
+                  for name in L.location_names_for_mission(n)]
 
 print(f"[1/6] step 3/6: item table", flush=True)
 item_names = list(I.ITEM_NAME_TO_ID)
@@ -129,6 +150,10 @@ CATS = {
     "ERN upgrade rate": I.ERN_RATE_ITEMS,
     "ERN upgrade cap": I.ERN_CAP_ITEMS,
     "Boons (one-shot)": I.BOON_ITEMS,
+    # LAST, exactly as in _all_names. Their position is the whole reason ids
+    # +0..+78 did not move when they were added, and the order here is what
+    # would make a reordering visible.
+    "SPAN mission unlocks": I.SPAN_MISSION_UNLOCK_ITEMS,
 }
 tot = 0
 for k, v in CATS.items():
@@ -311,9 +336,9 @@ mw = setup_solo_multiworld(wt)
 player = 1
 all_locs = mw.get_locations(player)
 print(f"      regions: {len(mw.get_regions(player))}  locations: {len(all_locs)}", flush=True)
-check(len([l for l in all_locs if l.address is not None]) == len(loc_names),
-      "the multiworld carries every table location",
-      f"{len([l for l in all_locs if l.address is not None])} vs {len(loc_names)}")
+check(len([l for l in all_locs if l.address is not None]) == len(seed_loc_names),
+      "the multiworld carries every location of its roster",
+      f"{len([l for l in all_locs if l.address is not None])} vs {len(seed_loc_names)}")
 
 print(f"[3/6] step 2/3: reachability with every item collected", flush=True)
 state = mw.get_all_state(False)
@@ -422,9 +447,9 @@ for idx, (label, opts) in enumerate(MATRIX, 1):
           f"playthrough spheres {stats['playthrough_spheres']}", flush=True)
     check(bl == 0, f"no build limits: {label}", str(bl))
     check(bonus == 3, f"all three bonus units placed: {label}", str(bonus))
-    check(stats["locations"] == len(loc_names),
+    check(stats["locations"] == len(seed_loc_names),
           f"every location filled: {label}",
-          f"{stats['locations']} vs {len(loc_names)}")
+          f"{stats['locations']} vs {len(seed_loc_names)}")
     check(stats["playthrough_spheres"] > 0, f"playthrough computed (beatable): {label}")
 
 # 4-player multiworld
@@ -450,7 +475,7 @@ if archive:
         placed = [l.partition(":")[2].strip() for l in body if ":" in l and l.strip()]
         check(not [x for x in placed if "Build Limit" in x],
               "no build limits in a 4-player seed")
-        check(len(placed) >= 4 * len(loc_names),
+        check(len(placed) >= 4 * len(seed_loc_names),
               "4-player seed fills every player's locations",
               f"{len(placed)} placements for 4 players")
         print(f"      4-player placements: {len(placed)}", flush=True)

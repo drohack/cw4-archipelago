@@ -66,6 +66,13 @@ received items.
   [docs/design/2026-09-04-offline-and-disconnects.md](docs/design/2026-09-04-offline-and-disconnects.md)),
   and a re-sync of checks made offline on the next connection
 - Per-slot save isolation (a save from one seed never appears in another)
+- **SPAN Experiments, experimental and off by default** (`span_missions`): mixes
+  the game's 26 SPAN maps into the level select alongside the campaign. The
+  spiral still holds 20 missions, the goal is still Founders, and locked slots
+  still show the native "?". The logic for those 26 maps was DERIVED from the
+  game data rather than played, so it over-requires rather than under-requires -
+  see [docs/design/span-requirements-worksheet.md](docs/design/span-requirements-worksheet.md)
+  if you play them and want to correct it
 - Main menu slimmed to Farsite (SPAN hidden behind a config toggle) with the
   connection panel shown only on the menu
 - Server messages (item sends/receives, chat) appear in a scrollable,
@@ -88,6 +95,20 @@ fixed in [CHANGELOG.md](CHANGELOG.md).
 Not yet proven: a **100 percent run**. No seed has had all 236 of its checks
 collected, so trap frequency, energy-item pacing and how early the casual logic
 tier lands are still judged from measurement rather than from play.
+
+**The SPAN Experiments are experimental**, which is a stronger caveat than the
+rest of this page carries - and it is a caveat about the LOGIC, not about the
+plumbing. The plumbing is tested: 50,000 seeds generate with zero failures, and
+`tools/span-e2e-test.sh` drives a real seed in the real game through the level
+select, the unlock gate, launching a SPAN map, sending its checks, its autosave
+and loading that save back.
+
+What is untested is what those 26 maps actually REQUIRE. Nobody has played one to
+find out, and three whole classes of requirement - creep advance, reach that is
+not about terrain, environmental hazards - are invisible to every measurement
+behind them. Expect a seed that is harder than it needs to be rather than one
+that cannot be finished, and
+[report what you find](docs/design/span-requirements-worksheet.md).
 
 ## The other two plugins (build them yourself)
 

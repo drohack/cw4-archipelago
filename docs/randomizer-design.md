@@ -57,6 +57,16 @@ built, and the deny-sweep idea it depended on was explicitly ruled out - see
 every info cache is its own check - not one check per objective TYPE, which is
 what the first draft did and what produced only 58.
 
+The 236 are the FARSITE CAMPAIGN, and they are what a default seed contains. The
+experimental `span_missions` option adds 309 more for the 26 SPAN Experiment
+maps, for 545 in total, in one block APPENDED after these - see
+`apworld/cw4/locations.py`. A seed still holds only twenty missions' worth
+whichever way the option is set; what the option changes is which twenty, never
+which locations exist. That distinction is forced: Archipelago computes
+`location_name_to_id` once per world CLASS, so it cannot vary with a yaml
+option, and `TestLocationIdsNeverMove` hashes the first 236 pairs so the
+campaign's ids cannot drift when anything is added after them.
+
 | Kind | Count | Name |
 |---|---|---|
 | Per-instance counted objectives | 203 | `<Title> - Cache N`, `<Title> - Totem N`, `<Title> - Nullify N` |

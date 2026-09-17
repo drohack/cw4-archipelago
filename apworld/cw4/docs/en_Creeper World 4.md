@@ -12,7 +12,9 @@ still collect the checks you can reach.
 
 Checks are per INSTANCE, not per objective: every info cache, every totem and
 every nullifiable structure is its own location, and optional objectives count
-too. That is 236 locations across the campaign.
+too. That is 236 locations across the campaign - and 309 more if you turn on the
+experimental `span_missions` option, though a single seed still holds only 20
+missions' worth.
 
 ## What is the goal?
 
@@ -48,6 +50,18 @@ Two options are worth a look before you generate:
   grind.
 - `starter_missions` - how many missions you begin with unlocked, drawn from the
   ones whose cache can be collected with no weapon. Default 2.
+- `span_missions` - **experimental, off by default.** Mixes the game's 26 SPAN
+  Experiment maps in with the campaign, so the 19 missions behind the goal are
+  drawn from all 45. The level select still holds 20 planets and the goal is
+  still Founders.
+
+  Turn it on knowing what is behind it: every campaign requirement in this
+  randomizer came from somebody finishing the mission and writing down what they
+  needed, and no such notes exist for the SPAN maps. Their requirements were
+  derived from the game's own data instead, which cannot see creeper advancing
+  over a route, reach problems that are not about terrain, or environmental
+  hazards. The logic is therefore deliberately over-cautious: expect a seed that
+  is harder than it needs to be rather than one that cannot be finished.
 
 ## How do I install the game mod?
 

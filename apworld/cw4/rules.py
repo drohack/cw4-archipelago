@@ -37,6 +37,8 @@ winnable, and ANDing the two would hide that.
 from worlds.generic.Rules import set_rule
 
 from .locations import (
+    ALL_MISSION_NUMBERS,
+    ALL_REQUIRED_OBJECTIVES,
     BEATEN_ITEM,
     FINAL_MISSION,
     beaten_event_name,
@@ -47,7 +49,9 @@ from .locations import (
     VICTORY_ITEM,
     location_kind,
     mission_complete_location_name,
+    mission_specifier,
 )
+from .span_data import SPAN_NEEDS_MOVER, SPAN_TOTEMS_NEED_FACTORY
 
 # Weapons that run on energy alone. Consistent across all 20 missions: cannons
 # handle nearly anything, mortars the same with more effort. Sprayers are
@@ -299,9 +303,17 @@ OBJECTIVE_OWN = {
     # platform to cross space."
     (11, "Nullify"): [["Nullifier"], ["Porter", "Platform"]],
 
-    # Archon: "Both items are burried, need TERP to get" and "If you have a pylon
-    # and a terp you can get the 2nd item (no weapons needed)."
-    (12, "Collect"): [["Terp"], ["Pylon"]],
+    # Archon: "Both items are burried, need TERP to get". The Terp is
+    # objective-wide; everything else differs per cache and lives in
+    # OBJECTIVE_INSTANCE_EXTRA / _SOFT.
+    #
+    # THIS USED TO READ [["Terp"], ["Pylon"]] - both caches needing both, which
+    # the worksheet never said. It made the Pylon mandatory for Archon's Mission
+    # Complete and so for the finale count, so a player with a Terp and a weapon
+    # but no Pylon saw the mission as unreachable. Caught by the terrain
+    # analysis disagreeing with this entry and no other: Archon is 100 percent
+    # land in one component, so a Pylon cannot be needed for REACH there.
+    (12, "Collect"): [["Terp"]],
 
     # Tower of Darkness: "Need beacon to get to the center where all enemies
     # are. nullifier to nullify enemies."
@@ -345,8 +357,11 @@ OBJECTIVE_OWN = {
 # sprayer can all stay real checks instead of one being handed over up front.
 #
 # Archon is here for a different reason: its caches are buried rather than close,
-# but "If you have a pylon and a terp you can get the 2nd item (no weapons
-# needed)" - a terp and a pylon stand in for the weapon.
+# and its NEAR-CENTRE one "you can get with just a terp" (designer, 2026-09-16).
+# The waiver is objective-wide, so its far cache re-states the weapon for itself
+# in OBJECTIVE_INSTANCE_EXTRA. This used to cite "If you have a pylon and a terp
+# you can get the 2nd item (no weapons needed)", which the designer has since
+# withdrawn - the far cache needs a weapon on either route.
 #
 # Deliberately NOT here, because the worksheet says the opposite: More and More
 # ("No easy way to get the item at the start of this one. it starts under
@@ -485,6 +500,38 @@ OBJECTIVE_INSTANCE_EXTRA = {
     (17, "Collect"): {
         1: [["Terp"]],
     },
+
+    # Archon's two caches are NOT alike, and the reason is the RAIN.
+    #
+    # Archon is the only campaign mission with creeper falling constantly
+    # (designer, 2026-09-16), and that - not terrain - is what separates its two
+    # caches: "the first cache is inside the starting sheild so you don't need
+    # anything super special for it, the 2nd one is outside of that, so you can
+    # get it with some trickery (yellow path), but the required path is to have
+    # shields, factory, and some weapon. both are burried."
+    #
+    # So the Shield is not defence-in-general here, it is the thing that makes a
+    # patch of map survivable at all, and the Factory is what builds it. Written
+    # down because a rule that just says "Shield" reads like the usual anti-air
+    # hedge and would be the first thing a later pass deleted as over-cautious.
+    #
+    # It is also why tools/reachability.py could not see this requirement: the
+    # map is 100 percent land in one connected component. An environmental
+    # hazard is invisible to a terrain analysis.
+    #
+    # WHICH IS WHICH, measured rather than assumed: the cells are (144,53) and
+    # (95,74) on a 200x120 map, so the centre is near (100,60). Ranked by
+    # (cellY, cellX) ascending that makes instance 1 the FAR cache and instance
+    # 2 the near-centre one - the reverse of the order they were described in.
+    #
+    # Instance 2 needs nothing beyond the objective-wide Terp.
+    #
+    # Instance 1 takes an OR group here because the two routes share no item:
+    # a Pylon or a Shield gets you there physically. Which one you used is what
+    # decides the colour, and that is the SOFT entry below.
+    (12, "Collect"): {
+        1: [["Cannon", "Mortar"], ["Pylon", "Shield"]],
+    },
 }
 
 
@@ -516,6 +563,15 @@ OBJECTIVE_INSTANCE_SOFT = {
         # as well." So logic wants the nullifier-and-sniper approach; physically
         # a platform route exists, which is why these two are not hard.
         1: [["Nullifier"], ["Sniper"]],
+    },
+
+    # Archon's far cache sits OUTSIDE the starting shield, in the rain. The
+    # pylon route is the "some trickery" the designer describes - it works, so
+    # it is physical, but logic must not assume a hard-mode run. Holding weapon
+    # + terp + pylon leaves it reachable-but-unpromised (yellow); shield and
+    # factory, the required path, turns it green.
+    (12, "Collect"): {
+        1: [["Shield"], ["Factory"]],
     },
 }
 
@@ -585,6 +641,48 @@ CASUAL_DEFENSE_FROM = 6
 
 def is_casual(world) -> bool:
     return world.options.logic_difficulty.value == 1
+
+
+# ------------------------------------------------------------------- SPAN
+#
+# EVERYTHING BELOW IS DERIVED, NOT PLAYED. The Farsite tables above each trace
+# to a line in the worksheet where someone finished the mission and said what
+# they needed. These trace to a measurement, and the reading rule at the top of
+# this file - "where the worksheet hedges, require rather than not" - applies to
+# all of it, because all of it is a hedge.
+#
+# Three requirements, and nothing else:
+#
+#   Nullifier      already type-wide for Nullify and Reclaim, so every SPAN map
+#                  gets it without an entry here; none is added.
+#   Factory        for Totems, on the 23 maps whose totem ware has no Pod on the
+#                  map to supply it. Measured per map by the same ware lookup
+#                  that reproduced the campaign's 17/17 Factory verdict.
+#   a mover        on the three maps whose objectives do not all share one
+#                  tower-connected component. MISSION-wide rather than per
+#                  objective: turning "these two objectives are in different
+#                  components" into "this objective needs the mover" needs the
+#                  landing site, and there is no rift lab on the map at load to
+#                  read one from.
+#
+# What is NOT here, and why each absence is deliberate:
+#
+#   no per-instance rules  - the campaign has them (Archon's two caches differ),
+#                            and no detector built can find the equivalent here
+#   no Sniper, no Shield   - hazards are invisible to every detector built; The
+#                            Compound and Archon are the campaign's proof that
+#                            the class exists
+#   no Miner               - economy stays outside logic, as it does for Farsite
+#
+# The honest summary is that a SPAN map is modelled as "a weapon, a nullifier,
+# and a factory", which is a floor rather than the truth. That is why the option
+# is off by default and why the worksheet exists.
+for _n, _needs in SPAN_TOTEMS_NEED_FACTORY.items():
+    if _needs:
+        OBJECTIVE_OWN[(_n, "Totems")] = [list(GREENAR_CHAIN)]
+
+for _n in SPAN_NEEDS_MOVER:
+    MISSION_EXTRA[_n] = [["Pylon", "Porter", "Platform"]]
 
 
 def _casual_defense(mission: int, casual: bool) -> list:
@@ -751,7 +849,7 @@ def mission_complete_requirements(mission: int, casual: bool = False,
     finished without one, which is why mission_requirements seeds the list.
     """
     groups = [list(g) for g in mission_requirements(mission, casual, physical)]
-    for slot in REQUIRED_OBJECTIVES[mission]:
+    for slot in ALL_REQUIRED_OBJECTIVES[mission]:
         kind = OBJECTIVE_TYPES[slot]
         for group in _expand([list(g) for g in OBJECTIVE_OWN.get((mission, kind), [])]):
             if group not in groups:
@@ -810,13 +908,23 @@ def location_requirements(name: str, mission: int, casual: bool = False,
     return requirements_for_kind(mission, kind, casual, physical)
 
 
-def requirement_groups(casual: bool = False, physical: bool = False) -> dict:
+def requirement_groups(casual: bool = False, physical: bool = False,
+                       missions_in_seed=None) -> dict:
     """The exact structure exported to slot_data. See the module docstring for
-    the contract: location entries are complete and must not be combined."""
-    missions = {f"story{n}": mission_requirements(n, casual, physical)
-                for n in range(1, 21)}
+    the contract: location entries are complete and must not be combined.
+
+    `missions_in_seed` defaults to ALL 46 rather than to a seed's 20, because the
+    one caller that must not be narrowed is logic_item_names(): classification is
+    computed per item NAME and shared by every seed, so an item that gates only a
+    SPAN map still has to read as progression even in a seed with SPAN off.
+    Callers building slot data pass the roster and get only that seed.
+    """
+    if missions_in_seed is None:
+        missions_in_seed = ALL_MISSION_NUMBERS
+    missions = {mission_specifier(n): mission_requirements(n, casual, physical)
+                for n in missions_in_seed}
     locations = {}
-    for n in range(1, 21):
+    for n in missions_in_seed:
         for name in LOCATIONS_PER_MISSION[n]:
             reqs = location_requirements(name, n, casual, physical)
             if reqs:
@@ -865,9 +973,10 @@ def missions_for_finale(world) -> int:
 
 def set_all_rules(world) -> None:
     player = world.player
-    groups = requirement_groups(is_casual(world))
+    groups = requirement_groups(is_casual(world),
+                                missions_in_seed=world.mission_roster)
 
-    for n in range(1, 21):
+    for n in world.mission_roster:
         for name in LOCATIONS_PER_MISSION[n]:
             loc_groups = groups["location_requirements"].get(name, [])
             if loc_groups:

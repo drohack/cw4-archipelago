@@ -6,7 +6,7 @@ and percentages as whole percents; each docstring says which.
 """
 from dataclasses import dataclass
 
-from Options import Choice, OptionGroup, PerGameCommonOptions, Range
+from Options import Choice, OptionGroup, PerGameCommonOptions, Range, Toggle
 
 
 class EarlyWeapon(Choice):
@@ -202,6 +202,33 @@ class LogicDifficulty(Choice):
     option_standard = 0
     option_casual = 1
     default = 0
+
+
+class SpanMissions(Toggle):
+    """Mix the SPAN Experiments into the seed. EXPERIMENTAL.
+
+    The level select still holds 20 missions and the goal is still Founders;
+    with this on, the other 19 are drawn from the 19 remaining campaign missions
+    AND the 26 SPAN Experiment maps together.
+
+    OFF BY DEFAULT, AND THE REASON MATTERS. Every campaign requirement came from
+    playing the mission. The SPAN requirements were DERIVED - objective counts
+    and totem resources read out of the game, movers computed from terrain - and
+    the detectors were validated against the campaign before being trusted here,
+    but derived is not played. Three things no measurement can see:
+
+      - creep advance, so a route that exists on an empty map may be gone by the
+        time you need it
+      - reach requirements that are not about terrain at all (Archon needs a
+        Pylon on a map that is 100 percent land)
+      - environmental hazards (Archon again: it rains, so one of its caches sits
+        inside the starting shield and the other does not)
+
+    Logic is therefore conservative - it over-requires rather than under-requires
+    - and a seed may be harder than it needs to be rather than impossible. If you
+    play these, docs/design/span-requirements-worksheet.md is how to report back.
+    """
+    display_name = "SPAN Experiments"
 
 
 class StarterMissions(Range):
@@ -432,6 +459,7 @@ class FillerBuildLimitWeight(Range):
 class CW4Options(PerGameCommonOptions):
     missions_for_finale: MissionsForFinale
     logic_difficulty: LogicDifficulty
+    span_missions: SpanMissions
     starter_missions: StarterMissions
     early_weapon: EarlyWeapon
     progressive_erns: ProgressiveErns
@@ -466,6 +494,7 @@ option_groups = [
         LogicDifficulty,
         StarterMissions,
         EarlyWeapon,
+        SpanMissions,
     ]),
     OptionGroup("Traps", [
         TrapPercentage,
