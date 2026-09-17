@@ -22,7 +22,7 @@ os.environ.setdefault("SKIP_REQUIREMENTS_UPDATE", "1")
 sys.path.insert(0, os.getcwd())
 
 from test.general import setup_solo_multiworld  # noqa: E402
-from worlds.cw4 import CW4World, items  # noqa: E402
+from worlds.cw4 import CW4World, items, opening  # noqa: E402
 
 STEPS = ("generate_early", "create_regions", "create_items", "set_rules",
          "connect_entrances", "generate_basic", "pre_fill")
@@ -53,12 +53,12 @@ for casual in (False, True):
     label = "casual" if casual else "normal"
     print(f"{label} logic:", flush=True)
     w = build(casual)
-    want = items.SAFE_OPENING_MIN + (1 if casual else 0)
-    got = items.bootstrap_threshold(w)
+    want = opening.SAFE_OPENING_MIN + (1 if casual else 0)
+    got = opening.bootstrap_threshold(w)
     check(got == want, f"bootstrap_threshold is {want}", f"got {got}")
 
-    width = items.opening_width(w)
-    print(f"        opening_width = {width}, SAFE_OPENING = {items.SAFE_OPENING}", flush=True)
+    width = opening.opening_width(w)
+    print(f"        opening_width = {width}, SAFE_OPENING = {opening.SAFE_OPENING}", flush=True)
 
     engaged = width < got
     if casual:

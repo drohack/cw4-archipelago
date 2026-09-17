@@ -162,7 +162,7 @@ class TestEarlyWeaponWithOneStarter(bases.CW4TestBase):
     run_default_tests = False
 
     def test_the_opening_is_narrower_than_casual_wants(self) -> None:
-        from ..items import opening_width, bootstrap_threshold
+        from ..opening import opening_width, bootstrap_threshold
         self.assertEqual(2, opening_width(self.world))
         self.assertLess(opening_width(self.world),
                         bootstrap_threshold(self.world))
@@ -179,7 +179,7 @@ class TestEarlyWeaponWithOneStarter(bases.CW4TestBase):
 
     def test_the_bootstrap_widens_the_opening(self) -> None:
         from BaseClasses import CollectionState
-        from ..items import SAFE_OPENING
+        from ..opening import SAFE_OPENING
         self.assertTrue(self.world.bootstrapped, "nothing was bootstrapped")
         # prevent_sweep, or the sweep collects the OTHER locked bootstrap items
         # for us and the measurement stops being about the listed items.
@@ -255,7 +255,7 @@ class TestOpeningWidthAtTwoStarters(bases.CW4TestBase):
     options = {"early_weapon": "mortar", "starter_missions": 2}
 
     def test_two_starters_can_afford_both_early_items(self) -> None:
-        from ..items import opening_width
+        from ..opening import opening_width
         self.assertGreaterEqual(opening_width(self.world), 2)
         early = self.multiworld.local_early_items[self.player]
         self.assertEqual(1, early.get("Mortar"))
@@ -848,17 +848,17 @@ class TestCasualBootstrap(bases.CW4TestBase):
     options = {"logic_difficulty": "casual"}
 
     def test_the_threshold_is_one_wider_for_casual(self) -> None:
-        from .. import items
-        self.assertEqual(items.bootstrap_threshold(self.world),
-                         items.SAFE_OPENING_MIN + 1)
+        from .. import items, opening
+        self.assertEqual(opening.bootstrap_threshold(self.world),
+                         opening.SAFE_OPENING_MIN + 1)
 
     def test_the_bootstrap_engages(self) -> None:
         # The point of the fix. If this stops being true the sub-percent
         # FillError comes back, and it will come back as a rare CI flake that
         # looks like bad luck rather than a regression.
-        from .. import items
-        width = items.opening_width(self.world)
-        self.assertLess(width, items.bootstrap_threshold(self.world),
+        from .. import items, opening
+        width = opening.opening_width(self.world)
+        self.assertLess(width, opening.bootstrap_threshold(self.world),
                         f"casual opening is {width}, so the bootstrap will not run")
         self.assertTrue(getattr(self.world, "bootstrapped", None),
                         "bootstrap_opening placed nothing")
@@ -872,11 +872,11 @@ class TestNormalLogicBootstrapUnchanged(bases.CW4TestBase):
     for casual only.
     """
     def test_normal_logic_does_not_bootstrap(self) -> None:
-        from .. import items
-        self.assertEqual(items.bootstrap_threshold(self.world),
-                         items.SAFE_OPENING_MIN)
-        self.assertGreaterEqual(items.opening_width(self.world),
-                                items.bootstrap_threshold(self.world))
+        from .. import items, opening
+        self.assertEqual(opening.bootstrap_threshold(self.world),
+                         opening.SAFE_OPENING_MIN)
+        self.assertGreaterEqual(opening.opening_width(self.world),
+                                opening.bootstrap_threshold(self.world))
 
 
 class TestOwnProgressionFill(bases.CW4TestBase):

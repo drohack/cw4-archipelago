@@ -16,7 +16,7 @@ import sys
 
 sys.path.insert(0, os.getcwd())
 
-from worlds.cw4 import items as I, locations as L, roster as RO, rules as R  # noqa: E402
+from worlds.cw4 import items as I, locations as L, opening as OP, roster as RO, rules as R  # noqa: E402
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 OUT = os.path.join(REPO, "docs", "randomizer-logic.md")
@@ -129,7 +129,7 @@ def main() -> int:
     w("  opening themselves. If a starter already opens up under a weapon the")
     w("  choice stays uniform, so openings stay varied.")
     w(f"- A bootstrap places items itself while the opening is narrower than")
-    w(f"  {I.SAFE_OPENING} free locations, drawn only from items that actually")
+    w(f"  {OP.SAFE_OPENING} free locations, drawn only from items that actually")
     w("  open something.")
     w("")
     w("**Everything else is the ordinary fill**")

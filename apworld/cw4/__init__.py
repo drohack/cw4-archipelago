@@ -10,7 +10,7 @@ from typing import Any
 from worlds.AutoWorld import WebWorld, World
 from BaseClasses import Tutorial
 
-from . import groups, items, locations, regions, roster, rules
+from . import groups, items, locations, opening, regions, roster, rules
 from . import options
 from .options import CW4Options
 
@@ -93,8 +93,8 @@ class CW4World(World):
         # STRICTLY AFTER the starters: the roster is built around them, so that a
         # seed can never start with a mission it does not contain.
         self.mission_roster = roster.mission_roster(self)
-        items.force_early_mission(self)
-        items.force_early_weapon(self)
+        opening.force_early_mission(self)
+        opening.force_early_weapon(self)
 
     def create_regions(self) -> None:
         regions.create_and_connect_regions(self)
@@ -134,14 +134,14 @@ class CW4World(World):
         rare enough, and visible enough in the yaml, to be worth a re-roll rather
         than a heuristic that guesses at intent.
         """
-        if items.opening_width(self) >= items.bootstrap_threshold(self):
+        if opening.opening_width(self) >= opening.bootstrap_threshold(self):
             return False
         return all(self.multiworld.worlds[p].game == self.game
                    for p in self.multiworld.player_ids)
 
     def pre_fill(self) -> None:
         if self.needs_bootstrap():
-            self.bootstrapped = items.bootstrap_opening(self)
+            self.bootstrapped = opening.bootstrap_opening(self)
         # Place our own progression, with retries. Archipelago's main fill is
         # not ours to retry, and it gives up on a solvable arrangement about
         # once in 18,000 seeds; oot and pokemon_emerald handle the same problem

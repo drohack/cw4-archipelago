@@ -210,7 +210,7 @@ class TestSpanRosterBreadth(bases.CW4TestBase):
         # 1.1 percent of mixed seeds that set was empty, so it silently granted
         # nothing. The bootstrap path owns the narrow openings; outside it there
         # must always be a grant.
-        from ..items import bootstrap_threshold, opening_width
+        from ..opening import bootstrap_threshold, opening_width
         if opening_width(self.world) < bootstrap_threshold(self.world):
             self.skipTest("bootstrap_opening owns this seed's opening")
         early = self.multiworld.local_early_items[self.player]
@@ -234,11 +234,11 @@ class TestEarlyMissionFallback(bases.CW4TestBase):
     options = {"span_missions": 1}
 
     def test_a_span_only_roster_still_grants_an_early_mission(self) -> None:
-        from ..items import force_early_mission
+        from ..opening import force_early_mission
         from ..roster import STARTER_ELIGIBLE
         from ..locations import SPAN_MISSION_NUMBERS
 
-        from ..items import bootstrap_threshold, opening_width
+        from ..opening import bootstrap_threshold, opening_width
 
         world = self.world
         early = self.multiworld.local_early_items[self.player]
