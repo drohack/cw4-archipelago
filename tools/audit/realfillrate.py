@@ -111,7 +111,9 @@ for i in range(N):
         # ACCESSIBILITY AND BEATABILITY, both of which real generation enforces
         # and a bare distribute_items_restrictive does not. Main.py submits
         # multiworld.fulfills_accessibility and aborts on a false result
-        # (Main.py:239 and :365), so a fill that strands locations shows up
+        # (Main.py's fulfills_accessibility submit, and its
+        # "Game appears as unbeatable" FillError), so a fill that strands
+        # locations shows up
         # there rather than here unless this asks.
         #
         # It matters for this world specifically: placing our own progression

@@ -114,7 +114,7 @@ edit and quietly restored the previous version, wiping two separate fixes.
 
 After editing, grep the file for a string only the new version contains:
 
-    grep -c "PLATEAU" tools/ern-upgrade-test.sh    # expect 1, not 0
+    grep -c "guard_command_file" tools/span-e2e-test.sh   # expect 2, not 0
 
 and confirm no other task is alive that could rewrite it.
 
@@ -161,9 +161,9 @@ port, and the message box filled with "connecting... timed out... disconnected"
 while no items arrived - until they noticed and retyped their own server. The
 mod was working perfectly; the test rig had repointed it.
 
-`tools/offline-test.sh`, `tools/objective-backfill-test.sh` and
-`tools/playtest-repro.sh` now snapshot the config and the slot cache in step 0
-and restore both from an EXIT trap, so an interrupted run restores too. Copy
+`tools/offline-test.sh` and `tools/objective-backfill-test.sh` now snapshot the
+config and the slot cache in step 0 and restore both from an EXIT trap, so an
+interrupted run restores too. Copy
 that block into any new harness that writes either.
 
 The same rule covers a subtler one: a harness that deletes `slots/` is deleting
@@ -222,8 +222,8 @@ an unlock nobody granted, this is the first thing to check.
   so the output interleaved. A sweep of the process table then found zombie
   harnesses from several EARLIER SESSIONS still alive.
 
-  Two defences, now in `tools/ern-all-upgrades.sh`, `tools/span-e2e-test.sh` and
-  `tools/span-data-check.sh`:
+  Two defences, now in `tools/span-e2e-test.sh` and `tools/span-data-check.sh`
+  (they were also in the ERN harnesses, which have since been retired):
 
       guard_command_file    write a sentinel to cw4ap-commands.txt before
                             launching, sleep, and abort if anything overwrote

@@ -170,7 +170,8 @@ class TestEarlyWeaponWithOneStarter(bases.CW4TestBase):
     # LOCAL early items throughout: the Archipelago FAQ's remedy for a
     # restrictive start is local_early_items, which is satisfied from this
     # player's OWN early locations rather than possibly another player's world
-    # (Fill.py:426-470). Identical for a solo seed, correct for a multiworld.
+    # (Fill.py's early_local_prog_items / early_local_rest_items split).
+    # Identical for a solo seed, correct for a multiworld.
     def test_no_early_items_are_requested_at_this_width(self) -> None:
         # Two requests into one slot is what broke 12 percent of these seeds.
         # At this width the bootstrap places instead, so nothing is requested.

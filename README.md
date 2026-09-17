@@ -50,7 +50,7 @@ received items.
   check belongs to the structure you completed rather than to how many you have
   completed, so nullifying the far target first sends that target's check
 - Items applied live: unit unlocks, mission unlocks, progressive ERNs, energy
-  storage and base generation, and six optional traps
+  storage and base generation, ten one-shot boons, and six optional traps
 - Per-mission logic derived from a manual playthrough, with a casual tier that
   brings snipers and missiles forward in the spheres
 - Randomized starter missions - any mission with a collectible reachable without

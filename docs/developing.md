@@ -74,7 +74,7 @@ Four tiers, in ascending cost:
    already fixed upstream", and it is worth deleting again afterwards.
 2b. **Archipelago's world compliance tests** - its own generic suite, run on
    every world, and the closest thing Archipelago has to a spec check. Nothing
-   ran these until 2026-09-04, and the first run found a real violation (we
+   ran these until 2026-09-06, and the first run found a real violation (we
    modify the itempool during `pre_fill`). `tools/generic-suite.py` carries that
    one as a documented expected failure and fails if a NEW violation appears
    **or if the known one stops failing** - an allow-list that outlives its bug
@@ -256,7 +256,9 @@ CW4DevTools has its OWN file-command channel at
 `<game>/BepInEx/cw4dev-commands.txt`: `boot:storyN`, `ada:close`,
 `sim:run [speed]` / `sim:pause`, `spawn:<RealUnitName> [n]`, `shot:<path>`,
 `dump`, `story:open`, `planets:dump`, `obj:dump`, `overlay:dump`,
-`span:goto <guid>`, `set:<cheat>=on|off`, plus two families worth knowing:
+`span:goto <guid>`, `set:<cheat>=on|off`, the SPAN family
+(`span:open`, `span:list`, `span:boot <guid>`, `span:play <guid>`,
+`span:swap`, `span:icons`), plus two families worth knowing:
 `null:<list|protect|allow|targets|kill>` for nullification experiments (the
 finale lock's docstring points here) and `energy:<...>` for the energy model.
 
@@ -270,7 +272,18 @@ docs/research-findings.md). `span:goto <guid>` then pans the level-select camera
 to centre a planet, which is how "is it reachable?" gets answered separately
 from "does it have a position?" - it moves `Camera.main`, because the Farsite
 view is panned by `Span`, and `SpanMissionNetwork` (the one class that does carry
-drag clamps) belongs to a different screen and is absent here. It exists so survey work never has to enable the
+drag clamps) belongs to a different screen and is absent here.
+
+The SPAN family answers the questions that came before any of that. `span:open`
+presses the SPAN Experiments button (the randomizer hides it by default via
+`ModConfig.ShowSpan`, and a click on an inactive object reports nothing, so the
+command checks and says so). `span:list` enumerates the 26 maps from the MENU -
+`SpanTile` carries the grid position and objective indicators, `GalaxyMissionPanel.gmd`
+carries the title, specifier and guid - which is what made a roster readable
+without booting 26 maps, since `data.unity3d` is compressed and nothing can be
+extracted offline. `span:boot <guid>` then loads one directly, and
+`span:play <guid>` launches it through the level-select click path instead, which
+is the difference that matters when testing a swapped planet. It exists so survey work never has to enable the
 randomizer just to boot a mission or take a screenshot - doing that repeatedly
 is how the Archipelago layer kept getting left switched on. No AP commands here
 by design.
@@ -647,7 +660,10 @@ The file-command channel lives in a separate plugin,
 build and is in no release. Its PRESENCE is the switch - build it and the
 channel is live; delete the folder and it is gone. (It used to be a
 `DebugCommands` config flag inside the mod, which meant every player installed
-2,657 lines of scaffolding. The harnesses still write that key into the .cfg
+a few thousand lines of scaffolding - the exact figure at the split is in
+the CHANGELOG, and is deliberately not restated here, because two copies of
+one measurement is how they came to disagree. The harnesses still write that
+key into the .cfg
 and it now does nothing; BepInEx ignores an unknown key, so they were left
 alone deliberately - unedited harnesses are the regression test for the split.)
 Write commands to `<game>/BepInEx/cw4ap-commands.txt`, read results from
@@ -696,9 +712,11 @@ nothing), `set k=v` for live tuning in depth units, and the diagnostics `aim`
 (where spores actually aim) and `coord` (cell/world mapping). Omitted or zero
 arguments use the tuned defaults in `TrapEffects.cs`.
 
-**These are no longer dormant.** All seven are real AP items: `TRAP_ITEMS` in
-`apworld/cw4/items.py`, drawn from the filler pool at `trap_percentage` (default
-**50**), fired on receipt by `Appliers/TrapApplier.cs` off a persisted high-water
+**These are no longer dormant.** All seven have real AP item names in
+`TRAP_ITEMS` (`apworld/cw4/items.py`) and SIX of them are generated:
+`POOL_TRAP_ITEMS` holds Emitter Overdrive out, because it is dead on a third
+of the campaign. The six are drawn from the filler pool at `trap_percentage`
+(default **50**), fired on receipt by `Appliers/TrapApplier.cs` off a persisted high-water
 mark, with the item-name table in `Core/TrapRules.cs` and per-trap frequency
 weights in the yaml. The `trap:` commands remain the way to exercise one without
 a server.

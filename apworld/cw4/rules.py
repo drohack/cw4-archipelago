@@ -119,9 +119,10 @@ MISSION_EXTRA = {
     # NOT here, and tested rather than assumed: story15. The worksheet suspected
     # mining might be needed for energy there, so it was played with only its
     # logic requirements and no Miner - "Yes very doable with no miners on Tower
-    # of Darkness. not a requirement." Economy stays outside logic everywhere
-    # except Not My Mars above, and test_miner_gates_only_not_my_mars pins that
-    # the exception stays exactly one mission wide.
+    # of Darkness. not a requirement." Which missions a Miner does gate is
+    # pinned by test_miner_appears_only_where_verified, and it is SIX of them -
+    # this used to claim the exception was one mission wide, and to cite as
+    # proof a test that has never existed under any name.
 }
 
 # Requirements that LOGIC asserts but physics does not.
@@ -133,8 +134,9 @@ MISSION_EXTRA = {
 # true for the first question and false for the second belongs HERE, so the
 # tracker can show it yellow: reachable, but not promised.
 #
-# Both entries are about energy rather than offense, and both were found by
-# playing a seed where only Mortar had arrived (designer, 2026-09-03).
+# All three entries are about economy rather than offense. Two came from playing
+# a seed where only Mortar had arrived (designer, 2026-09-03); Wallis was added
+# later and carries its own quote below.
 #
 # Not My Mars - the objectives sit on separate islands. Its MINER is no longer
 # here: as of 2026-09-13 it is a hard requirement in MISSION_EXTRA, because
@@ -156,10 +158,12 @@ MISSION_EXTRA = {
 #    to push through."
 #   "I think it is doable, but it's hard mode/out of logic."
 #
-# Economy is outside logic everywhere else: story15 was played with no Miner and
-# no energy items at all - "Yes very doable with no miners on Tower of Darkness.
-# not a requirement." test_miner_gates_only_the_energy_missions pins the
-# exception to these two.
+# story15 was played with no Miner and no energy items at all - "Yes very doable
+# with no miners on Tower of Darkness. not a requirement."
+#
+# Which missions a Miner gates is pinned by
+# test_miner_appears_only_where_verified, with the per-mission reasons; the
+# obituary for the wrong count this comment used to carry is on MISSION_EXTRA.
 MISSION_SOFT = {
     3: [["Pylon", "Porter"]],
     4: [["Miner"]],
@@ -294,8 +298,10 @@ OBJECTIVE_OWN = {
     #    and convert to liftic."
     #
     # That leaves Home, Not My Mars and Ruins Repurposed as the ONLY missions
-    # whose totems run on loose liftic, which is what test_totems_need_greenar
-    # now pins - the free case is the exception and has to be named.
+    # whose totems run on loose liftic, which is what
+    # test_early_totems_run_on_loose_liftic pins - the free case is the
+    # exception and has to be named. (Until 2026-09-17 this cited a test name
+    # that had never existed; the claim was right, the citation was not.)
     (11, "Totems"): [["Factory"]],
     (18, "Totems"): [["Factory"]],
 

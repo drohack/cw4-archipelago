@@ -35,8 +35,10 @@ the goal.
 - Unit unlocks, including units the campaign never grants, like the Airship,
   Bertha and Sweeper
 - Progressive ERNs
-- Build-limit increases
 - Energy storage and base generation upgrades for your rift lab
+- Boons: one-shot helps like Ammo Resupply, Energy Cache, Field Shield and
+  Resource Cache, plus a surge for each ERN port upgrade. These fill whatever
+  the traps do not, so most of a seed's filler is boons
 - Traps, if the seed enables them - `trap_percentage` defaults to 50, so lower
   it in your yaml if that is more than you want
 

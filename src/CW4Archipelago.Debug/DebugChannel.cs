@@ -661,14 +661,6 @@ public sealed class DebugChannel
         ModCore.Log.LogInfo($"DEBUG UNITS: allowed=[{string.Join(",", allowed)}] structButtons={structButtons}");
     }
 
-    /// <summary>
-    /// Why can a player not type into the login panel? A TMP_InputField needs
-    /// three things the panel does not currently verify: an active EventSystem,
-    /// an input module driving it, and a GraphicRaycaster on the canvas it was
-    /// parented to. BuildPanel takes the FIRST root canvas FindObjectsOfType
-    /// returns, which is not a documented order - so the panel can land on a
-    /// canvas that renders but cannot be clicked.
-    /// </summary>
     /// <summary>Call BuildUnitManager.SetAvailable the way a mission script
     /// does, so UnitGrantPatch can be tested without finding the story beat
     /// that triggers a real grant. Farsite's cannon grant is driven by player
@@ -713,6 +705,14 @@ public sealed class DebugChannel
         catch { }
     }
 
+    /// <summary>
+    /// Why can a player not type into the login panel? A TMP_InputField needs
+    /// three things the panel does not currently verify: an active EventSystem,
+    /// an input module driving it, and a GraphicRaycaster on the canvas it was
+    /// parented to. BuildPanel takes the FIRST root canvas FindObjectsOfType
+    /// returns, which is not a documented order - so the panel can land on a
+    /// canvas that renders but cannot be clicked.
+    /// </summary>
     private static void InputDump()
     {
         var es = UnityEngine.EventSystems.EventSystem.current;
@@ -1065,23 +1065,6 @@ public sealed class DebugChannel
 
     // Invoke a planet's click handler to test the locked-click block. Reports
     // whether a mission popup is showing afterwards.
-    /// <summary>Load a SAVED mission, the way the level-select load box does.
-    ///
-    /// Needed because two bugs now have hidden specifically in the RESUMED case
-    /// and `boot:` cannot reach it - it always starts a mission fresh. The
-    /// nullify counter measured progress as a drop from the count at mission
-    /// start, which is zero forever on a save whose targets are already
-    /// destroyed; nothing that only ever starts missions could have found it.
-    ///
-    /// Drives MissionPanelLoadBoxRow.OnLoad, the same entry point the UI uses
-    /// and the one MissionGate already patches, so the gate applies here too.
-    /// Open the mission's panel first with clickplanet:.</summary>
-    /// <summary>The game's own verdict on every objective, on demand.
-    ///
-    /// The mod only dumps this at the moment a mission completes, which is no
-    /// use for a mission being INSPECTED - and the question "did the player
-    /// really nullify these, or does the set just not shrink" can only be
-    /// settled by asking the game rather than by counting units.</summary>
     /// <summary>Per-unit state for every nullify target.
     ///
     /// Nullifying does not remove the unit from GameSpace.nullifiableUnits and
@@ -1254,6 +1237,12 @@ public sealed class DebugChannel
         try { return gs.maxMustCollect; } catch { return -1; }
     }
 
+    /// <summary>The game's own verdict on every objective, on demand.
+    ///
+    /// The mod only dumps this at the moment a mission completes, which is no
+    /// use for a mission being INSPECTED - and the question "did the player
+    /// really nullify these, or does the set just not shrink" can only be
+    /// settled by asking the game rather than by counting units.</summary>
     private static void ObjDump()
     {
         var gs = GameSpace.instance;
@@ -1277,6 +1266,17 @@ public sealed class DebugChannel
         ModCore.Log.LogInfo($"DEBUG OBJ: nullifiableUnits={nul}");
     }
 
+    /// <summary>Load a SAVED mission, the way the level-select load box does.
+    ///
+    /// Needed because two bugs now have hidden specifically in the RESUMED case
+    /// and `boot:` cannot reach it - it always starts a mission fresh. The
+    /// nullify counter measured progress as a drop from the count at mission
+    /// start, which is zero forever on a save whose targets are already
+    /// destroyed; nothing that only ever starts missions could have found it.
+    ///
+    /// Drives MissionPanelLoadBoxRow.OnLoad, the same entry point the UI uses
+    /// and the one MissionGate already patches, so the gate applies here too.
+    /// Open the mission's panel first with clickplanet:.</summary>
     private static void LoadSave(string arg)
     {
         // FindObjectsOfTypeAll, not FindObjectsOfType: the load rows exist but
@@ -1337,9 +1337,6 @@ public sealed class DebugChannel
         ModCore.Log.LogWarning($"clickplanet: mission {arg} not found");
     }
 
-    /// <summary>Traps feasibility spike (docs/design/2026-08-26-traps-spike.md).
-    /// "trap:&lt;name&gt; [args]" - each effect is fire-and-forget or self-restoring;
-    /// nothing here may make a mission unwinnable.</summary>
     /// <summary>Test scaffolding: unpause the sim (clearing every pause owner)
     /// and optionally set the game speed, so a battery can watch an effect play
     /// out without a human pressing play. "sim:run [speed]" / "sim:pause".</summary>
@@ -1438,6 +1435,9 @@ public sealed class DebugChannel
         catch (Exception e) { ModCore.Log.LogWarning($"SPAWNAT {key}: threw {e.Message}"); }
     }
 
+    /// <summary>Traps feasibility spike (docs/design/2026-08-26-traps-spike.md).
+    /// "trap:&lt;name&gt; [args]" - each effect is fire-and-forget or self-restoring;
+    /// nothing here may make a mission unwinnable.</summary>
     private void Trap(string arg)
     {
         var tok = arg.Split(new[] { ' ', ',' }, StringSplitOptions.RemoveEmptyEntries);

@@ -259,18 +259,6 @@ public static class MissionRules
         return all;
     }
 
-    /// <summary>Which objective slots this slot actually has checks for, in
-    /// ascending order.
-    ///
-    /// The mission map draws one icon per objective in the MAP FILE's authored
-    /// list, which is not always the mission's real objective set. Farsite draws
-    /// a Totems icon and has no totems at all - measured live, and vanilla does
-    /// the same - so that icon stands for a category with no checks while its two
-    /// caches and its custom objective get no icon at all.
-    ///
-    /// This is the answer the map should be drawing instead: the objective slots
-    /// that have locations in THIS slot. On nineteen of the twenty missions it
-    /// agrees with what the game already draws, so it is a no-op there.</summary>
     /// <summary>Objective icons the map should DRAW in place of the real ones.
     ///
     /// Farsite's only required objective is slot 5, Custom, so the map draws the
@@ -304,6 +292,18 @@ public static class MissionRules
     public static int LogicalObjective(int mission, int display)
         => IconAlias.TryGetValue(mission, out var a) && a.Display == display ? a.Logical : display;
 
+    /// <summary>Which objective slots this slot actually has checks for, in
+    /// ascending order.
+    ///
+    /// The mission map draws one icon per objective in the MAP FILE's authored
+    /// list, which is not always the mission's real objective set. Farsite draws
+    /// a Totems icon and has no totems at all - measured live, and vanilla does
+    /// the same - so that icon stands for a category with no checks while its two
+    /// caches and its custom objective get no icon at all.
+    ///
+    /// This is the answer the map should be drawing instead: the objective slots
+    /// that have locations in THIS slot. On nineteen of the twenty missions it
+    /// agrees with what the game already draws, so it is a no-op there.</summary>
     public static List<int> ExpectedObjectiveIndices(SlotState state, int mission)
     {
         var found = new List<int>();

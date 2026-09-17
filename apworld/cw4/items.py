@@ -343,7 +343,7 @@ ERN_UPGRADE_MAX_COPIES = 4
 ERN_SURGE_PREFIX = "ERN Surge: "
 ERN_SURGE_ITEMS = [ERN_SURGE_PREFIX + u for u in ERN_UPGRADE_NAMES_ORDER]
 
-# Nine names, so no single one dominates the padding.
+# Ten names, so no single one dominates the padding.
 #
 #   Ammo Resupply / Energy Cache / Field Shield   one-shot, no infrastructure
 #   Resource Cache                                needs a factory, else whiffs
@@ -376,8 +376,15 @@ FILLER_ITEMS = BUILD_LIMIT_ITEMS + [ENERGY_STORAGE_ITEM, BASE_GENERATION_ITEM]
 # HELD LOOSELY, and cheap to reopen. Nothing else was removed: the ids, the
 # UnitRules mapping, UnitGate's base-capture and increment, and the yaml weight all
 # still work. If a mission is found that ships a real limit - or if limits are ever
-# introduced deliberately, which is the more likely route - putting "build_limit"
-# back in this list is the whole change.
+# introduced deliberately, which is the more likely route - reopening means adding
+# the name to PAD_ITEMS, which is what filler_sequence actually draws from.
+#
+# NOT this list. POOL_FILLER_KINDS IS READ BY NO GENERATION CODE - only by two
+# tests and tools/audit/audit.py, where it is the declaration of what SHOULD be
+# poolable. This comment used to say "putting build_limit back in this list is the
+# whole change", and docs/randomizer-design.md repeated it; following either would
+# have generated nothing while turning the item-group test green, because that
+# test derives its expectation from this same constant.
 POOL_FILLER_KINDS = [ENERGY_STORAGE_ITEM, BASE_GENERATION_ITEM]
 
 # Traps. Every effect is temporary and recoverable by design - a trap may sting,
@@ -526,11 +533,13 @@ def create_item(world, name: str) -> CW4Item:
 # says it must not do. Six is the most slack this world can take before the
 # opening stops being the player's to discover.
 #
-# The residual is therefore NOT a slack problem, and its cause is named in
-# bootstrap_opening: the fill cannot see that Greenar Refinery and Factory are a
-# PAIR, so a lone one of them opens nothing. Requiring greenar on three more
-# missions made that trap more common. A pair-aware bootstrap is the real fix;
-# slack only outlasts the trap rather than removing it.
+# The residual is therefore NOT a slack problem, and its cause is the one named in
+# bootstrap_opening: the fill cannot see that a requirement naming two items is a
+# PAIR, so a lone one of them opens nothing. The Greenar Refinery and Factory were
+# the worked case and that pair has since been merged away, which measurably
+# helped - but requiring greenar on three more missions widened the shape again. A
+# pair-aware bootstrap is the real fix; slack only outlasts the trap rather than
+# removing it.
 #
 # The cost is bounded: SAFE_OPENING is read only by bootstrap_opening, and
 # needs_bootstrap also requires this world to be alone in the multiworld, so a
@@ -601,7 +610,7 @@ def bootstrap_threshold(world) -> int:
 # (the greenar merge, 4x) or the opening wider (starter_missions 3, measured
 # 0/4800 against 8/4800 - declined by the designer).
 #
-# DO NOT TRY TO HELP ARCHIPELAGO'S FILL. Five interventions were measured on
+# DO NOT TRY TO HELP ARCHIPELAGO'S FILL. Six interventions were measured on
 # 2026-09-03 and every single one made generation WORSE or did nothing:
 #
 #     engage bootstrap_opening for standard      7x worse
@@ -621,14 +630,9 @@ def bootstrap_threshold(world) -> int:
 # one-starter option that cannot be filled reliably. Both came from the
 # designer, not from reasoning about the fill.
 #
-# DO NOT PRE-PLACE ANYTHING INTO A TWO-SLOT OPENING. Measured three separate
-# ways on 2026-09-03, and every one made generation WORSE:
-#
-#     bootstrap_opening for standard        7x worse   (1.208 vs 0.167 percent)
-#     one guaranteed broad mission unlock   8x worse   (0.278 vs 0.033 percent)
-#     a second/third early mission unlock   worse      (17 and 11 vs 0 failures)
-#
-# The mechanism, which took all three to see: with two starter missions there
+# DO NOT PRE-PLACE ANYTHING INTO A TWO-SLOT OPENING. The first three rows of the
+# table above are that experiment, and the mechanism took all three to see:
+# with two starter missions there
 # are exactly two locations reachable holding nothing, and Archipelago's fill
 # needs BOTH of them free to run its own search and swapping. Spending one to
 # guarantee something - even something as useful as a mission unlock that
@@ -727,8 +731,9 @@ def weapon_breadth(mission: int, casual: bool = False) -> int:
 # shape - the opening does not chain in the first few placements, which a
 # different order almost always fixes.
 #
-# WHY 5, MEASURED (2026-09-14, 20,000 default seeds, cap raised to 25 so the
-# depth each seed NEEDED could be recorded):
+# WHY 5 WAS ENOUGH BEFORE SPAN, MEASURED (2026-09-14, 20,000 default seeds,
+# cap raised to 25 so the depth each seed NEEDED could be recorded). Superseded
+# by the SPAN sweep further down, which is why the constant is 8:
 #
 #     1 attempt   19262   96.310 percent
 #     2 attempts    708    3.540
@@ -787,15 +792,23 @@ def weapon_breadth(mission: int, casual: bool = False) -> int:
 # never past 5.
 OWN_FILL_ATTEMPTS = 8
 
-# Every seed, or only solo ones?
+# SOLO SEEDS ONLY. place_own_progression returns immediately in any multiworld
+# that contains another game.
 #
-# The designer chose every seed (2026-09-03), reasoning that a multiworld can
-# fail too. The retry LOOP costs nothing when nothing fails, but the fill itself
-# runs every time, and that is what a multiworld pays: our progression is placed
-# into our own locations, so it can no longer live in another player's world.
-# World.needs_bootstrap records the measurement of what that is worth - "4 CW4
-# progression items per seed living in the other world" over 40 seeds. Set to
-# True to make this solo-only.
+# WHAT A MULTIWORLD WOULD PAY, which is why it is off there: our progression
+# would be placed into our OWN locations, so it could no longer live in another
+# player's world. World.needs_bootstrap measures what that is worth - "4 CW4
+# progression items per seed living in the other world" over 40 seeds - and that
+# cross-game placement is most of the point of a multiworld. The retry loop
+# itself costs nothing when nothing fails; the loss is where the items end up.
+#
+# Set to False to run the fill on every seed.
+#
+# (This comment used to say the opposite - "the designer chose every seed" - and
+# ended "Set to True to make this solo-only" directly above a constant that was
+# already True. It was wrong from the commit that introduced it and survived
+# every audit until 2026-09-17. A reader would have concluded that a multiworld
+# exercises the retry path, which it does not.)
 OWN_FILL_SOLO_ONLY = True
 
 
@@ -937,7 +950,8 @@ def force_early_mission(world) -> None:
     # LOCAL early items, per the Archipelago FAQ's first remedy for a
     # restrictive start (docs/apworld_dev_faq.md, "My game has a restrictive
     # start that leads to fill errors"). early_items may be satisfied in ANOTHER
-    # player's world (Fill.py:426-470 splits the two), which does nothing for an
+    # player's world (Fill.py splits them into early_local_prog_items and
+    # early_local_rest_items), which does nothing for an
     # opening that needs OUR locations to chain. Identical for a solo seed;
     # correct for a multiworld.
     world.multiworld.local_early_items[world.player][name] = 1
@@ -1046,9 +1060,15 @@ def bootstrap_opening(world) -> list:
         Somewhere in Spacetime - Cache 1  -> Cannon
         Somewhere in Spacetime - Reclaim  -> Factory      <- opens nothing
 
-    Totems want Greenar Refinery AND Factory, so a lone Factory is half a pair and
-    unlocks nothing; 29 items were left with nowhere to go. Archipelago cannot see
-    that the two are a pair, and it has no reason to.
+    At the time, Totems wanted Greenar Refinery AND Factory, so a lone Factory was
+    half a pair and unlocked nothing; 29 items were left with nowhere to go.
+    Archipelago cannot see that two items are a pair, and it has no reason to.
+
+    THAT PARTICULAR PAIR IS GONE - the Refinery was retired into the Factory, and
+    the merge is one of the few changes measured to make generation better. The
+    SHAPE is not gone: any requirement naming two items does the same thing, and
+    a dud pick at width one still ends the seed. The example is kept because it is
+    the clearest recorded instance of the failure, not because it can recur.
 
     WHAT THIS DOES NOT DO is script the opening. The item is drawn at random from
     everything that would actually open something, and the location from every
@@ -1225,7 +1245,7 @@ def trap_sequence(world, count: int) -> list:
 # WHAT PADS THE POOL, and why this is a placeholder rather than a design.
 #
 # Every filler kind now has a CAP: the ERN upgrades stop at 4 copies each, and
-# the two energy upgrades stop at whatever count reaches their maximum (8 each
+# the two energy upgrades stop at whatever count reaches their maximum (20 each
 # by default). Capping them was the point - a copy that does nothing is the
 # defect that got build limits pulled - but it leaves a hole:
 #

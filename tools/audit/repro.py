@@ -1,4 +1,11 @@
-"""Reproduce one failing seed and print the whole FillError, not just its head."""
+"""Reproduce one failing seed and print the whole FillError, not just its head.
+
+The faithful one: it sets options the way the generator does, so a seed that
+failed reproduces here. repro_casual.py beside it pins ONE historical casual
+seed instead and forces casual after generate_early, which moves the RNG
+stream - casualrate.py says so where it prints the command. They are kept
+apart rather than merged because that difference is the whole point of each.
+"""
 import io
 import os
 import shutil

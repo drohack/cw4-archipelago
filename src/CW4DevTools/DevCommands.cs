@@ -193,13 +193,6 @@ public sealed class DevCommands
             : $"DEVCMD spawn {name}: {made}/{count} placed");
     }
 
-    /// <summary>Open the Farsite Expedition level select from the main menu.
-    ///
-    /// Needed because synthetic mouse input does not reach CW4's UI: SetCursorPos
-    /// plus mouse_event moves the OS cursor and the game ignores the click, so
-    /// the menu cannot be driven from outside. Invoking the button's own onClick
-    /// is what actually works. (The randomizer has the same command; this is a
-    /// deliberate copy, since the dev tools must not depend on it.)</summary>
     /// <summary>What the cheat strip currently says, and how many times it has
     /// been redrawn. Colour tags are left in: green means on, and asserting on
     /// the tag is how a test reads the strip without a screenshot.</summary>
@@ -208,6 +201,13 @@ public sealed class DevCommands
         _log.LogInfo($"DEVCMD overlay: redraws={DevOverlay.Redraws} text='{DevOverlay.LastText}'");
     }
 
+    /// <summary>Open the Farsite Expedition level select from the main menu.
+    ///
+    /// Needed because synthetic mouse input does not reach CW4's UI: SetCursorPos
+    /// plus mouse_event moves the OS cursor and the game ignores the click, so
+    /// the menu cannot be driven from outside. Invoking the button's own onClick
+    /// is what actually works. (The randomizer has the same command; this is a
+    /// deliberate copy, since the dev tools must not depend on it.)</summary>
     private void StoryOpen()
     {
         try
@@ -855,18 +855,6 @@ public sealed class DevCommands
         if (fly != null) foreach (var f in fly) if (f != null) yield return f;
     }
 
-    /// <summary>Pan the level select so a named planet sits at the middle of the
-    /// view: "span:goto story20".
-    ///
-    /// This is what a player does by dragging, done precisely. It exists to
-    /// answer whether an off-cluster planet is REACHABLE - the map is drag-panned
-    /// with a clamp, so "it has a position" and "you can get to it" are separate
-    /// questions and only the second one matters.</summary>
-    /// <summary>Open the SPAN Experiments grid, the way story:open opens Farsite.
-    ///
-    /// The randomizer hides this button by default (ModConfig.ShowSpan), and a
-    /// click on an inactive GameObject does nothing and reports nothing - so
-    /// check and SAY so rather than logging a success that did not happen.</summary>
     /// <summary>Terrain, unit cells and reach constants for the live mission,
     /// written to a file for offline reachability analysis.
     ///
@@ -1019,18 +1007,6 @@ public sealed class DevCommands
         catch (Exception e) { _log.LogWarning($"DEVCMD map:dump: {e.Message}"); }
     }
 
-    /// <summary>What every totem on this map wants, per totem, with its cell.
-    ///
-    /// WHY IT MATTERS. Campaign totems all want liftic, which is why the
-    /// randomizer's totem rules demand the Factory - liftic comes from the
-    /// greenar chain. But the wanted ware is authored PER MAP, and a map that
-    /// wants something else would be gated behind an item it does not need.
-    /// With 95 totems across the SPAN roster, guessing this wrong is expensive.
-    ///
-    /// The cell is included so demand can be tied to the mod's instance
-    /// numbering, which orders structures by (cellY, cellX) ascending.
-    /// GetAmmoWareWanted is probed across all 16 ware slots rather than assuming
-    /// which one liftic is - the point is to find out.</summary>
     /// <summary>What each ware index is called, as the game itself names it.
     ///
     /// Totem demand is reported as a ware INDEX (w29, w30), which says nothing
@@ -1069,6 +1045,18 @@ public sealed class DevCommands
         catch (Exception e) { _log.LogWarning($"DEVCMD wares:names: {e.Message}"); }
     }
 
+    /// <summary>What every totem on this map wants, per totem, with its cell.
+    ///
+    /// WHY IT MATTERS. Campaign totems all want liftic, which is why the
+    /// randomizer's totem rules demand the Factory - liftic comes from the
+    /// greenar chain. But the wanted ware is authored PER MAP, and a map that
+    /// wants something else would be gated behind an item it does not need.
+    /// With 95 totems across the SPAN roster, guessing this wrong is expensive.
+    ///
+    /// The cell is included so demand can be tied to the mod's instance
+    /// numbering, which orders structures by (cellY, cellX) ascending.
+    /// GetAmmoWareWanted is probed across all 16 ware slots rather than assuming
+    /// which one liftic is - the point is to find out.</summary>
     private void TotemWares()
     {
         var gs = GameSpace.instance;
@@ -1134,6 +1122,11 @@ public sealed class DevCommands
                         $"wares[{(totals.Length == 0 ? "NONE" : totals.ToString())}]");
     }
 
+    /// <summary>Open the SPAN Experiments grid, the way story:open opens Farsite.
+    ///
+    /// The randomizer hides this button by default (ModConfig.ShowSpan), and a
+    /// click on an inactive GameObject does nothing and reports nothing - so
+    /// check and SAY so rather than logging a success that did not happen.</summary>
     private void SpanOpen()
     {
         try
@@ -1451,13 +1444,6 @@ public sealed class DevCommands
         catch (Exception e) { _log.LogWarning($"DEVCMD span:swap: {e.Message}"); }
     }
 
-    /// <summary>Select a level-select planet and launch it, the way a click
-    /// would - so a swapped planet is tested through the REAL path rather than
-    /// through span:boot, which bypasses the map entirely.
-    ///
-    /// Reports the panel's category and the mission record it produced before
-    /// launching, because those are what decide whether a SPAN map loads at all
-    /// and which save folder it lands in.</summary>
     /// <summary>Spacing between objective icons, in the container's local units.
     /// Measured off the shipped map: icon k sits at x = 0.55 * k.</summary>
     private const float GlyphSpacing = 0.55f;
@@ -1552,6 +1538,13 @@ public sealed class DevCommands
         catch (Exception e) { _log.LogWarning($"DEVCMD span:icons: {e.Message}"); }
     }
 
+    /// <summary>Select a level-select planet and launch it, the way a click
+    /// would - so a swapped planet is tested through the REAL path rather than
+    /// through span:boot, which bypasses the map entirely.
+    ///
+    /// Reports the panel's category and the mission record it produced before
+    /// launching, because those are what decide whether a SPAN map loads at all
+    /// and which save folder it lands in.</summary>
     private void SpanPlay(string guid)
     {
         if (guid.Length == 0) { _log.LogWarning("DEVCMD span:play: need a planet guid"); return; }
@@ -1601,6 +1594,13 @@ public sealed class DevCommands
         catch (Exception e) { _log.LogWarning($"DEVSAVE: {e.Message}"); }
     }
 
+    /// <summary>Pan the level select so a named planet sits at the middle of the
+    /// view: "span:goto story20".
+    ///
+    /// This is what a player does by dragging, done precisely. It exists to
+    /// answer whether an off-cluster planet is REACHABLE - the map is drag-panned
+    /// with a clamp, so "it has a position" and "you can get to it" are separate
+    /// questions and only the second one matters.</summary>
     private void SpanGoto(string guid)
     {
         if (guid.Length == 0) { _log.LogWarning("DEVCMD span:goto: need a planet guid, e.g. story20"); return; }

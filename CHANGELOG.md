@@ -32,6 +32,53 @@ the new gate, and every one of its rules was proved to fail on a deliberately
 broken tree before being trusted.
 
 
+### Documentation, comments and dead code audit
+
+A second audit read every document and every comment against the code they
+describe. Nothing in this repo validated either: `docs/randomizer-logic.md` is
+the only document that cannot lie, because `tools/audit/logictable.py`
+regenerates it from `rules.py`. Five findings could have made somebody do the
+wrong thing.
+
+- **`docs/installation.md` published three wrong option defaults**, and the
+  arithmetic derived from them: `ern_upgrade_copies` said 4 and is 2,
+  `energy_storage_copies` and `base_generation_copies` said 8 and are 20. It is
+  the page you read before generating a seed. The page also said "All 24 options
+  are listed below" while listing 24 of 25 - the missing one being
+  `span_missions`, the flag that changes which missions the seed contains.
+- **The comment on the generator's solo-only fill switch stated the opposite of
+  the constant beneath it**, and had since the commit that introduced both.
+- **A documented procedure for re-enabling build-limit items was inert.**
+  `POOL_FILLER_KINDS` is read by the audit tooling and the tests and by no
+  generation code at all; following the instructions would have generated
+  nothing while turning the item-group test green.
+- **The Archipelago-published player doc promised an item class that does not
+  exist** (build-limit increases) and omitted the ten one-shot boons that fill
+  every non-trap leftover slot. `README.md` had the same omission.
+- **`TrapEffects.cs` told a reader the trap system was unwired.** Six traps ship
+  in every seed.
+
+Alongside those: five comments and docs cited a test BY NAME as their proof and
+not one of those tests existed, three of them propping up a claim the real test
+contradicts; sixteen C# members carried two `<summary>` elements, and since only
+the first binds, every one of them was documented with text belonging to some
+other member - each has been moved to the member it actually describes.
+`docs/randomizer-design.md` documented four yaml options that do not exist, said
+Farsite cannot start a seed when it can, and disagreed with itself about how many
+missions need the greenar chain.
+
+Retired, with every reference repaired in the same change: the eleven `ern-*.sh`
+measurement harnesses (2,448 lines - one-shots whose numbers are tabulated in
+`docs/ern-upgrade-measurements.md`), a frozen HTML copy of the audit report, the
+SPAN phase-0 spike, the playtest repro harness and a screenshot script the
+in-game `shot:` command replaced.
+
+`tools/check-docs.py` is the new gate, with six rules, and it has its own CI job.
+Two of the six did not catch their deliberate break on the first try - both
+because the scan could not see Python docstrings, which is where most of this
+repo's prose lives - and were fixed rather than shipped green.
+
+
 **This is a pre-release.** The feature below is off unless you turn it on, and a
 seed that leaves it off plays exactly as v0.1.10 did: the campaign's 236 location
 ids did not move, a test now fails if they ever do, and the roster of a
@@ -97,18 +144,14 @@ a success, and no released seed ever hit the old limit.
   one driver, and it was not the one expected: not the opening width, but
   WEAPON BREADTH - how many of the whole roster's checks the first weapon opens.
 
-  | retry depth | seeds | mean weapon breadth |
-  |---|---|---|
-  | 1 | 3,888 | 10.5 |
-  | 2 | 98 | 8.9 |
-  | 3 | 13 | 8.0 |
-  | 4 | 1 | 5.0 |
-
-  The campaign's breadth is 9, concentrated in five missions, and a campaign
-  seed always contains all five. SPAN carries 16 more across five maps, so a
-  mixed roster averages MORE than the campaign - the problem is variance:
-  drawing 19 from 45 can miss nearly all ten, and 6 of those 4,000 seeds had
-  zero breadth, meaning the first weapon opened nothing anywhere in the seed.
+  Mean breadth falls monotonically with depth (10.5 at depth 1 down to 5.0 at
+  depth 4) while opening width does not move at all. The campaign's breadth is 9
+  and a campaign seed always contains all five missions that carry it, so the
+  problem is variance rather than a worse average: drawing 19 missions from 45
+  can miss nearly all of them, and 6 of those 4,000 seeds had zero breadth. The
+  per-depth table and the reasoning are in
+  [docs/design/2026-09-14-fill-reliability.md](docs/design/2026-09-14-fill-reliability.md),
+  and the constant they justify is `items.MIN_ROSTER_BREADTH`.
 
   Two fixes. The roster now swaps breadth in until it reaches the campaign's own
   9, stated as "never narrower than the campaign" rather than as an invented

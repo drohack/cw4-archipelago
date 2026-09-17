@@ -44,7 +44,14 @@ public sealed class SlotData
     [JsonPropertyName("mission_titles")]
     public Dictionary<string, string> MissionTitles { get; set; } = new();
 
-    /// <summary>Whether this seed mixed in the SPAN Experiments.</summary>
+    /// <summary>Whether this seed mixed in the SPAN Experiments.
+    ///
+    /// DELIBERATELY UNREAD by the mod, like MissionTitles above. Which missions
+    /// a seed contains is already implied by the locations and the unlock items,
+    /// so nothing here needs the flag - but a tracker reading the same slot data
+    /// cannot infer the SETTING from that, only its consequences, and the
+    /// difference matters when a seed happens to draw no SPAN mission at all.
+    /// Do not delete it as dead: it is part of the published contract.</summary>
     [JsonPropertyName("span_missions")]
     public bool SpanMissions { get; set; }
 
@@ -168,6 +175,12 @@ public sealed class SlotData
 
     public string ToJson() => JsonSerializer.Serialize(this);
 
+    /// <summary>The requirement groups for a whole mission.
+    ///
+    /// Reached only from tests today - the tracker asks per LOCATION, which is
+    /// ForLocation below. It stays because the mission-level table is what the
+    /// generator writes and a consumer of this slot data may legitimately want
+    /// it; the test is what proves the shape survives a round trip.</summary>
     public IReadOnlyList<IReadOnlyList<string>> ForMission(string specifier)
         => MissionRequirements.TryGetValue(specifier, out var g) ? g : NoGroups;
 

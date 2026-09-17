@@ -31,7 +31,9 @@ MARK=0
 mark() { MARK=$(wc -l < "$LOG" 2>/dev/null || echo 0); }
 since() { tail -n +"$((MARK+1))" "$LOG" 2>/dev/null; }
 
-# The 26 maps, guid|title, from tools/span-spike.sh (DEVPLANET lines).
+# The 26 maps, guid|title. Captured from the DEVPLANET lines of the phase-0
+# spike, which has since been retired; span:list in CW4DevTools is how to
+# regenerate this table.
 read -r -d '' MAPS <<'EOF' || true
 knucracker1|Forgotten Fortress
 knucracker2|Four Pieces

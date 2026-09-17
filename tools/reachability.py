@@ -1,7 +1,8 @@
 """Which objectives need a MOVER to reach, computed from the terrain.
 
     python tools/reachability.py                 # the Farsite control set
-    python tools/reachability.py story19         # one map
+    python tools/reachability.py 19              # one campaign mission, by NUMBER
+    python tools/reachability.py --span          # the SPAN roster
 
 THE MODEL, from the designer's rules (2026-09-15):
 
@@ -421,7 +422,6 @@ def span_report():
 
 
 def analyse_quiet(mission):
-    import io as _io
     path = os.path.join(MAPS, mission + '.map')
     if not os.path.exists(path):
         return None

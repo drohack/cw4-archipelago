@@ -9,19 +9,23 @@ namespace CW4Archipelago.Appliers;
 /// Nothing here may make a mission unwinnable - no terrain deformation, no
 /// destroying the rift lab, no permanent difficulty change.
 ///
-/// Six effects, from the traps spike (docs/design/2026-08-26-traps-spike.md):
-/// spore strike, creeper surge, energy drain, emitter burst, unit stun, weapon
-/// drain. Five are fire-and-forget; only the emitter burst carries state, and
-/// ModCore.Tick drives its restore.
+/// Seven effects, from the traps spike (docs/design/2026-08-26-traps-spike.md):
+/// spore strike, spore scatter, creeper surge, energy drain, emitter burst, unit
+/// stun, weapon drain. Six are fire-and-forget; only the emitter burst carries
+/// state, and ModCore.Tick drives its restore.
 ///
-/// Five depend only on what EVERY mission has (world grid, energy store, the
+/// Six depend only on what EVERY mission has (world grid, energy store, the
 /// player's units, the spore system). The emitter burst is the exception: it
-/// no-ops where a mission ships no emitters, which is a balance caveat, not a
-/// bug. Re-fog was the one effect dropped outright - see the block at the end.
+/// no-ops where a mission ships no emitters, which is why it alone is kept out
+/// of the generated pool - see items.POOL_TRAP_ITEMS. Re-fog was the one effect
+/// dropped outright - see the block at the end.
 ///
-/// Reachable only through the "trap:" commands in the separate debug plugin
-/// (src/CW4Archipelago.Debug), which no release contains; wiring them to real
-/// AP items is a separate step.
+/// THESE RUN IN A PLAYER'S GAME. TrapApplier dispatches every one of them from
+/// received AP items, and six ship in the pool of every seed at
+/// trap_percentage. The debug plugin's "trap:" commands are an additional way in
+/// for testing, not the only one - this summary used to say wiring them to real
+/// AP items was "a separate step", which would tell a reader the whole file is
+/// dev-only scaffolding that cannot reach a player.
 /// </summary>
 public static class TrapEffects
 {
@@ -140,10 +144,6 @@ public static class TrapEffects
 
     // --- 1. spore strike --------------------------------------------------
 
-    /// <summary>Launches a small wave of spores with RANDOM targeting from
-    /// random map cells. SporeLauncher.CreateSpore is static, so this needs no
-    /// launcher unit and works on every mission. The player can shoot them
-    /// down, which is what makes this the friendliest trap of the four.</summary>
     /// <summary>Trap variant 1 - "spore strike": a scatter at random map
     /// points. Exactly what the game's own launchers do, so it is the fair,
     /// authentic version - it may land somewhere harmless.</summary>
@@ -162,6 +162,10 @@ public static class TrapEffects
     public static void SporeStrike(int count, int payload)
         => SporeStrike(count, payload, SporeTargeting);
 
+    /// <summary>Launches a small wave of spores, aimed per aimMode.
+    /// SporeLauncher.CreateSpore is static, so this needs no launcher unit and
+    /// works on every mission. The player can shoot the spores down, which is
+    /// what makes every variant of this the friendliest trap in the set.</summary>
     public static void SporeStrike(int count, int payload, SporeAim aimMode)
     {
         var gs = Live("spore");

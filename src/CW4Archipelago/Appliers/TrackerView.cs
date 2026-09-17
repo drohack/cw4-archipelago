@@ -444,10 +444,6 @@ public sealed class TrackerView
 }
 
 /// <summary>
-/// Swallows clicks on a locked planet so the mission popup (with its
-/// non-functional Play button) never opens. Unlocked planets click normally.
-/// </summary>
-/// <summary>
 /// The mission map just opened, so the planets now exist.
 ///
 /// Span is the map's own controller and its Start runs when the panel opens.
@@ -583,6 +579,10 @@ public static class PlanetUnlockedSetPatch
     public static void Postfix() => TrackerDiag.UnlockedSets++;
 }
 
+/// <summary>
+/// Swallows clicks on a locked planet so the mission popup (with its
+/// non-functional Play button) never opens. Unlocked planets click normally.
+/// </summary>
 [HarmonyPatch(typeof(SpanNetworkPlanet), nameof(SpanNetworkPlanet.OnPointerClick))]
 public static class PlanetClickPatch
 {

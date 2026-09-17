@@ -56,8 +56,8 @@ actual movement speed at 200 percent.
 measured 33 ticks - about 11x base - which made construction near instant and
 dwarfed the +62.5 percent that four copies of Energy Production buy.
 
-Designer's target: "double the 100 percent", i.e. 93 ticks. Swept with
-`tools/ern-buildcap-test.sh`, every level twice in one session:
+Designer's target: "double the 100 percent", i.e. 93 ticks. Swept in-game with
+the (now retired) `ern-buildcap-test.sh`, every level twice in one session:
 
 | ceiling | build ticks | vs the 100 percent rate |
 |---|---|---|
@@ -184,7 +184,7 @@ nothing until something mines it. Contributing causes, in the order they were
 found:
 
 - **Missions 2 to 4 have no resource nodes at all.** Every early attempt ran on
-  story2. `tools/ern-ore-scan.sh` maps the campaign: nodes appear in story5 (1),
+  story2. `ern-ore-scan.sh` mapped the campaign: nodes appear in story5 (1),
   story6 (4), story7 (1), story8 (1), story10 (1), story12 (6), story15 (3).
 - **`allowed=[riftlab,tower]` was OUR OWN randomizer**, not the mission. Miner,
   Factory and Greenar Refinery are Archipelago unlock items
@@ -193,8 +193,14 @@ found:
   top of the dev tools' cheat.
 - Even with both fixed, placing a miner and factory by script did not wake a
   node. The economy was built BY HAND in the end
-  (`tools/ern-mine-setup.sh` prepares the mission and stands aside,
-  `tools/ern-mine-measure.sh` attaches to the running game and measures).
+  (`ern-mine-setup.sh` prepared the mission and stood aside,
+  `ern-mine-measure.sh` attached to the running game and measured).
+
+**Mine Production is written off as UNMEASURED BY SCRIPT, deliberately.** The
+by-hand economy above is the only reading that was ever taken, the scripted route
+defeated several sessions, and with the harnesses retired nobody is part-way
+through it. If the number is wanted again it is a fresh piece of work, not a
+resumption.
 
 ### Wait for the rate to settle
 
@@ -220,15 +226,28 @@ by some way. Worth a balance pass now that all six are known.
 
 ## Tools
 
+**The eleven `ern-*.sh` harnesses were DELETED on 2026-09-16.** Every one was a
+one-shot: it drove the game to take a reading, the reading is tabulated above,
+and nothing re-runs them. They are named here, and at the measurements they
+produced, as the record of HOW each number was taken - not as paths to open. Any
+re-measurement wants a fresh harness against today's build anyway, and
+`tools/apbattery.sh` is the working model for writing one.
+
+| retired harness | what it measured |
+|---|---|
+| `ern-all-upgrades.sh` | static observables for all six, before/after |
+| `ern-rate-tests.sh` | Energy Production and Build Speed, timed in-loop |
+| `ern-buildcap-test.sh` | the Build Speed ceiling sweep |
+| `ern-move-test.sh` | Move Speed, by relocating a cannon |
+| `ern-ui-check.sh` | the ramp, and what the port panel displays |
+| `ern-field-diff.sh` | dump every primitive property and diff it |
+| `ern-ore-scan.sh` | which missions have resource nodes |
+| `ern-mine-setup.sh` / `ern-mine-measure.sh` | the by-hand Mine Production economy |
+| `ern-mine-test.sh` | Mine Production, by script - see below, it never worked |
+| `ern-upgrade-test.sh` | the per-upgrade plateau sweep |
+
 | tool | measures |
 |---|---|
-| `tools/ern-all-upgrades.sh` | static observables for all six, before/after |
-| `tools/ern-rate-tests.sh` | Energy Production and Build Speed, timed in-loop |
-| `tools/ern-move-test.sh` | Move Speed, by relocating a cannon |
-| `tools/ern-ui-check.sh` | the ramp, and what the port panel displays |
-| `tools/ern-field-diff.sh` | dump every primitive property and diff it |
-| `tools/ern-ore-scan.sh` | which missions have resource nodes |
-| `tools/ern-mine-test.sh` | Mine Production (incomplete, see above) |
 | `tools/reflect` | find a member in the interop assembly, no game launch |
 
 Debug commands added for this work: `ern:dump` (both accessors), `ern:stats`,

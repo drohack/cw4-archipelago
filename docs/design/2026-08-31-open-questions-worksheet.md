@@ -9,8 +9,10 @@ Tower of Darkness by playing it.
   not a requirement. the snipers are a little more important." Then: "snipers are
   not needed, but nice to haves. you can beat the level without them." Economy
   stays out of logic; snipers stay difficulty-tier, and explicitly not a hedge.
-  Pinned by
-  `test_miner_gates_nothing` and `test_sniper_on_tower_of_darkness_is_casual_only`.
+  Pinned by `test_sniper_on_tower_of_darkness_is_casual_only`. NOTE, added
+  2026-09-17: the economy half of this answer has since been overturned -
+  `test_miner_appears_only_where_verified` pins a Miner requirement on six
+  missions. The citation here was to a test name that never existed.
 - **Porter is `DeliveryPad` + `DeliveryDrone`**, both already whitelisted, both
   reading `=MINE`, with `ReportSkippedBuild` silent about them. No coverage gap
   ever existed.

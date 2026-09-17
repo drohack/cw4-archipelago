@@ -45,7 +45,7 @@ public static class VersionRules
              + "wrong, install the matching versions from the same release.";
     }
 
-    /// <summary>Whether the two disagree, for callers that only need the flag.</summary>
-    public static bool Mismatched(string modVersion, string seedVersion)
-        => Describe(modVersion, seedVersion) != null;
+    // A bool Mismatched(mod, seed) also lived here. Nothing but its own test ever
+    // called it - the mod wants the MESSAGE, and Describe returning null answers
+    // the same question - so it went on 2026-09-16 rather than being kept warm.
 }

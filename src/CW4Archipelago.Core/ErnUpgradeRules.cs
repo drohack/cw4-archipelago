@@ -73,7 +73,23 @@ public static class ErnUpgradeRules
     /// is the axis that changes power, and that is capped much lower.</summary>
     public const float MaxRateMultiplier = 4f;
 
-    /// <summary>The ceiling each upgrade is allowed to reach, BY INDEX.
+    /// <summary>Index of Build Speed, the one upgrade that needs its own
+    /// ceiling. Asserted against the game's constants at runtime by
+    /// ErnUpgrades.CheckIndexOrder.</summary>
+    public const int BuildSpeedIndex = 2;
+
+    /// <summary>Test-only override, so one game session can sweep candidate
+    /// ceilings instead of costing a rebuild and relaunch per value. Null means
+    /// use the configured values. Never set in normal play.</summary>
+    public static float? CeilingOverride;
+
+    /// <summary>The ceiling one upgrade may reach, from the player's configured
+    /// percents.
+    ///
+    /// Almost every upgrade responds linearly to efficiency, so the same value
+    /// serves them all. BUILD SPEED DOES NOT - see
+    /// SlotData.ErnCapMaxBuildSpeedPercent - so it takes its own.</summary>
+    /// <remarks>The ceiling each upgrade is allowed to reach, BY INDEX.
     ///
     /// Almost every upgrade responds linearly to efficiency, so a 2.0 ceiling
     /// delivers about twice the effect and the number a player reads (200
@@ -92,7 +108,8 @@ public static class ErnUpgradeRules
     /// not derived from the fit above, and the fit is exactly why: it predicted
     /// 1.64 for 93 ticks, and 1.7 really lands on 54.
     ///
-    /// Swept with tools/ern-buildcap-test.sh, every level twice, one session:
+    /// Swept in-game, every level twice, one session. The harness was one-shot
+    /// and has been retired; docs/ern-upgrade-measurements.md is the record:
     ///
     ///     eff 1.0 -> 186 ticks      the 100 percent reference
     ///     eff 1.4 ->  99
@@ -106,23 +123,7 @@ public static class ErnUpgradeRules
     /// (1.88x the 100 percent rate) or 78 (2.38x). 99 is nearest the target and
     /// errs on the conservative side. 1.5 also gives a clean +12.5 percent per
     /// copy, and sits on the 1.4-1.5 plateau so it is not sensitive to small
-    /// changes.</summary>
-    /// <summary>Index of Build Speed, the one upgrade that needs its own
-    /// ceiling. Asserted against the game's constants at runtime by
-    /// ErnUpgrades.CheckIndexOrder.</summary>
-    public const int BuildSpeedIndex = 2;
-
-    /// <summary>Test-only override, so one game session can sweep candidate
-    /// ceilings instead of costing a rebuild and relaunch per value. Null means
-    /// use the configured values. Never set in normal play.</summary>
-    public static float? CeilingOverride;
-
-    /// <summary>The ceiling one upgrade may reach, from the player's configured
-    /// percents.
-    ///
-    /// Almost every upgrade responds linearly to efficiency, so the same value
-    /// serves them all. BUILD SPEED DOES NOT - see
-    /// SlotData.ErnCapMaxBuildSpeedPercent - so it takes its own.</summary>
+    /// changes.</remarks>
     public static float CeilingFor(int index, int capMaxPercent, int buildSpeedMaxPercent)
     {
         if (CeilingOverride.HasValue) return CeilingOverride.Value;

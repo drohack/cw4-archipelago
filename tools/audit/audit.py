@@ -71,7 +71,6 @@ sys.path.insert(0, AP)
 os.environ.setdefault("SKIP_REQUIREMENTS_UPDATE", "1")
 
 from worlds.cw4 import items as I, locations as L, rules as R, groups as G  # noqa: E402
-from worlds.cw4 import options as O  # noqa: E402
 
 print(f"[1/6] step 1/6: location table", flush=True)
 loc_names = list(L.LOCATION_NAME_TO_ID)

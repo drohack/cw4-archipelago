@@ -73,9 +73,6 @@ public sealed class ApMessageBox
     private const float BaseBodyFont = 12f;
     private const float BaseTitleFont = 11f;
     private RectTransform? _content;
-    /// <summary>How many frames to keep re-pinning after content changes. Three
-    /// is enough for the layout group, the size fitter and TMP to agree in
-    /// practice; it costs one assignment per frame while it runs.</summary>
     /// <summary>How long to keep ignoring scrollbar movement after the content
     /// height changes. The bar moves as a CONSEQUENCE of the layout, and those
     /// moves must not be read as the player dragging it - that is what left the
@@ -89,7 +86,10 @@ public sealed class ApMessageBox
     private bool _collapsed;
     private bool _autoScroll = true;
 
-    /// <summary>Frames left to keep re-pinning the view to the bottom.
+    /// <summary>Content height last frame, and a countdown since it last
+    /// changed. Together these say "the layout is still moving", which is the
+    /// only thing this needs to know.</summary>
+    /// <remarks>Why the grace counter exists at all.
     ///
     /// One ScrollToBottom at render time is not enough. The content uses a
     /// VerticalLayoutGroup with a PreferredSize ContentSizeFitter, and TMP
@@ -99,15 +99,10 @@ public sealed class ApMessageBox
     /// a mission with a full history landed in the MIDDLE of the log.
     ///
     /// Canvas.ForceUpdateCanvases does not cover it: it flushes the canvas, not
-    /// TMP's own pass. Re-applying across a few frames does.</summary>
-    /// <summary>Content height last frame, and a countdown since it last
-    /// changed. Together these say "the layout is still moving", which is the
-    /// only thing this needs to know.</summary>
+    /// TMP's own pass. Re-applying across a few frames does.</remarks>
     private float _lastHeight = -1f;
     private int _layoutGrace;
 
-    /// <summary>Content height last frame, and how long it has been unchanged.
-    /// The pin stops when the layout stops moving, not after a fixed count.</summary>
     /// <summary>Set while this code is the one moving the scrollbar, so its
     /// own writes are not mistaken for the player scrolling.</summary>
     private bool _applyingScroll;

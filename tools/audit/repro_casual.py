@@ -15,6 +15,10 @@ belongs in whatever 0.6.7's Fill.py does differently. If it fails, the world has
 a genuine opening too narrow for casual logic and `items.bootstrap_opening`
 needs to cover casual the way it already covers `starter_missions: 1`.
 
+For a seed that came out of a sweep rather than out of CI, use repro.py: it
+sets options the generator's way, so the RNG stream matches and the seed
+actually reproduces. This script trades that away to pin the CI case exactly.
+
 Run from inside the Archipelago clone:
 
     python ../tools/audit/repro_casual.py [seed]

@@ -578,11 +578,6 @@ public static class DevTools
 
     private const int WareSlots = 16;
 
-    /// <summary>Energy really infinite. The first version aimed at
-    /// max(100, production * 10), which tracked production rather than demand and
-    /// so still ran dry under heavy building. Writing a large value every frame is
-    /// simpler and cannot stall: if the sim clamps it to capacity, it is clamped
-    /// to FULL every frame, which is the same thing from the player's side.</summary>
     /// <summary>Infinite energy, done through the value the game actually uses.
     ///
     /// This was WRONG for a long time and the fix is worth recording. It used to
@@ -600,6 +595,11 @@ public static class DevTools
     ///
     /// So: lift the ceiling, keep the tank full, and restore the ceiling on
     /// release.</summary>
+    /// <remarks>Energy really infinite. The first version aimed at
+    /// max(100, production * 10), which tracked production rather than demand and
+    /// so still ran dry under heavy building. Writing a large value every frame is
+    /// simpler and cannot stall: if the sim clamps it to capacity, it is clamped
+    /// to FULL every frame, which is the same thing from the player's side.</remarks>
     private static float _savedMaxAmmo = -1f;
 
     /// <summary>Extra energy per second injected into the rift lab. Applied HERE

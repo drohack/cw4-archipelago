@@ -86,7 +86,7 @@ To check the world loaded, the generator prints a line per game; look for
 ## Yaml options
 
 Every option has a default, so a yaml that names none of them generates a
-sensible seed. All 24 are listed below; the yaml template shipped with the
+sensible seed. All 25 are listed below; the yaml template shipped with the
 release carries each option's full description, and this table is the summary.
 
 **The ones most worth setting:**
@@ -96,6 +96,7 @@ release carries each option's full description, and this table is the summary.
 | `missions_for_finale` | 12 | 0 to 19 | How many other missions must be completable before the finale can be won. 0 disables the gate |
 | `logic_difficulty` | standard | standard, casual | `standard` assumes only what is needed to WIN. `casual` also assumes a sniper or missile launcher from We Were Never Alone onward, so anti-air arrives earlier |
 | `starter_missions` | 2 | 2 to 6 | How many missions start unlocked, drawn from those whose cache needs no weapon. The minimum was 1 until 2026-09-03: one starter is a one-location opening, and about one seed in 400 failed to generate from it, so the floor is now 2 |
+| `span_missions` | off | on, off | **Experimental.** Mixes the game's 26 SPAN Experiment maps in with the campaign, so the 19 missions behind the goal are drawn from all 45. The level select still holds 20 planets and the goal is still Founders. Their requirements were derived from the game data rather than played, so the logic over-requires: expect a seed harder than it needs to be rather than one that cannot be finished |
 | `early_weapon` | random | mortar, cannon, random | Which of Cannon and Mortar is guaranteed to arrive first, in the very first sphere. `mortar` is the slower opening, `cannon` the brisk one. It does not affect when the OTHER weapon arrives - that is about two thirds of the way in either way |
 | `trap_percentage` | 50 | 0 to 100 | Share of the non-progression slots that are traps. **50 is a lot in a solo game** - lower it if they grate. 0 removes them |
 | `progressive_erns` | 4 | 0 to 40 | How many Progressive ERN items go in the pool. ERNs are never required, so this is purely pool budget |
@@ -105,7 +106,7 @@ measured values, not guesses - see `docs/ern-upgrade-measurements.md`.
 
 | Option | Default | Range | What it does |
 |---|---|---|---|
-| `ern_upgrade_copies` | 4 | 0 to 4 | Copies of each of the twelve ERN port upgrade items (a Rate and a Cap for each of six upgrades), so the default puts 48 in the pool. 4 is the ceiling, not a preference: the fourth copy is the one that lands on the maximum |
+| `ern_upgrade_copies` | 2 | 0 to 4 | Copies of each of the twelve ERN port upgrade items (a Rate and a Cap for each of six upgrades), so the default puts 24 in the pool. 4 is the ceiling, not a preference: at 4 copies the fourth is the one that lands on the maximum. The default is 2 because 45 percent of these were arriving before the ERN Portal that makes them work |
 | `ern_rate_max` | 400 | 100 to 800 | What four Rate copies are worth as a percent of the game's own fill speed. 400 turns 3600 ticks to full efficiency into 900 |
 | `ern_cap_max` | 200 | 100 to 400 | How far four Cap copies raise an upgrade's ceiling. 200 is double the game's own |
 | `ern_cap_max_build_speed` | 150 | 100 to 400 | The Cap maximum for BUILD SPEED only, which needs its own value because the game shortens build time steeply and non-linearly |
@@ -117,9 +118,9 @@ divided by the count.
 | Option | Default | Range | What it does |
 |---|---|---|---|
 | `energy_storage_max` | 200 | 0 to 900 | How much the rift lab's energy STORE grows at full stack. The lab's own store is about 100, so 900 is roughly 1000 total |
-| `energy_storage_copies` | 8 | 0 to 36 | Progressive Energy Storage items in the pool. 200 over 8 is 25 each |
+| `energy_storage_copies` | 20 | 0 to 36 | Progressive Energy Storage items in the pool. 200 over 20 is 10 each |
 | `base_generation_max` | 10 | 0 to 100 | Energy per second the rift lab GENERATES at full stack - income, not store. CW4's own production is about 3 to 4/sec, so 10 roughly triples the economy |
-| `base_generation_copies` | 8 | 0 to 36 | Progressive Base Generation items in the pool. 10 over 8 is 1.25 each |
+| `base_generation_copies` | 20 | 0 to 36 | Progressive Base Generation items in the pool. 10 over 20 is 0.5 each |
 
 **Trap weights.** Six options, `0 to 100`, all defaulting to 100, setting the
 relative frequency of each trap within the `trap_percentage` share:

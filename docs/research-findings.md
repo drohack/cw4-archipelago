@@ -800,9 +800,10 @@ testing - real players launch from the (AP-gated) galaxy UI.
   by rebuilding only all[0].
 - flags diagnostic (actual vs wanted per unit): all 26 matched, no write
   battle from mission scripts - per-frame enforcement wins cleanly.
-- Visual verification is self-service: PowerShell CopyFromScreen screenshot
-  (scratchpad/screenshot.ps1) + Read the PNG. No human eyes needed for pane
-  checks.
+- Visual verification is self-service: the in-game `shot:<path>` command (both
+  debug channels have it) + Read the PNG. No human eyes needed for pane checks.
+  This used to be a PowerShell CopyFromScreen script; `shot:` renders what the
+  game draws rather than what the desktop shows, so the script was retired.
 - Verified via screenshot: mission start shows ONLY whitelisted units.
 
 ### Probe command protocol v0.16 (BepInEx/probe-unlocks.txt)

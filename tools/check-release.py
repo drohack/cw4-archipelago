@@ -28,10 +28,10 @@ WHAT IT CHECKS, and why each rule earned its place rather than being a tidy idea
                         with its top section naming a different version.
 
   dev plugin versions   CW4Archipelago.Debug and CW4DevTools each state their
-                        version twice - csproj and [BepInPlugin] - with nothing
-                        holding the halves together. The shipping plugin fixed
-                        exactly this by making the attribute read the constant.
-                        Neither ships, so this is low severity and listed last.
+                        version twice - csproj and [BepInPlugin]. Both now read
+                        the same constant, as the shipping plugin already did;
+                        this rule is what keeps them that way. Neither ships, so
+                        it is low severity and listed last.
 
   artifact rules        Only with --apworld / --zip. These are the ones the audit
                         was really about: the .apworld must carry no test/ and

@@ -13,7 +13,6 @@ public class VersionRulesTests
     public void MatchingVersionsSayNothing()
     {
         Assert.Null(VersionRules.Describe("0.2.0", "0.2.0"));
-        Assert.False(VersionRules.Mismatched("0.2.0", "0.2.0"));
     }
 
     [Fact]
@@ -35,7 +34,6 @@ public class VersionRulesTests
         // A message that does not name BOTH numbers cannot be acted on.
         Assert.Contains("0.1.5", note);
         Assert.Contains("0.2.0", note);
-        Assert.True(VersionRules.Mismatched("0.1.5", "0.2.0"));
     }
 
     [Fact]

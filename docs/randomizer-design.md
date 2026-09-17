@@ -23,9 +23,12 @@ See also: [AP feature comparison + recommendations](design/2026-08-26-ap-feature
 
 ## Scope
 
-- Official Farsite Expedition campaign only: story1..story20 (story0 tutorial
-  exempt and hidden). SPAN Experiments (26 missions) is a stretch goal - it
-  shares the SpanNetworkPlanet map system.
+- Farsite Expedition campaign: story1..story20 (story0 tutorial exempt and
+  hidden). The 26 SPAN Experiments SHIPPED, behind the `span_missions` yaml
+  toggle and off by default - they share the SpanNetworkPlanet map system. Their
+  requirements were derived rather than played, which is what the toggle's
+  default is protecting; see
+  [the SPAN worksheet](design/span-requirements-worksheet.md).
 - **Goal: beat story19, Founders.** Its completion is the Victory event
   (`VICTORY_EVENT` in `apworld/cw4/locations.py`, `FINAL_MISSION = 19`).
 - The finale is additionally gated on a COUNT of other missions completed -
@@ -263,9 +266,10 @@ Addendum (user, 2026-08-26) - objective requirements:
 - **Totems objective requires greenar**: totems are activated by feeding them
   greenar, so the greenar chain (Greenar Refinery) is required wherever a
   Totems objective is a location. Encoded in rules.objective_requirements.
-  CORRECTED: **11** missions carry the chain - 5, 7, 8, 9, 10, 12, 13, 14, 15,
-  16, 20. Missions 2, 3 and 4 require NOTHING for their totems: they run off
-  loose liftic caches, so there is deliberately no type-wide Totems rule.
+  CORRECTED: **14** of the twenty carry the chain - 5, 7, 8, 9, 10, 11, 12, 13,
+  14, 15, 16, 18, 19, 20. Missions 2, 3 and 4 require NOTHING for their totems:
+  they run off loose liftic caches, so there is deliberately no type-wide Totems
+  rule.
 - **Nullify objective requires the Nullifier.** CORRECTED: this is now
   **type-wide on all 20 missions**, not four. Encoding it only on the missions
   that require nullifying left every OPTIONAL nullify target reachable
@@ -318,7 +322,10 @@ arrives, stated mission by mission in the worksheet ("You can get the item
 immediately with rift lab and single tower"): missions 2, 3, 4, 5, 7, 10, 11, 13,
 14. Archon is the tenth for a different reason - its caches are buried, but "If
 you have a pylon and a terp you can get the 2nd item (no weapons needed)", so a
-terp and a pylon stand in for the weapon.
+terp stands in for the weapon. The PYLON half of that quote is deliberately not
+encoded: the terrain analysis found Archon is one tower-connected land component
+end to end, so nothing there can need a Pylon for reach. See the comment above
+WAIVES_INSTANCE's neighbours in rules.py, which records the rule this replaced.
 
 This is what makes a starting weapon unnecessary, and it is why cannon, mortar and
 sprayer can all stay real checks rather than one being handed over up front.
@@ -330,18 +337,24 @@ Founders, Ever After.
 
 ### Per-objective requirements
 
-| Objective | Requirement |
+WHAT each check needs is in [randomizer-logic.md](randomizer-logic.md), which
+`tools/audit/logictable.py` regenerates from `rules.py` and which is therefore
+the only document here that cannot drift. This table used to restate it and had
+drifted in four rows; it now carries only the WHY, which the generated table has
+no room for.
+
+| Objective | Why it is written the way it is |
 |---|---|
-| Nullify on 2, 20 | Nullifier |
-| Nullify on 11 Shattered | Nullifier + (Porter OR Platform) to cross space |
-| Nullify on 15 Tower of Darkness | Nullifier + Chronat (beacon, to reach the centre) |
-| Totems on 2, 3, 4 | nothing - powered from loose liftic caches |
-| Totems on 5, 7, 8, 9, 10, 12, 13, 14, 15, 16, 20 | Greenar Refinery + Factory |
-| Reclaim on 6 | HEDGED: Nullifier ("probably nessesary") |
-| Collect on 12 Archon | Terp + Pylon (buried; no weapon needed) |
-| Collect on 16, 17, 18 | Terp (buried) |
-| Collect on 19 Founders | Terp + Chronat + Platform |
-| Custom on 19 Founders | Nullifier + Platform (the obelisk reactors, then the neutron reactor) |
+| Nullify, every mission | TYPE-WIDE rather than per-mission. Encoding it only where nullifying is required left every OPTIONAL nullify target - about 120 locations - reachable bare-handed. |
+| Nullify on 11 Shattered | The targets are across open space, so a mover earns its place here. |
+| Nullify on 15 Tower of Darkness | A Chronat beacon is the only way to reach the centre. |
+| Totems on 2, 3, 4 | The exception to the type-wide Totems rule: these three run off loose liftic caches and need nothing. |
+| Totems, the other fourteen | Greenar feeds the totems, and the chain is ONE item (Refinery and Factory were merged), so the rule names the Factory alone. |
+| Reclaim on 6 The Compound | HEDGED. The requirement is the designer's "probably nessesary", not a measurement, and is flagged so it can be revisited. |
+| Collect on 12 Archon | Buried, so a Terp - but see above: the Pylon in the source quote is deliberately NOT required. |
+| Collect on 16, 17, 18 | Buried - Terp. |
+| Collect on 19 Founders | Buried AND behind the land bridge Founders grows as it plays, so a Chronat as well. |
+| Custom on 19 Founders | The obelisk reactors and then the neutron reactor, which is why it needs a mover on top of the Nullifier. |
 
 ### Structural rules
 
@@ -468,15 +481,17 @@ The only real constraint on the opening is that something must be reachable with
 an empty inventory, or the generator has nowhere to place a first item. That
 means a mission whose cache can be taken with the rift lab and a single tower.
 Nothing requires the campaign to start at its beginning - missions are open - so
-the starters are drawn at random from the nine that qualify (2, 3, 4, 5, 7, 10,
-11, 13, 14) and every seed opens somewhere different. `starter_missions` sets how
-many, default 2.
+the starters are drawn at random from the ten that qualify (1, 2, 3, 4, 5, 7,
+10, 11, 13, 14 - `items.STARTER_ELIGIBLE`) and every seed opens somewhere
+different. `starter_missions` sets how many, default 2.
 
-Farsite is NOT eligible despite being mission 1: its Custom objective and rift
-jump both need a weapon, and although its first cache is free, its second is not
-- instances of an objective share a rule, so that pair cannot be split. Archon is
-excluded for a different reason: it waives the weapon but its caches are buried
-behind a Terp and a Pylon.
+Farsite IS eligible, and getting there took a rule change. Its first cache is
+free and its second is not, and while a waiver was keyed by (mission, kind) the
+two shared one rule - so mission 1 was excluded entirely, making it the only
+mission that could never open a seed. Waivers are now keyed by INSTANCE
+(`rules.WAIVES_INSTANCE`), an instance being a specific structure ordered by map
+cell, so Farsite waives cache 1 alone. Archon stays excluded: it waives the
+weapon, but its caches are buried behind a Terp.
 
 `items.force_early_mission` additionally forces one more free-cache unlock that
 is not already a starter, so the opening always widens. Without something like
@@ -519,8 +534,10 @@ to its right.
   casual tier already covers it from mission 6 onward. It is explicitly NOT a
   hedge - unlike Archon's two entries, which were hedges and were promoted on
   purpose - so it must not be promoted into `MISSION_EXTRA` later.
-  `test_miner_gates_nothing` and
-  `test_sniper_on_tower_of_darkness_is_casual_only` pin both halves.
+  `test_sniper_on_tower_of_darkness_is_casual_only` pins the sniper half.
+  The miner half is pinned by `test_miner_appears_only_where_verified`, and
+  it no longer says "gates nothing": economy IS in logic on six missions
+  now. This paragraph cited a test name that never existed.
 
 ### Still not in logic, deliberately
 
@@ -576,8 +593,10 @@ strings, so a rename would otherwise stop traps firing silently rather than fail
   lab. "Rift Breach" says something got through nearby and sits beside the rift
   lab and Microrift in CW4's own language.
 - **Item ids did not move.** They are positional and this was a rename in place,
-  so the trap block still occupies 4040050-4040056 and the name count is still
-  79. A seed generated before the rename therefore sends the OLD name, which the
+  so the trap block still occupies 4040050-4040056. The name count was 79 at the
+  time; the 26 SPAN unlocks were APPENDED after it, so it is 105 today and the
+  trap block is where it always was.
+   A seed generated before the rename therefore sends the OLD name, which the
   mod no longer recognises, so its traps silently stop firing - accepted
   deliberately ("new is always better") rather than carrying an alias table.
 - The yaml option keys did NOT change. `trap_weight_creeper_surge` still names
@@ -627,12 +646,19 @@ lab - the only real levers CW4 exposes (see research-findings.md, "Energy: the
 store is the rift lab's ammo"). Storage has diminishing returns, generation
 ramps, per the designer:
 
-| Option | Default | Effect |
-|---|---|---|
-| `energy_storage_step` | 50 | first copy's capacity bonus |
-| `energy_storage_decay` | 80 | percent of the previous copy, so 50, 40, 32, 25 |
-| `base_generation_start` | 5 | tenths per second, so +0.5/sec |
-| `base_generation_ramp` | 2 | tenths more per later copy, so 0.5, 0.7, 0.9 |
+The yaml exposes a CEILING and a COPY COUNT for each, and the per-copy amounts
+are derived from the pair rather than configured directly - so a player tunes
+where the item line ends up, not how each step is sized. The live defaults are in
+`options.py` and are tabulated for players in
+[installation.md](installation.md); they are not repeated here, because a table
+that has to be kept in step by hand is exactly what drifted before.
+
+| Option | What it sets |
+|---|---|
+| `energy_storage_max` | total capacity added once every copy has landed |
+| `energy_storage_copies` | how many copies that total is divided across |
+| `base_generation_max` | total generation added once every copy has landed |
+| `base_generation_copies` | how many copies that total is divided across |
 
 **Item names carry no amounts.** Ids must be identical across every yaml, so
 `Energy Storage +50` would break the client whenever a player retuned an option.
@@ -813,9 +839,12 @@ a third of the campaign, this item was dead on all of it.
 
 Held loosely. The ids, the `UnitRules.ItemToUnit` mapping, `UnitGate`'s base
 capture and increment, the `limit:` debug command and the yaml weight all still
-work, so re-adding the name to `POOL_FILLER_KINDS` is the whole change. The likely
-route back is limits being introduced deliberately rather than a mission being
-found that ships one.
+work, so the code side of a revival is small. The pool side is NOT
+`POOL_FILLER_KINDS`, despite how that constant reads: it is consulted by the
+audit tooling and the tests, and by no generation code at all. What fills the
+non-trap leftovers is `PAD_ITEMS`, and that is where a name would have to go
+back. The likely route back is limits being introduced deliberately rather than a
+mission being found that ships one.
 
 ### Verified
 
@@ -978,8 +1007,8 @@ that was too loose, not tuning.
     and Mortar only: "No both Shattered and Wallis need refinery/factory to
     collect greenar and convert to liftic."
   - So Home, Not My Mars and Ruins Repurposed are the ONLY free-totem missions.
-    `test_totems_need_greenar` names that exception list, so a new totem mission
-    fails the suite until someone classifies it.
+    `test_early_totems_run_on_loose_liftic` names that exception list, so a new
+    totem mission fails the suite until someone classifies it.
 
 - **Reclaim needs a Nullifier on every mission.** It is "clear the map", which
   cannot finish while anything still produces creeper: "that's typically the

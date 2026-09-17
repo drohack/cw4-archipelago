@@ -300,3 +300,26 @@ jobs:
           print(f"{len(bad)} non-ASCII lines")
           sys.exit(1 if bad else 0)
           PY
+
+  docs:
+    name: Docs and comments do not lie
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # An audit on 2026-09-17 found that nothing in this repo validates a single
+      # .md file or a single comment. docs/randomizer-logic.md is the one
+      # document that cannot lie, because logictable.py regenerates it from
+      # rules.py; everything else passed CI, compliance and the release gate no
+      # matter what it claimed. What that allowed, all of it live at the time:
+      # three wrong option defaults on the page a player reads before generating,
+      # five comments citing tests BY NAME that have never existed, and sixteen
+      # C# members documented with a summary belonging to some other member.
+      #
+      # Every rule in the checker was proved to FAIL on a deliberately broken
+      # tree before being trusted - two of the six did not, and were fixed
+      # rather than shipped green.
+      #
+      # No Archipelago clone and no game: this reads the working tree only, so
+      # it is the cheapest job here and runs on every push.
+      - name: Check the documentation and comments
+        run: python3 tools/check-docs.py

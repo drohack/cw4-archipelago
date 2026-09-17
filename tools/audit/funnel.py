@@ -15,7 +15,6 @@ Run from inside the Archipelago clone.
 import io
 import os
 import shutil
-import subprocess
 import sys
 
 AP = os.getcwd()

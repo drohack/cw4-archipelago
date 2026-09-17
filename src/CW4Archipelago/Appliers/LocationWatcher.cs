@@ -181,12 +181,6 @@ public sealed class LocationWatcher
         }
     }
 
-    /// <summary>Send a check for every new instance of a counted objective.
-    ///
-    /// A DECREASE means the mission was restarted, not that checks should be
-    /// re-sent: reset the high-water mark and wait for progress to climb again.
-    /// Sending is idempotent anyway (MarkChecked filters), but rewinding keeps
-    /// the log honest about what actually happened.</summary>
     /// <summary>Nullify targets, by identity.
     ///
     /// The easy case. The set never shrinks and the units are never destroyed -
@@ -405,6 +399,12 @@ public sealed class LocationWatcher
         SendCounted(objectiveIndex, Math.Max(countedProgress, gameVerdict));
     }
 
+    /// <summary>Send a check for every new instance of a counted objective.
+    ///
+    /// A DECREASE means the mission was restarted, not that checks should be
+    /// re-sent: reset the high-water mark and wait for progress to climb again.
+    /// Sending is idempotent anyway (MarkChecked filters), but rewinding keeps
+    /// the log honest about what actually happened.</summary>
     private void SendCounted(int index, int progress)
     {
         if (_sentUpTo == null || index >= _sentUpTo.Length || progress < 0)
