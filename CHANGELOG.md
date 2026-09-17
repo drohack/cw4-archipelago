@@ -5,6 +5,33 @@ so a release is a matched pair - if you update one, update the other.
 
 ## v0.2.0 - The SPAN Experiments, experimental and off by default
 
+### Build and release audit
+
+An audit of the build, version and release path found sixteen defects, of which
+three could reach a player. They are fixed here; the notes below are for anyone
+who wonders why a release behaves differently than it used to.
+
+- **The shipped apworld no longer carries the test suite.** Measured from the
+  v0.1.10 artifact, `cw4/test/` was 96,709 of 237,705 uncompressed bytes - 41
+  percent of the download, to run code that only ever runs in CI. Nothing had
+  ever asserted anything about that file's contents.
+- **The mod tells you when it does not match the seed.** The plugin and the
+  apworld ship as a matched pair and three documents say so, but nothing checked
+  it at play time, so a mismatched pair connected cleanly and desynchronised in
+  silence. It warns now; it does not refuse, and it says nothing for a seed
+  generated before this release.
+- **Cutting a pre-release no longer leaves the repository in a broken state.**
+  The automatic version bump was skipped for pre-releases while the rule it
+  depends on was not, so publishing one left every subsequent push failing CI.
+- Packaging can no longer produce an empty mod, ship a stale apworld, overwrite
+  your installed copy of the mod, or leave a mixed set of assets behind; and the
+  version can no longer be rewritten backwards onto a number that has shipped.
+
+None of this changes how a seed generates or plays. `tools/check-release.py` is
+the new gate, and every one of its rules was proved to fail on a deliberately
+broken tree before being trusted.
+
+
 **This is a pre-release.** The feature below is off unless you turn it on, and a
 seed that leaves it off plays exactly as v0.1.10 did: the campaign's 236 location
 ids did not move, a test now fails if they ever do, and the roster of a
