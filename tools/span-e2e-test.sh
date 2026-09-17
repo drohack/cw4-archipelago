@@ -26,15 +26,16 @@
 # Usage: tools/span-e2e-test.sh       (game must be CLOSED)
 set -u
 
-CW4="${CW4_DIR:-G:/Games/Steam/steamapps/common/Creeper World 4}"
-REPO="$(cd "$(dirname "$0")/.." && pwd)"; AP="$REPO/Archipelago"
-L="$CW4/BepInEx/LogOutput.log"
-CMD="$CW4/BepInEx/cw4ap-commands.txt"
+. "$(dirname "${BASH_SOURCE[0]}")/lib.sh" \
+  || { echo "FATAL: cannot source tools/lib.sh" >&2; exit 1; }
+require_game
+
+CMD="$AP_CMD"
 # CW4DevTools' own channel, used for one thing only: forcing an autosave in step
 # 6. That plugin is dev-only and not part of a release; if it is not installed,
 # step 6 degrades to a SKIP rather than a failure.
-DEVCMD="$CW4/BepInEx/cw4dev-commands.txt"
-CFG="$CW4/BepInEx/config/com.droha.cw4archipelago.cfg"
+DEVCMD="$DEV_CMD"
+CFG="$AP_CFG"
 STORE="$HOME/Documents/My Games/creeperworld4/archipelago"
 SAVES="$HOME/Documents/My Games/creeperworld4/saves"
 GENDIR="$REPO/.aptest/span-e2e"
@@ -54,10 +55,8 @@ PORT=""; SRV_PID=""; MULTIDATA=""
 PASS=0; FAIL=0
 verdict() { if [ "$1" = 0 ]; then PASS=$((PASS+1)); echo "  PASS  $2";
             else FAIL=$((FAIL+1)); echo "  FAIL  $2"; fi; }
-MARK=0
-mark() { MARK=$(wc -l < "$L" 2>/dev/null || echo 0); }
-since() { local c; c=$(wc -l < "$L" 2>/dev/null || echo 0); [ "$c" -lt "$MARK" ] && MARK=0;
-          tail -n +"$((MARK+1))" "$L" 2>/dev/null; }
+since() { local c; c=$(wc -l < "$GAME_LOG" 2>/dev/null || echo 0); [ "$c" -lt "$MARK" ] && MARK=0;
+          tail -n +"$((MARK+1))" "$GAME_LOG" 2>/dev/null; }
 send() { printf "%s\n" "$1" > "$CMD"; sleep "${2:-3}"; }
 srv() { printf "%s\n" "$1" >> "$SRV_IN"; sleep 3; }
 wait_since() { local pat="$1" n="${2:-20}" i; for i in $(seq 1 "$n"); do
@@ -66,7 +65,7 @@ listening() { netstat -ano | grep "LISTENING" | grep -q ":$1 "; }
 pids_on_port() { netstat -ano | grep "LISTENING" | grep ":$1 " | awk '{print $NF}' | sort -u; }
 find_free_port() { local p; for p in $(seq "$1" "$2"); do
                      listening "$p" || { echo "$p"; return 0; }; done; return 1; }
-save_log() { mkdir -p "$LOGDIR"; [ -f "$L" ] && cp "$L" "$LOGDIR/$1.log"; }
+save_log() { mkdir -p "$LOGDIR"; [ -f "$GAME_LOG" ] && cp "$GAME_LOG" "$LOGDIR/$1.log"; }
 kill_game() { save_log "${1:-phase}"; taskkill //IM CW4.exe //F >/dev/null 2>&1; sleep 3; }
 
 # --- restore the player's environment on exit --------------------------------
@@ -106,7 +105,7 @@ write_cfg() {
   printf '[Connection]\nHost = localhost\nPort = %s\nSlot = %s\nPassword =\nAutoConnect = true\n\n[Missions]\nShowSpan = false\n' \
     "$PORT" "$SLOT" > "$CFG"
 }
-launch() { ( cd "$CW4" && ./CW4.exe > /dev/null 2>&1 & ); sleep 16; MARK=0; }
+launch() { ( cd "$GAME_DIR" && ./CW4.exe > /dev/null 2>&1 & ); sleep 16; MARK=0; }
 
 # A STRAY HARNESS IS THE MOST EXPENSIVE FAILURE HERE, and it does not announce
 # itself: another run still writing to the command file clobbers ours, the game
@@ -264,7 +263,7 @@ echo "step 6/8: the autosave lands where SaveArchiver isolates it"
 # at all. CW4DevTools' save:auto calls GameSpace.AutoSave() directly, which is
 # what the swap test uses for exactly this reason.
 send "sim:run 4" 4
-if [ -f "$DEVCMD" ] || [ -d "$CW4/BepInEx/plugins/CW4DevTools" ]; then
+if [ -f "$DEVCMD" ] || [ -d "$GAME_DIR/BepInEx/plugins/CW4DevTools" ]; then
   printf '%s
 ' "save:auto" > "$DEVCMD"; sleep 8
   SAVED=1
@@ -272,7 +271,7 @@ if [ -f "$DEVCMD" ] || [ -d "$CW4/BepInEx/plugins/CW4DevTools" ]; then
   verdict "$SAVED" "autosave is under saves/farsite/$SPAN_SPEC"
   if [ "$SAVED" != 0 ]; then
     echo "        saves/farsite holds:"; ls "$SAVES/farsite" 2>/dev/null | sed 's/^/          /'
-    grep -E "DEVSAVE" "$L" 2>/dev/null | tail -3 | sed 's/^/        /'
+    grep -E "DEVSAVE" "$GAME_LOG" 2>/dev/null | tail -3 | sed 's/^/        /'
   fi
 else
   echo "  SKIP  autosave: CW4DevTools is not installed, so the save cannot be"

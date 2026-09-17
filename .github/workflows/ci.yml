@@ -323,3 +323,37 @@ jobs:
       # it is the cheapest job here and runs on every push.
       - name: Check the documentation and comments
         run: python3 tools/check-docs.py
+
+      # CI HAS NEVER READ A SHELL SCRIPT. Before this, the only mention of .sh
+      # anywhere in the workflow was an extension in the ASCII checker's list -
+      # so "green" was a statement about zero of the 24 harnesses, and a typo in
+      # one sat undetected until somebody ran it against the game minutes into a
+      # session. None of them can be RUN here (they drive Creeper World 4), but
+      # parsing them is free and catches the whole class of error a conversion
+      # like tools/lib.sh can introduce.
+      - name: The harnesses at least parse
+        run: |
+          set -euo pipefail
+          bash -n tools/*.sh
+          echo "parsed $(ls tools/*.sh | wc -l) shell file(s)"
+
+      # tools/lib.sh holds the one copy of the game path and the repo root. Both
+      # were previously written out in every harness, and a wrong repo root does
+      # not fail - it writes output somewhere else. Assert the library resolves
+      # to this checkout, and that every harness actually uses it.
+      - name: The harness library resolves, and every harness sources it
+        run: |
+          set -euo pipefail
+          . tools/lib.sh
+          [ "$REPO" = "$GITHUB_WORKSPACE" ] || {
+            echo "lib.sh REPO=$REPO, expected $GITHUB_WORKSPACE" >&2; exit 1; }
+          [ "${AP_CMD##*/}" = "cw4ap-commands.txt" ] || { echo "AP_CMD wrong" >&2; exit 1; }
+          [ "${DEV_CMD##*/}" = "cw4dev-commands.txt" ] || { echo "DEV_CMD wrong" >&2; exit 1; }
+          missing=0
+          for f in tools/*.sh; do
+            [ "$(basename "$f")" = "lib.sh" ] && continue
+            grep -q '^\. "\$(dirname' "$f" || { echo "does not source lib.sh: $f" >&2; missing=1; }
+            grep -q 'G:/Games/Steam' "$f" && { echo "still hard-codes the game path: $f" >&2; missing=1; }
+          done
+          [ "$missing" = 0 ] || exit 1
+          echo "lib.sh resolved REPO=$REPO; all harnesses source it and none hard-codes a path"

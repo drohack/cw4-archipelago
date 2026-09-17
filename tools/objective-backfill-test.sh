@@ -16,11 +16,12 @@
 # Usage: tools/objective-backfill-test.sh      (game must be CLOSED)
 set -u
 
-CW4="${CW4_DIR:-G:/Games/Steam/steamapps/common/Creeper World 4}"
-REPO="$(cd "$(dirname "$0")/.." && pwd)"; AP="$REPO/Archipelago"
-L="$CW4/BepInEx/LogOutput.log"
-CMD="$CW4/BepInEx/cw4ap-commands.txt"
-CFG="$CW4/BepInEx/config/com.droha.cw4archipelago.cfg"
+. "$(dirname "${BASH_SOURCE[0]}")/lib.sh" \
+  || { echo "FATAL: cannot source tools/lib.sh" >&2; exit 1; }
+require_game
+
+CMD="$AP_CMD"
+CFG="$AP_CFG"
 STORE="$HOME/Documents/My Games/creeperworld4/archipelago"
 MULTIDATA=""    # generated below, from the CURRENT apworld
 GENDIR="$REPO/.aptest/backfill-seed"
@@ -65,10 +66,8 @@ trap restore_env EXIT
 PASS=0; FAIL=0
 verdict() { if [ "$1" = 0 ]; then PASS=$((PASS+1)); echo "  PASS  $2";
             else FAIL=$((FAIL+1)); echo "  FAIL  $2"; fi; }
-MARK=0
-mark() { MARK=$(wc -l < "$L" 2>/dev/null || echo 0); }
-since() { local c; c=$(wc -l < "$L" 2>/dev/null || echo 0); [ "$c" -lt "$MARK" ] && MARK=0;
-          tail -n +"$((MARK+1))" "$L" 2>/dev/null; }
+since() { local c; c=$(wc -l < "$GAME_LOG" 2>/dev/null || echo 0); [ "$c" -lt "$MARK" ] && MARK=0;
+          tail -n +"$((MARK+1))" "$GAME_LOG" 2>/dev/null; }
 send() { printf "%s\n" "$1" > "$CMD"; sleep 2; }
 srv() { printf "%s\n" "$1" >> "$SRV_IN"; sleep 3; }
 wait_since() { local pat="$1" n="${2:-20}" i; for i in $(seq 1 "$n"); do
@@ -77,7 +76,7 @@ listening() { netstat -ano | grep "LISTENING" | grep -q ":$1 "; }
 pids_on_port() { netstat -ano | grep "LISTENING" | grep ":$1 " | awk '{print $NF}' | sort -u; }
 find_free_port() { local p; for p in $(seq "$1" "$2"); do
                      listening "$p" || { echo "$p"; return 0; }; done; return 1; }
-save_log() { mkdir -p "$LOGDIR"; [ -f "$L" ] && cp "$L" "$LOGDIR/$1.log"; }
+save_log() { mkdir -p "$LOGDIR"; [ -f "$GAME_LOG" ] && cp "$GAME_LOG" "$LOGDIR/$1.log"; }
 kill_game() { save_log "${1:-phase}"; taskkill //IM CW4.exe //F >/dev/null 2>&1; sleep 3; }
 stop_server() {
   srv "/exit" 2>/dev/null; sleep 2
@@ -126,8 +125,7 @@ printf '[Connection]\nHost = localhost\nPort = %s\nSlot = %s\nPassword =\nAutoCo
   "$PORT" "$SLOT" > "$CFG"
 
 echo "step 1/4: connect"
-( cd "$CW4" && ./CW4.exe > /dev/null 2>&1 & ); sleep 16
-MARK=0
+( cd "$GAME_DIR" && ./CW4.exe > /dev/null 2>&1 & ); sleep 16
 wait_since "ModCore initialized" 30; verdict $? "the mod loaded (control)"
 wait_since "AP CONNECTED slot='$SLOT'" 60; verdict $? "connected"
 

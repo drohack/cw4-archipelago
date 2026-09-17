@@ -13,8 +13,9 @@
 # Usage: tools/span-off-parity.sh [base-commit] [seed-count]
 set -u
 
-REPO="$(cd "$(dirname "$0")/.." && pwd)"
-AP="$REPO/Archipelago"
+. "$(dirname "${BASH_SOURCE[0]}")/lib.sh" \
+  || { echo "FATAL: cannot source tools/lib.sh" >&2; exit 1; }
+
 BASE="${1:-0fe2bef}"
 SEEDS="${2:-5}"
 WORK="$REPO/.aptest/parity"

@@ -4,6 +4,10 @@
 # new mechanics (save archiving, reconnect-on-menu, server-message toasts).
 set -u
 
+. "$(dirname "${BASH_SOURCE[0]}")/lib.sh" \
+  || { echo "FATAL: cannot source tools/lib.sh" >&2; exit 1; }
+require_game
+
 # --- pick our own port, and never kill anyone else's server -------------------
 # This used to be a fixed 38281 with a "kill whatever is listening on it"
 # cleanup, which takes out an unrelated project's Archipelago server and then
@@ -14,11 +18,7 @@ find_free_port() { local p; for p in $(seq "$1" "$2"); do
                      listening "$p" || { echo "$p"; return 0; }; done; return 1; }
 AP_PORT="$(find_free_port 38301 38380)"
 if [ -z "$AP_PORT" ]; then echo "ABORT: no free port in 38301-38380"; exit 1; fi
-CW4="${CW4_DIR:-G:/Games/Steam/steamapps/common/Creeper World 4}"
-REPO="$(cd "$(dirname "$0")/.." && pwd)"
-AP="$REPO/Archipelago"
-L="$CW4/BepInEx/LogOutput.log"
-CMD="$CW4/BepInEx/cw4ap-commands.txt"
+CMD="$AP_CMD"
 SLOT="DrohaCW4"
 MULTIDATA="${1:-$(ls -t "$REPO"/.aptest/server/*.archipelago 2>/dev/null | head -1)}"
 SRV_LOG="${TEMP:-/tmp}/cw4-apserver2.log"
@@ -26,9 +26,6 @@ SRV_IN="${TEMP:-/tmp}/cw4-apserver2.in"
 
 PASS=0; FAIL=0
 verdict() { if [ "$1" = 0 ]; then PASS=$((PASS+1)); echo "[ab2] PASS: $2"; else FAIL=$((FAIL+1)); echo "[ab2] FAIL: $2"; fi; }
-MARK=0
-mark() { MARK=$(wc -l < "$L" 2>/dev/null || echo 0); }
-since() { local c; c=$(wc -l < "$L" 2>/dev/null || echo 0); [ "$c" -lt "$MARK" ] && MARK=0; tail -n +"$((MARK+1))" "$L" 2>/dev/null; }
 send() { printf "%s\n" "$1" > "$CMD"; sleep 2; }
 srv() { printf "%s\n" "$1" >> "$SRV_IN"; sleep 3; }
 wait_since() { for i in $(seq 1 "$2"); do since | grep -q "$1" && return 0; sleep 2; done; return 1; }
@@ -43,8 +40,8 @@ echo "[ab2] multidata: $MULTIDATA"
 echo "[ab2] step 0: clean slate + test config"
 taskkill //IM CW4.exe //F >/dev/null 2>&1; kill_servers
 rm -rf "$USERPROFILE/Documents/My Games/creeperworld4/archipelago/slots" 2>/dev/null
-mkdir -p "$CW4/BepInEx/config"
-cat > "$CW4/BepInEx/config/com.droha.cw4archipelago.cfg" <<CFGEOF
+mkdir -p "$GAME_DIR/BepInEx/config"
+cat > "$GAME_DIR/BepInEx/config/com.droha.cw4archipelago.cfg" <<CFGEOF
 [Connection]
 Host = localhost
 Port = $AP_PORT
@@ -69,7 +66,7 @@ grep -q "Hosting game at" "$SRV_LOG"; verdict $? "server up"
 
 echo "[ab2] step 2: launch + connect"
 rm -f "$CMD"
-cd "$CW4" && ./CW4.exe > /dev/null 2>&1 &
+cd "$GAME_DIR" && ./CW4.exe > /dev/null 2>&1 &
 sleep 12
 MARK=0   # BepInEx truncates LogOutput.log on launch; index from its start
 wait_since "AP CONNECTED slot='$SLOT'" 60; verdict $? "connected"
@@ -93,7 +90,7 @@ echo "$ACTIVE" | grep -q "$SLOT"; verdict $? "saves isolated to this slot (activ
 LOCKED_A=story16      # The Compound
 LOCKED_B=story17      # Sequence
 echo "[ab2] step 3: save-load gate decision"
-echo "[ab2]   seed shape: $(grep 'AP SEED SHAPE:' "$L" | tail -1 | sed 's/.*AP SEED SHAPE: //')"
+echo "[ab2]   seed shape: $(grep 'AP SEED SHAPE:' "$GAME_LOG" | tail -1 | sed 's/.*AP SEED SHAPE: //')"
 mark
 send "gatecheck:$LOCKED_A"; sleep 1
 since | grep -q "GATECHECK: '$LOCKED_A' allowed=False"; verdict $? "locked mission load denied"
@@ -221,7 +218,7 @@ grep -qiE "completed (their|its) goal|has completed|goal" "$SRV_LOG"; verdict $?
 echo "[ab2] step 9: menu-entry auto-connect path"
 # The startup connection went through the Galaxy-scene auto-connect, which now
 # fires on EVERY menu entry (not just the first). Confirm that path logged.
-grep -q "AUTOCONNECT: attempting (menu entry)" "$L"; verdict $? "menu-entry auto-connect path fires"
+grep -q "AUTOCONNECT: attempting (menu entry)" "$GAME_LOG"; verdict $? "menu-entry auto-connect path fires"
 
 echo "[ab2] DONE: $PASS passed, $FAIL failed"
 srv "/exit" 2>/dev/null; sleep 1

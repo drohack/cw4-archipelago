@@ -20,21 +20,17 @@
 # Output: .aptest/maps/<mission>.map
 set -u
 
-G="${CW4_DIR:-G:/Games/Steam/steamapps/common/Creeper World 4}"
-LOG="$G/BepInEx/LogOutput.log"
-CMD="$G/BepInEx/cw4dev-commands.txt"
-REPO="$(cd "$(dirname "$0")/.." && pwd)"
+. "$(dirname "${BASH_SOURCE[0]}")/lib.sh" \
+  || { echo "FATAL: cannot source tools/lib.sh" >&2; exit 1; }
+require_game
+
+CMD="$DEV_CMD"
 OUTDIR="$REPO/.aptest/maps"
 MISSIONS="${1:-story19 story11 story2}"
 SPAN="${SPAN:-0}"
 
 send() { printf '%s\n' "$1" > "$CMD"; sleep "${2:-3}"; }
-MARK=0
-mark() { MARK=$(wc -l < "$LOG" 2>/dev/null || echo 0); }
-since() { tail -n +"$((MARK+1))" "$LOG" 2>/dev/null; }
 
-PLUGINS="$G/BepInEx/plugins"
-PARKED="$G/BepInEx/plugins-disabled"
 RESTORE=0
 restore() {
   [ "$RESTORE" = "1" ] || return 0
@@ -54,10 +50,10 @@ done
 
 taskkill //F //IM CW4.exe >/dev/null 2>&1; sleep 3
 mkdir -p "$OUTDIR"
-rm -f "$LOG" "$CMD"
-( cd "$G" && ./CW4.exe >/dev/null 2>&1 & )
+rm -f "$GAME_LOG" "$CMD"
+( cd "$GAME_DIR" && ./CW4.exe >/dev/null 2>&1 & )
 for i in $(seq 1 120); do
-  grep -q "Dev Tools loaded" "$LOG" 2>/dev/null && break
+  grep -q "Dev Tools loaded" "$GAME_LOG" 2>/dev/null && break
   sleep 2
 done
 echo "  ready"
@@ -88,9 +84,9 @@ for m in $MISSIONS; do
   send "totems:dump" 4
   # What the ware indices actually mean, in the game's own words.
   send "wares:names" 3
-  send "map:dump $G/mapdump.txt" 8
-  if [ -f "$G/mapdump.txt" ]; then
-    mv "$G/mapdump.txt" "$OUTDIR/$m.map"
+  send "map:dump $GAME_DIR/mapdump.txt" 8
+  if [ -f "$GAME_DIR/mapdump.txt" ]; then
+    mv "$GAME_DIR/mapdump.txt" "$OUTDIR/$m.map"
     echo "    $(since | grep -oE 'DEVMAP wrote.*' | tail -1)"
   else
     echo "    NO FILE WRITTEN"
@@ -98,8 +94,8 @@ for m in $MISSIONS; do
   fi
 done
 
-grep -E "DEVTOTEM" "$LOG" >> "$REPO/.aptest/totems.txt" 2>/dev/null
-grep -E "DEVWARE " "$LOG" | sort -u >> "$REPO/.aptest/warenames.txt" 2>/dev/null
+grep -E "DEVTOTEM" "$GAME_LOG" >> "$REPO/.aptest/totems.txt" 2>/dev/null
+grep -E "DEVWARE " "$GAME_LOG" | sort -u >> "$REPO/.aptest/warenames.txt" 2>/dev/null
 
 taskkill //F //IM CW4.exe >/dev/null 2>&1
 echo ""

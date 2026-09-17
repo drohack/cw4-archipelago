@@ -20,22 +20,21 @@
 # Usage: tools/span-swap-test.sh [planet] [spanguid]      (game must be CLOSED)
 set -u
 
-G="${CW4_DIR:-G:/Games/Steam/steamapps/common/Creeper World 4}"
-LOG="$G/BepInEx/LogOutput.log"
-CMD="$G/BepInEx/cw4dev-commands.txt"
+. "$(dirname "${BASH_SOURCE[0]}")/lib.sh" \
+  || { echo "FATAL: cannot source tools/lib.sh" >&2; exit 1; }
+require_game
+
+CMD="$DEV_CMD"
 SAVES="$USERPROFILE/Documents/My Games/creeperworld4/saves"
 PLANET="${1:-story5}"
 SPANMAP="${2:-knucracker1}"
 REPO_SHOTS="$(cd "$(dirname "$0")/.." && pwd)/.aptest/swap-shots"
 
 send() { printf '%s\n' "$1" > "$CMD"; sleep "${2:-3}"; }
-MARK=0
-mark() { MARK=$(wc -l < "$LOG" 2>/dev/null || echo 0); }
-since() { tail -n +"$((MARK+1))" "$LOG" 2>/dev/null; }
 pass=0; fail=0
 check() { if [ "$2" = "0" ]; then echo "  PASS  $1"; pass=$((pass+1)); else echo "  FAIL  $1"; fail=$((fail+1)); fi; }
 
-PLUGINS="$G/BepInEx/plugins"; PARKED="$G/BepInEx/plugins-disabled"; RESTORE=0
+RESTORE=0
 restore() {
   [ "$RESTORE" = "1" ] || return 0
   mkdir -p "$PLUGINS"
@@ -54,7 +53,7 @@ done
 
 echo "== setup: swapping $SPANMAP onto planet $PLANET =="
 taskkill //F //IM CW4.exe >/dev/null 2>&1; sleep 3
-rm -f "$LOG" "$CMD"
+rm -f "$GAME_LOG" "$CMD"
 # Snapshot the save folders so a new autosave is identifiable rather than
 # guessed at - an existing save would otherwise read as a success.
 # CLEAR ANY SAVE FOR THIS MISSION FIRST.
@@ -70,8 +69,8 @@ BEFORE_FARSITE=$(ls "$SAVES/farsite" 2>/dev/null | wc -l)
 BEFORE_SPAN=$(ls "$SAVES/span" 2>/dev/null | wc -l)
 echo "  saves before: farsite=$BEFORE_FARSITE span=$BEFORE_SPAN"
 
-( cd "$G" && ./CW4.exe >/dev/null 2>&1 & )
-for i in $(seq 1 120); do grep -q "Dev Tools loaded" "$LOG" 2>/dev/null && break; sleep 2; done
+( cd "$GAME_DIR" && ./CW4.exe >/dev/null 2>&1 & )
+for i in $(seq 1 120); do grep -q "Dev Tools loaded" "$GAME_LOG" 2>/dev/null && break; sleep 2; done
 echo "  dev tools loaded"
 
 # OPEN THE MAP, AND KEEP TRYING UNTIL THE PLANETS ARE REALLY THERE.
@@ -97,7 +96,7 @@ check "Farsite map open with planet metadata populated" $ready
 # A LOG IS NOT AN OBSERVATION (docs/in-game-testing.md). Everything below is
 # asserted from log lines; these screenshots are what makes the claim checkable
 # by eye - especially the objective ICONS, which no log line describes.
-send "shot:$G/swap-1-before.png" 8
+send "shot:$GAME_DIR/swap-1-before.png" 8
 
 echo "== 2. swap =="
 mark
@@ -108,7 +107,7 @@ since | grep -E "DEVSWAP" | sed 's/.*DEVSWAP/    DEVSWAP/'
 # Rebuild the icons to the SPAN map's real objective slots. Setting
 # map_objectives alone does not move them - proven twice by screenshot.
 send "span:icons $SPANMAP ${OBJSLOTS:-0,1,2}" 4
-send "shot:$G/swap-2-after.png" 8
+send "shot:$GAME_DIR/swap-2-after.png" 8
 
 echo "== 3. launch it from the map =="
 mark
@@ -126,7 +125,7 @@ echo "    loaded mission: '$got' (wanted '$SPANMAP')"
 [ "$got" = "$SPANMAP" ]; check "the SPAN map loaded, not the original planet's" $?
 
 send "ada:close" 3
-send "shot:$G/swap-3-ingame.png" 8
+send "shot:$GAME_DIR/swap-3-ingame.png" 8
 
 echo "== 4. autosave =="
 send "ada:close" 2
@@ -154,7 +153,7 @@ fi
 
 taskkill //F //IM CW4.exe >/dev/null 2>&1
 mkdir -p "$REPO_SHOTS"
-mv "$G"/swap-*.png "$REPO_SHOTS/" 2>/dev/null
+mv "$GAME_DIR"/swap-*.png "$REPO_SHOTS/" 2>/dev/null
 echo ""
 echo "  screenshots: $REPO_SHOTS"
 ls "$REPO_SHOTS" 2>/dev/null | sed 's/^/    /'

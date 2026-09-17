@@ -13,10 +13,12 @@
 # Usage: tools/devtools-test.sh          (game must be CLOSED)
 set -u
 
-G="${CW4_DIR:-G:/Games/Steam/steamapps/common/Creeper World 4}"
-CFG="$G/BepInEx/config/com.droha.cw4devtools.cfg"
-LOG="$G/BepInEx/LogOutput.log"
-CMD="$G/BepInEx/cw4dev-commands.txt"
+. "$(dirname "${BASH_SOURCE[0]}")/lib.sh" \
+  || { echo "FATAL: cannot source tools/lib.sh" >&2; exit 1; }
+require_game
+
+CFG="$DEV_CFG"
+CMD="$DEV_CMD"
 MISSION="${1:-story7}"
 
 pass=0; fail=0; skip=0
@@ -29,15 +31,13 @@ check() { # check <name> <condition-result>
 # no battery at all.
 skipped() { echo "  SKIP  $1 ($2)"; skip=$((skip+1)); }
 send() { printf '%s\n' "$1" > "$CMD"; sleep "${2:-3}"; }
-state() { grep -oE "DEVSTATE .*" "$LOG" | tail -1; }
+state() { grep -oE "DEVSTATE .*" "$GAME_LOG" | tail -1; }
 field() { state | grep -oE "$1=[-0-9]+" | cut -d= -f2; }
 
 # Park the randomizer for the duration, and restore it however we exit - a
 # battery that needs a condition should create it, not assert it and blame the
 # operator. Renaming the folder does NOT work: BepInEx scans subfolders
 # recursively, so it must move out of plugins/ entirely.
-PLUGINS="$G/BepInEx/plugins"
-PARKED="$G/BepInEx/plugins-disabled"
 # BOTH halves of the randomizer, not just the mod. CW4ApDebug declares a hard
 # BepInDependency on the mod, so parking the mod alone leaves BepInEx logging
 # "Could not load [CW4 Archipelago Debug] because it has missing dependencies" -
@@ -81,33 +81,33 @@ io.open(p,'w',encoding='utf-8',newline='').write(s)
 print("  config pinned")
 PY
 
-rm -f "$LOG" "$CMD"
-( cd "$G" && ./CW4.exe >/dev/null 2>&1 & )
+rm -f "$GAME_LOG" "$CMD"
+( cd "$GAME_DIR" && ./CW4.exe >/dev/null 2>&1 & )
 echo "== waiting for load =="
-for i in $(seq 1 120); do grep -q "Dev Tools loaded" "$LOG" 2>/dev/null && break; sleep 2; done
+for i in $(seq 1 120); do grep -q "Dev Tools loaded" "$GAME_LOG" 2>/dev/null && break; sleep 2; done
 
-grep -q "Dev Tools loaded" "$LOG"; check "plugin loads" $?
+grep -q "Dev Tools loaded" "$GAME_LOG"; check "plugin loads" $?
 # The randomizer must be ABSENT for this battery. Its unit gate fights the
 # AllBuildings cheat over the same availability flags every frame, so a run with
 # both installed measures the argument rather than the cheat. The setup step
 # above parks it and the exit trap puts it back, so this assertion is now about
 # whether that worked - it used to fail whenever the mod happened to be
 # installed, which trained everyone to ignore a red line.
-! grep -q "Loading \[CW4 Archipelago" "$LOG"; check "randomizer NOT loaded" $?
+! grep -q "Loading \[CW4 Archipelago" "$GAME_LOG"; check "randomizer NOT loaded" $?
 
 echo "== boot $MISSION =="
 send "boot:$MISSION" 26
 send "ada:close" 3
 send "sim:run 1" 3
-grep -q "DEVCMD boot: $MISSION" "$LOG"; check "boot command works" $?
+grep -q "DEVCMD boot: $MISSION" "$GAME_LOG"; check "boot command works" $?
 
 echo "== fixture =="
 send "spawn:CommandBase 1" 4
 send "spawn:Cannon 2" 4
 send "spawn:Factory 1" 5
-grep -q "DEVCMD spawn Cannon: 2/2" "$LOG"; check "spawn by real name" $?
-grep -q "pre-existing map unit(s) will not be touched" "$LOG"; check "map content snapshot taken" $?
-grep -q "spawn pylon\|0/1 - is that the REAL" "$LOG" || true
+grep -q "DEVCMD spawn Cannon: 2/2" "$GAME_LOG"; check "spawn by real name" $?
+grep -q "pre-existing map unit(s) will not be touched" "$GAME_LOG"; check "map content snapshot taken" $?
+grep -q "spawn pylon\|0/1 - is that the REAL" "$GAME_LOG" || true
 
 echo "== settle, then read state =="
 sleep 8
@@ -146,23 +146,23 @@ echo "== Indestructible off must clear the flags it set =="
 send "set:indestructible=off" 4
 send "dump" 5
 [ "$(field impervious)" = "0" ]; check "indestructible: impervious cleared on release" $?
-grep -q "Indestructible off - unit damage flags restored" "$LOG"; check "indestructible: RESTORES on release" $?
+grep -q "Indestructible off - unit damage flags restored" "$GAME_LOG"; check "indestructible: RESTORES on release" $?
 send "set:indestructible=on" 4
 
 echo "== AllBuildings on then off must RESTORE =="
 send "set:allbuildings=on" 4
-grep -q "AllBuildings on - saved" "$LOG"; check "all buildings: snapshot taken" $?
+grep -q "AllBuildings on - saved" "$GAME_LOG"; check "all buildings: snapshot taken" $?
 send "set:allbuildings=off" 4
-grep -q "AllBuildings off - restored" "$LOG"; check "all buildings: restored on release" $?
+grep -q "AllBuildings off - restored" "$GAME_LOG"; check "all buildings: restored on release" $?
 
 echo "== every parameter cheat must UNDO itself on release =="
 # This whole section exists because "turn it off" not actually undoing anything
 # was a real bug: AllBuildings left every building in the sidebar, and a bogus
 # ware value stayed written into sprayers after the cheat was switched off.
 send "set:freezecreeper=on" 3
-grep -q "creeper flow FROZEN" "$LOG"; check "freeze creeper applies" $?
+grep -q "creeper flow FROZEN" "$GAME_LOG"; check "freeze creeper applies" $?
 send "set:freezecreeper=off" 3
-grep -q "creeper flow restored" "$LOG"; check "freeze creeper RESTORES on release" $?
+grep -q "creeper flow restored" "$GAME_LOG"; check "freeze creeper RESTORES on release" $?
 
 send "set:instantbuild=off" 2
 send "set:instantbuild=on" 2
@@ -173,7 +173,7 @@ printf 'set:allbuildings=on
 ' > "$CMD"; sleep 3
 printf 'set:allbuildings=off
 ' > "$CMD"; sleep 3
-grep -q "AllBuildings off - restored" "$LOG"; check "all buildings RESTORES on release" $?
+grep -q "AllBuildings off - restored" "$GAME_LOG"; check "all buildings RESTORES on release" $?
 
 echo "== the cheat strip must follow the config =="
 # The strip is redrawn from ConfigFile.SettingChanged now, not from a per-frame
@@ -183,23 +183,23 @@ echo "== the cheat strip must follow the config =="
 # a cheat set that was not actually in force.
 send "set:instantbuild=off" 2
 send "overlay:dump" 2
-before=$(grep "DEVCMD overlay: redraws=" "$LOG" | tail -1 | grep -o "redraws=[0-9]*" | cut -d= -f2)
+before=$(grep "DEVCMD overlay: redraws=" "$GAME_LOG" | tail -1 | grep -o "redraws=[0-9]*" | cut -d= -f2)
 send "set:instantbuild=on" 2
 send "overlay:dump" 2
-after=$(grep "DEVCMD overlay: redraws=" "$LOG" | tail -1 | grep -o "redraws=[0-9]*" | cut -d= -f2)
+after=$(grep "DEVCMD overlay: redraws=" "$GAME_LOG" | tail -1 | grep -o "redraws=[0-9]*" | cut -d= -f2)
 [ -n "${after:-}" ] && [ -n "${before:-}" ] && [ "$after" -gt "$before" ]
 check "overlay redraws when a setting changes ($before -> ${after:-none})" $?
 # On is green (#7CFF7C). Reading the colour tag asserts the strip's CONTENT,
 # not merely that it was rewritten.
-grep "DEVCMD overlay:" "$LOG" | tail -1 | grep -q "#7CFF7C[^<]*instant build"
+grep "DEVCMD overlay:" "$GAME_LOG" | tail -1 | grep -q "#7CFF7C[^<]*instant build"
 check "strip shows instant build as ON" $?
 send "set:instantbuild=off" 2
 send "overlay:dump" 2
-grep "DEVCMD overlay:" "$LOG" | tail -1 | grep -q "#7CFF7C[^<]*instant build"
+grep "DEVCMD overlay:" "$GAME_LOG" | tail -1 | grep -q "#7CFF7C[^<]*instant build"
 [ $? = 1 ]; check "strip shows instant build as off again" $?
 
 echo "== no errors anywhere =="
-[ "$(grep -cE '\[Error' "$LOG")" = "0" ]; check "zero errors in log" $?
+[ "$(grep -cE '\[Error' "$GAME_LOG")" = "0" ]; check "zero errors in log" $?
 
 taskkill //F //IM CW4.exe >/dev/null 2>&1
 echo

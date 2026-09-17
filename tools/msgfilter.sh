@@ -4,17 +4,16 @@
 # an item to Player2CW4 is relevant=0 (filtered by default); showall reveals it;
 # say: sends chat that the server receives and echoes back (relevant=1).
 set -u
-CW4="${CW4_DIR:-G:/Games/Steam/steamapps/common/Creeper World 4}"
-REPO="$(cd "$(dirname "$0")/.." && pwd)"; AP="$REPO/Archipelago"
-L="$CW4/BepInEx/LogOutput.log"; CMD="$CW4/BepInEx/cw4ap-commands.txt"
+
+. "$(dirname "${BASH_SOURCE[0]}")/lib.sh" \
+  || { echo "FATAL: cannot source tools/lib.sh" >&2; exit 1; }
+require_game
+CMD="$AP_CMD"
 SLOT="DrohaCW4"; OTHER="Player2CW4"
 MULTIDATA="${1:-$(ls -t "$REPO"/.aptest/server2/*.archipelago 2>/dev/null | head -1)}"
 SRV_LOG="${TEMP:-/tmp}/cw4-mf-srv.log"; SRV_IN="${TEMP:-/tmp}/cw4-mf-srv.in"
 PASS=0; FAIL=0
 verdict() { if [ "$1" = 0 ]; then PASS=$((PASS+1)); echo "[mf] PASS: $2"; else FAIL=$((FAIL+1)); echo "[mf] FAIL: $2"; fi; }
-MARK=0
-mark() { MARK=$(wc -l < "$L" 2>/dev/null || echo 0); }
-since() { local c; c=$(wc -l < "$L" 2>/dev/null||echo 0); [ "$c" -lt "$MARK" ]&&MARK=0; tail -n +"$((MARK+1))" "$L" 2>/dev/null; }
 send() { printf "%s\n" "$1" > "$CMD"; sleep 2; }
 srv() { printf "%s\n" "$1" >> "$SRV_IN"; sleep 3; }
 wait_since() { for i in $(seq 1 "$2"); do since|grep -q "$1"&&return 0; sleep 2; done; return 1; }
@@ -25,7 +24,7 @@ echo "[mf] multidata: $MULTIDATA"
 echo "[mf] step 0: clean slate + config"
 taskkill //IM CW4.exe //F >/dev/null 2>&1; kill_servers
 rm -rf "$USERPROFILE/Documents/My Games/creeperworld4/archipelago/slots" 2>/dev/null
-cat > "$CW4/BepInEx/config/com.droha.cw4archipelago.cfg" <<CFGEOF
+cat > "$GAME_DIR/BepInEx/config/com.droha.cw4archipelago.cfg" <<CFGEOF
 [Connection]
 Host = localhost
 Port = 38281
@@ -43,7 +42,7 @@ echo "[mf] step 1: server + launch + connect"
 tail -n +1 -f "$SRV_IN" | ( cd "$AP" && SKIP_REQUIREMENTS_UPDATE=1 python MultiServer.py "$MULTIDATA" --port 38281 --disable_save > "$SRV_LOG" 2>&1 ) &
 SRV_PIPE=$!
 for i in $(seq 1 20); do grep -q "Hosting game at" "$SRV_LOG"&&break; sleep 1; done
-rm -f "$CMD"; cd "$CW4" && ./CW4.exe > /dev/null 2>&1 &
+rm -f "$CMD"; cd "$GAME_DIR" && ./CW4.exe > /dev/null 2>&1 &
 sleep 12; MARK=0
 wait_since "AP CONNECTED slot='$SLOT'" 60; verdict $? "connected"
 
@@ -84,7 +83,7 @@ since | grep -q "SAY: hello from cw4"; verdict $? "Say invoked"
 grep -qi "hello from cw4" "$SRV_LOG"; verdict $? "server received the chat"
 
 echo "[mf] step 7: zero plugin errors"
-ERR=$(grep -cE "\[Error :CW4 Archipelago\]|tick failed" "$L" 2>/dev/null); ERR=${ERR:-0}
+ERR=$(grep -cE "\[Error :CW4 Archipelago\]|tick failed" "$GAME_LOG" 2>/dev/null); ERR=${ERR:-0}
 [ "$ERR" -eq 0 ]; verdict $? "no plugin errors ($ERR)"
 
 echo "[mf] DONE: $PASS passed, $FAIL failed"

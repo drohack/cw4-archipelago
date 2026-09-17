@@ -20,10 +20,12 @@
 # Usage: tools/cmod-traptest.sh      (game must be CLOSED)
 set -u
 
-CW4="${CW4_DIR:-G:/Games/Steam/steamapps/common/Creeper World 4}"
-L="$CW4/BepInEx/LogOutput.log"
-CMD="$CW4/BepInEx/cw4ap-commands.txt"
-DEV="$CW4/BepInEx/cw4dev-commands.txt"
+. "$(dirname "${BASH_SOURCE[0]}")/lib.sh" \
+  || { echo "FATAL: cannot source tools/lib.sh" >&2; exit 1; }
+require_game
+
+CMD="$AP_CMD"
+DEV="$DEV_CMD"
 # Each send WAITS for the mod to acknowledge in the log rather than sleeping a
 # guessed interval. The first version of this script slept 2s per command and
 # lost five of six: the debug channel polls every 30 FRAMES, and while a mission
@@ -34,7 +36,7 @@ DEV="$CW4/BepInEx/cw4dev-commands.txt"
 wait_for() {  # wait_for <grep pattern> <seconds>
   local pat="$1" secs="${2:-20}" i
   for i in $(seq 1 "$secs"); do
-    grep -q "$pat" "$L" && return 0
+    grep -q "$pat" "$GAME_LOG" && return 0
     sleep 1
   done
   return 1
@@ -52,12 +54,12 @@ dev() { printf "%s\n" "$1" > "$DEV"; sleep 3; }
 echo "[setup 1/4] game closed, both plugins, debug channel on"
 taskkill //IM CW4.exe //F >/dev/null 2>&1; sleep 2
 rm -f "$CMD" "$DEV"
-if [ -d "$CW4/BepInEx/plugins-disabled/CW4Archipelago" ] \
-   && [ ! -d "$CW4/BepInEx/plugins/CW4Archipelago" ]; then
-  mv "$CW4/BepInEx/plugins-disabled/CW4Archipelago" "$CW4/BepInEx/plugins/CW4Archipelago"
+if [ -d "$GAME_DIR/BepInEx/plugins-disabled/CW4Archipelago" ] \
+   && [ ! -d "$GAME_DIR/BepInEx/plugins/CW4Archipelago" ]; then
+  mv "$GAME_DIR/BepInEx/plugins-disabled/CW4Archipelago" "$GAME_DIR/BepInEx/plugins/CW4Archipelago"
 fi
-mkdir -p "$CW4/BepInEx/config"
-cat > "$CW4/BepInEx/config/com.droha.cw4archipelago.cfg" <<CFGEOF
+mkdir -p "$GAME_DIR/BepInEx/config"
+cat > "$GAME_DIR/BepInEx/config/com.droha.cw4archipelago.cfg" <<CFGEOF
 [Connection]
 Host = localhost
 Port = 38281
@@ -73,7 +75,7 @@ DebugCommands = true
 CFGEOF
 
 echo "[setup 2/4] launching"
-cd "$CW4" && ./CW4.exe > /dev/null 2>&1 &
+cd "$GAME_DIR" && ./CW4.exe > /dev/null 2>&1 &
 # Wait for the menu rather than guessing. Sending before the mod ticks means the
 # writes are simply lost.
 wait_for "SCENE: 'Galaxy'" 90 || { echo "FATAL: game never reached the menu"; exit 1; }
@@ -85,7 +87,7 @@ for u in Airship Bertha Sweeper Cannon Pylon; do
   send "item:$u" "DEBUG fake item: $u"
 done
 send "units" "DEBUG UNITS:"
-allowed=$(grep "DEBUG UNITS:" "$L" | tail -1 | sed 's/.*DEBUG UNITS: //')
+allowed=$(grep "DEBUG UNITS:" "$GAME_LOG" | tail -1 | sed 's/.*DEBUG UNITS: //')
 echo "  $allowed"
 case "$allowed" in
   *airship*bertha*sweeper*) ;;
@@ -113,4 +115,4 @@ echo ""
 echo "Instant build and free resources are on, so they place immediately."
 echo "Tell me when they are down and I will fire the traps."
 echo "----------------------------------------------------------------"
-echo "Log: $L"
+echo "Log: $GAME_LOG"

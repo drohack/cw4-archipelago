@@ -19,17 +19,15 @@
 # Usage: tools/span-survey.sh          (game must be CLOSED)
 set -u
 
-G="${CW4_DIR:-G:/Games/Steam/steamapps/common/Creeper World 4}"
-LOG="$G/BepInEx/LogOutput.log"
-CMD="$G/BepInEx/cw4dev-commands.txt"
-REPO="$(cd "$(dirname "$0")/.." && pwd)"
+. "$(dirname "${BASH_SOURCE[0]}")/lib.sh" \
+  || { echo "FATAL: cannot source tools/lib.sh" >&2; exit 1; }
+require_game
+
+CMD="$DEV_CMD"
 OUT="$REPO/.aptest/span-survey.txt"
-SHOTS="$G"
+SHOTS="$GAME_DIR"
 
 send() { printf '%s\n' "$1" > "$CMD"; sleep "${2:-3}"; }
-MARK=0
-mark() { MARK=$(wc -l < "$LOG" 2>/dev/null || echo 0); }
-since() { tail -n +"$((MARK+1))" "$LOG" 2>/dev/null; }
 
 # The 26 maps, guid|title. Captured from the DEVPLANET lines of the phase-0
 # spike, which has since been retired; span:list in CW4DevTools is how to
@@ -66,8 +64,6 @@ EOF
 # Park the randomizer and restore it however we exit. Renaming does NOT work -
 # BepInEx scans subfolders recursively. Both halves go: CW4ApDebug hard-depends
 # on the mod.
-PLUGINS="$G/BepInEx/plugins"
-PARKED="$G/BepInEx/plugins-disabled"
 RANDOMIZER_DIRS="CW4Archipelago CW4ApDebug"
 RESTORE_RANDOMIZER=0
 restore_randomizer() {
@@ -90,17 +86,17 @@ done
 echo "== setup =="
 taskkill //F //IM CW4.exe >/dev/null 2>&1; sleep 3
 mkdir -p "$(dirname "$OUT")"
-rm -f "$LOG" "$CMD" "$OUT"
-( cd "$G" && ./CW4.exe >/dev/null 2>&1 & )
+rm -f "$GAME_LOG" "$CMD" "$OUT"
+( cd "$GAME_DIR" && ./CW4.exe >/dev/null 2>&1 & )
 
 echo "== waiting for the dev tools =="
 ok=1
 for i in $(seq 1 120); do
-  grep -q "Dev Tools loaded" "$LOG" 2>/dev/null && { ok=0; break; }
+  grep -q "Dev Tools loaded" "$GAME_LOG" 2>/dev/null && { ok=0; break; }
   sleep 2
 done
 [ "$ok" = "0" ] || { echo "FAIL: dev tools never loaded"; exit 1; }
-if grep -q "Loading \[CW4 Archipelago" "$LOG"; then
+if grep -q "Loading \[CW4 Archipelago" "$GAME_LOG"; then
   echo "FAIL: randomizer still loaded - buildings:dump would report the AP set"
   exit 1
 fi

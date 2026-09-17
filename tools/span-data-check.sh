@@ -21,11 +21,12 @@
 # Usage: tools/span-data-check.sh      (game must be CLOSED)
 set -u
 
-CW4="${CW4_DIR:-G:/Games/Steam/steamapps/common/Creeper World 4}"
-REPO="$(cd "$(dirname "$0")/.." && pwd)"
-L="$CW4/BepInEx/LogOutput.log"
-DEVCMD="$CW4/BepInEx/cw4dev-commands.txt"
-CFG="$CW4/BepInEx/config/com.droha.cw4archipelago.cfg"
+. "$(dirname "${BASH_SOURCE[0]}")/lib.sh" \
+  || { echo "FATAL: cannot source tools/lib.sh" >&2; exit 1; }
+require_game
+
+DEVCMD="$DEV_CMD"
+CFG="$AP_CFG"
 OUT="$REPO/.aptest/span-data-check"
 
 GUIDS="knucracker1 knucracker2 knucracker3 knucracker4 knucracker5 knucracker6
@@ -71,14 +72,14 @@ trap cleanup EXIT
 echo "span-data-check: booting 26 SPAN maps and dumping their objectives"
 taskkill //IM CW4.exe //F >/dev/null 2>&1; sleep 3
 mkdir -p "$OUT"
-rm -f "$L" "$DEVCMD"
+rm -f "$GAME_LOG" "$DEVCMD"
 guard_command_file "$DEVCMD"
 # AutoConnect OFF. This measures the GAME, and a randomizer trying to reach a
 # server it has not been given would only add noise to the log being read.
 mkdir -p "$(dirname "$CFG")"
 printf '[Connection]\nHost = localhost\nPort = 38999\nSlot = DataCheck\nPassword =\nAutoConnect = false\n\n[Missions]\nShowSpan = true\n' > "$CFG"
 
-( cd "$CW4" && ./CW4.exe > /dev/null 2>&1 & )
+( cd "$GAME_DIR" && ./CW4.exe > /dev/null 2>&1 & )
 sleep 16
 
 n=0
@@ -91,7 +92,7 @@ for guid in $GUIDS; do
   send "obj:dump" 4
 done
 
-cp "$L" "$OUT/log.txt"
+cp "$GAME_LOG" "$OUT/log.txt"
 taskkill //IM CW4.exe //F >/dev/null 2>&1; sleep 2
 
 echo "span-data-check: comparing against apworld/cw4/span_data.py"

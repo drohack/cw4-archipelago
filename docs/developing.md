@@ -29,10 +29,20 @@
    are derived from the game and must never be committed or redistributed.
 3. Copy `src/GameDir.props.example` to `src/GameDir.props` and set your game
    path.
-4. `dotnet build` in `src/CW4Archipelago`, and in
-   `src/CW4Archipelago.Debug` if you want the command channel the
-   `tools/*.sh` harnesses drive. Building
-   deploys the plugin into the game's `BepInEx/plugins/` automatically.
+4. `dotnet build` at the repo root builds all six projects through
+   `CW4Archipelago.sln` - the mod, Core, the Core tests, both dev plugins and
+   `tools/reflect`. Build a single project instead (`dotnet build
+   src/CW4Archipelago`) when you only want one; `src/CW4Archipelago.Debug` is
+   the one to add if you want the command channel the `tools/*.sh` harnesses
+   drive. Building deploys the plugin into the game's `BepInEx/plugins/`
+   automatically.
+
+   **A root build needs step 3.** Three of the six projects import
+   `src/GameDir.props` for the interop assemblies, so a clone without it cannot
+   build the solution - but `dotnet test src/CW4Archipelago.Core.Tests` needs no
+   game at all, which is why CI builds those two projects directly rather than
+   the solution.
+
    **The game must be closed when building** - the deploy step cannot
    overwrite a loaded DLL (MSB3021).
 
@@ -747,8 +757,8 @@ its file-command protocol, unit whitelist, `boot:`, pane refresh and `dump`
 capabilities all exist in the mod's own debug channel and in
 `src/CW4DevTools/`, and it re-implemented four helpers that now live in
 `GameUtil`. Git history keeps it. The three batteries that DROVE it -
-`tools/battery2.sh`, `tools/erntest.sh` and `tools/survey.sh` - went with it the
-same day: each wrote to `BepInEx/probe-unlocks.txt`, a file nothing reads any
+`battery2.sh`, `erntest.sh` and `survey.sh`, named here by basename because
+they are gone and these are not paths to open - went with it the same day: each wrote to `BepInEx/probe-unlocks.txt`, a file nothing reads any
 more, so leaving them would have left three harnesses that look runnable and
 cannot run.
 
@@ -762,6 +772,42 @@ accident.
 
 Scripts read the game location from `CW4_DIR` (defaults to the maintainer's
 path) and write outputs under `$TEMP`.
+
+**`tools/lib.sh` holds that resolution, and every harness sources it.** It sets
+`GAME_DIR` from `CW4_DIR`, `GAME_LOG`, the two command-file paths and the two
+config paths, plus `REPO`, `AP`, `PLUGINS`, `PARKED`, the `mark`/`since` log
+helpers and `require_game`. A new harness needs two lines:
+
+```sh
+set -u
+. "$(dirname "${BASH_SOURCE[0]}")/lib.sh" \
+  || { echo "FATAL: cannot source tools/lib.sh" >&2; exit 1; }
+require_game
+CMD="$AP_CMD"        # or "$DEV_CMD" - say which channel you mean
+```
+
+Three things are deliberately NOT in the library, and the reasons are worth
+knowing before adding a fourth:
+
+- **`CMD` and `CFG`.** `CMD` meant `cw4ap-commands.txt` in seventeen harnesses
+  and `cw4dev-commands.txt` in seven, and three use BOTH channels in one run. A
+  shared `CMD` would post commands to the file the wrong plugin reads and the
+  harness would wait for a reply that never comes. Each harness says which it
+  means. `CFG` has the same split.
+- **`send`.** Twenty-one definitions with at least six behaviours; the sleep is
+  2, 3 or an argument, and `cmod-traptest.sh` waits for a log acknowledgement
+  instead of sleeping because an earlier version slept 2s per command and lost
+  five of six - the debug channel polls every 30 FRAMES. Unifying it would
+  silently retime every harness.
+- **`verdict`.** Eleven definitions, five label prefixes, all of it output a
+  human reads to judge a game run.
+
+`CW4_DIR` itself is unchanged - it is the override you set. `GAME_DIR` is what
+the resolution produces. The game directory used to be spelled `G` in five
+harnesses and `CW4` in seventeen, and the log `LOG` in five and `L` in
+seventeen; `G` was the worst of them, because the default path happens to sit on
+the `G:` drive and the name read as if it were a drive letter rather than "the
+game".
 
 ## Releases
 

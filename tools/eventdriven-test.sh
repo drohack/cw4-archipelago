@@ -12,17 +12,17 @@
 # Usage: tools/eventdriven-test.sh      (game must be CLOSED)
 set -u
 
-CW4="${CW4_DIR:-G:/Games/Steam/steamapps/common/Creeper World 4}"
-L="$CW4/BepInEx/LogOutput.log"
-CMD="$CW4/BepInEx/cw4ap-commands.txt"
+. "$(dirname "${BASH_SOURCE[0]}")/lib.sh" \
+  || { echo "FATAL: cannot source tools/lib.sh" >&2; exit 1; }
+require_game
+
+CMD="$AP_CMD"
 
 PASS=0; FAIL=0
 verdict() { if [ "$1" = 0 ]; then PASS=$((PASS+1)); echo "  PASS  $2";
             else FAIL=$((FAIL+1)); echo "  FAIL  $2"; fi; }
-MARK=0
-mark() { MARK=$(wc -l < "$L" 2>/dev/null || echo 0); }
-since() { local c; c=$(wc -l < "$L" 2>/dev/null || echo 0); [ "$c" -lt "$MARK" ] && MARK=0;
-          tail -n +"$((MARK+1))" "$L" 2>/dev/null; }
+since() { local c; c=$(wc -l < "$GAME_LOG" 2>/dev/null || echo 0); [ "$c" -lt "$MARK" ] && MARK=0;
+          tail -n +"$((MARK+1))" "$GAME_LOG" 2>/dev/null; }
 send() { printf "%s\n" "$1" > "$CMD"; sleep 2; }
 # Pull one "key=number" field out of the newest perf line. grep -o rather than a
 # sed backreference: the perf line has grown a field twice already, and a
@@ -40,8 +40,8 @@ rm -f "$CMD"
 # failure: with a real seed's 236 locations loaded, "Founders - Custom" is judged
 # on actual logic instead of being the only location the mod knows about.
 rm -rf "$HOME/Documents/My Games/creeperworld4/archipelago/slots"        "$HOME/Documents/My Games/creeperworld4/archipelago/last-session.json"
-mkdir -p "$CW4/BepInEx/config"
-cat > "$CW4/BepInEx/config/com.droha.cw4archipelago.cfg" <<CFGEOF
+mkdir -p "$GAME_DIR/BepInEx/config"
+cat > "$GAME_DIR/BepInEx/config/com.droha.cw4archipelago.cfg" <<CFGEOF
 [Connection]
 Host = localhost
 Port = 38281
@@ -57,7 +57,7 @@ DebugCommands = true
 CFGEOF
 
 echo "step 1/8: launch"
-cd "$CW4" && ./CW4.exe > /dev/null 2>&1 &
+cd "$GAME_DIR" && ./CW4.exe > /dev/null 2>&1 &
 sleep 14
 MARK=0   # BepInEx truncates the log on launch
 
@@ -66,7 +66,7 @@ MARK=0   # BepInEx truncates the log on launch
 echo "step 2/8: patches applied"
 for pat in "map opened" "planet refresh" "totem complete" "cache destroyed" \
            "nullifier targets" "objective row"; do
-  if grep -q "Harmony patch '$pat' failed" "$L"; then r=1; else r=0; fi
+  if grep -q "Harmony patch '$pat' failed" "$GAME_LOG"; then r=1; else r=0; fi
   verdict $r "patch applied: $pat"
 done
 
@@ -180,7 +180,7 @@ send "ada:close"
 # The property actually being protected is that each instance is sent ONCE and
 # never re-sent. See tools/instance-identity.sh for the assertion that pins
 # WHICH instance, by ranking the completed cell independently.
-WSTART=$(wc -l < "$L" 2>/dev/null || echo 0)
+WSTART=$(wc -l < "$GAME_LOG" 2>/dev/null || echo 0)
 
 mark
 send "totem:complete"
@@ -202,7 +202,7 @@ verdict $? "the second completion sent a DIFFERENT instance, so neither was re-s
 # Home has exactly two totems, so across both completions the set sent must be
 # {Totem 1, Totem 2}, once each - the no-double-send property stated over the
 # whole step rather than per window.
-BOTH=$(tail -n +"$((WSTART+1))" "$L" 2>/dev/null | grep -oE "LOCATION CHECK: Home - Totem [0-9]+" | sort | uniq -c)
+BOTH=$(tail -n +"$((WSTART+1))" "$GAME_LOG" 2>/dev/null | grep -oE "LOCATION CHECK: Home - Totem [0-9]+" | sort | uniq -c)
 echo "$BOTH" | sed 's/^/        /'
 t1=$(printf "%s" "$BOTH" | grep -cE " 1 LOCATION CHECK: Home - Totem 1$")
 t2=$(printf "%s" "$BOTH" | grep -cE " 1 LOCATION CHECK: Home - Totem 2$")

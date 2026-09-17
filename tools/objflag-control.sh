@@ -21,19 +21,15 @@
 # Usage: tools/objflag-control.sh          (game must be CLOSED)
 set -u
 
-G="${CW4_DIR:-G:/Games/Steam/steamapps/common/Creeper World 4}"
-LOG="$G/BepInEx/LogOutput.log"
-CMD="$G/BepInEx/cw4dev-commands.txt"
-REPO="$(cd "$(dirname "$0")/.." && pwd)"
+. "$(dirname "${BASH_SOURCE[0]}")/lib.sh" \
+  || { echo "FATAL: cannot source tools/lib.sh" >&2; exit 1; }
+require_game
+
+CMD="$DEV_CMD"
 OUT="$REPO/.aptest/objflag-control.txt"
 
 send() { printf '%s\n' "$1" > "$CMD"; sleep "${2:-3}"; }
-MARK=0
-mark() { MARK=$(wc -l < "$LOG" 2>/dev/null || echo 0); }
-since() { tail -n +"$((MARK+1))" "$LOG" 2>/dev/null; }
 
-PLUGINS="$G/BepInEx/plugins"
-PARKED="$G/BepInEx/plugins-disabled"
 RANDOMIZER_DIRS="CW4Archipelago CW4ApDebug"
 RESTORE=0
 restore() {
@@ -54,10 +50,10 @@ done
 
 taskkill //F //IM CW4.exe >/dev/null 2>&1; sleep 3
 mkdir -p "$(dirname "$OUT")"
-rm -f "$LOG" "$CMD" "$OUT"
-( cd "$G" && ./CW4.exe >/dev/null 2>&1 & )
+rm -f "$GAME_LOG" "$CMD" "$OUT"
+( cd "$GAME_DIR" && ./CW4.exe >/dev/null 2>&1 & )
 for i in $(seq 1 120); do
-  grep -q "Dev Tools loaded" "$LOG" 2>/dev/null && break
+  grep -q "Dev Tools loaded" "$GAME_LOG" 2>/dev/null && break
   sleep 2
 done
 echo "  ready"

@@ -16,9 +16,11 @@
 #        Then play, connect your network to the info cache, and read the result.
 set -u
 
-CW4="${CW4_DIR:-G:/Games/Steam/steamapps/common/Creeper World 4}"
-L="$CW4/BepInEx/LogOutput.log"
-CMD="$CW4/BepInEx/cw4ap-commands.txt"
+. "$(dirname "${BASH_SOURCE[0]}")/lib.sh" \
+  || { echo "FATAL: cannot source tools/lib.sh" >&2; exit 1; }
+require_game
+
+CMD="$AP_CMD"
 DEADLINE=1800    # 30 minutes is far longer than the mission needs
 
 send() { printf "%s\n" "$1" > "$CMD"; sleep 2; }
@@ -27,12 +29,12 @@ echo "[setup 1/5] game closed, randomizer enabled, debug channel on"
 taskkill //IM CW4.exe //F >/dev/null 2>&1; sleep 2
 rm -f "$CMD"
 # The build target deploys here; if the mod was parked, bring it back.
-if [ -d "$CW4/BepInEx/plugins-disabled/CW4Archipelago" ] \
-   && [ ! -d "$CW4/BepInEx/plugins/CW4Archipelago" ]; then
-  mv "$CW4/BepInEx/plugins-disabled/CW4Archipelago" "$CW4/BepInEx/plugins/CW4Archipelago"
+if [ -d "$GAME_DIR/BepInEx/plugins-disabled/CW4Archipelago" ] \
+   && [ ! -d "$GAME_DIR/BepInEx/plugins/CW4Archipelago" ]; then
+  mv "$GAME_DIR/BepInEx/plugins-disabled/CW4Archipelago" "$GAME_DIR/BepInEx/plugins/CW4Archipelago"
 fi
-mkdir -p "$CW4/BepInEx/config"
-cat > "$CW4/BepInEx/config/com.droha.cw4archipelago.cfg" <<CFGEOF
+mkdir -p "$GAME_DIR/BepInEx/config"
+cat > "$GAME_DIR/BepInEx/config/com.droha.cw4archipelago.cfg" <<CFGEOF
 [Connection]
 Host = localhost
 Port = 38281
@@ -48,7 +50,7 @@ DebugCommands = true
 CFGEOF
 
 echo "[setup 2/5] launching"
-cd "$CW4" && ./CW4.exe > /dev/null 2>&1 &
+cd "$GAME_DIR" && ./CW4.exe > /dev/null 2>&1 &
 sleep 16
 
 echo "[setup 3/5] unlocking Home and every unit (no server: local fake items)"
@@ -69,7 +71,7 @@ done
 
 echo "[setup 5/5] booting story2 (Home)"
 send "boot:story2"
-for i in $(seq 1 30); do grep -q "LocationWatcher: mission 2" "$L" && break; sleep 2; done
+for i in $(seq 1 30); do grep -q "LocationWatcher: mission 2" "$GAME_LOG" && break; sleep 2; done
 send "ada:close"
 
 echo "----------------------------------------------------------------"
@@ -81,12 +83,12 @@ start=$SECONDS
 last_counts=""
 while :; do
   el=$((SECONDS - start))
-  if grep -q "LOCATION CHECK: Home - Cache 1" "$L"; then
+  if grep -q "LOCATION CHECK: Home - Cache 1" "$GAME_LOG"; then
     send "counts:dump"; sleep 2
-    last_counts=$(grep "COUNTS:" "$L" | tail -1)
+    last_counts=$(grep "COUNTS:" "$GAME_LOG" | tail -1)
     echo "[watch ${el}s] PASS: 'Home - Cache 1' was sent"
     echo "  $last_counts"
-    n=$(grep -c "LOCATION CHECK: Home - Cache 1" "$L")
+    n=$(grep -c "LOCATION CHECK: Home - Cache 1" "$GAME_LOG")
     if [ "$n" = 1 ]; then echo "  PASS  sent exactly once"
     else echo "  FAIL  sent $n times - the patch and the safety poll are double-sending"; fi
     break
@@ -94,17 +96,17 @@ while :; do
   if [ "$el" -ge "$DEADLINE" ]; then
     send "counts:dump"; sleep 2
     echo "[watch ${el}s] TIMEOUT: no cache check in $((DEADLINE / 60)) minutes"
-    echo "  $(grep "COUNTS:" "$L" | tail -1)"
+    echo "  $(grep "COUNTS:" "$GAME_LOG" | tail -1)"
     break
   fi
   # Both cache signals, every 30s: mustCollect/max is what LocationWatcher
   # counts, and objective 4's count is the game's own tally. They should agree,
   # and a disagreement is the interesting failure.
   send "counts:dump"; sleep 2
-  c=$(grep "COUNTS:" "$L" | tail -1 | grep -o "mustCollect=[0-9]*/[0-9]*")
-  o=$(grep "COUNTS:" "$L" | tail -1 | grep -o "4:[a-z]*/count=[0-9]*/[A-Za-z]*")
+  c=$(grep "COUNTS:" "$GAME_LOG" | tail -1 | grep -o "mustCollect=[0-9]*/[0-9]*")
+  o=$(grep "COUNTS:" "$GAME_LOG" | tail -1 | grep -o "4:[a-z]*/count=[0-9]*/[A-Za-z]*")
   echo "[watch ${el}s/${DEADLINE}s] waiting for a cache pickup in Home: $c objective$o"
   sleep 26
 done
 
-echo "Done. Log: $L"
+echo "Done. Log: $GAME_LOG"

@@ -21,11 +21,12 @@
 #                                    automatically from 38401-38500)
 set -u
 
-CW4="${CW4_DIR:-G:/Games/Steam/steamapps/common/Creeper World 4}"
-REPO="$(cd "$(dirname "$0")/.." && pwd)"; AP="$REPO/Archipelago"
-L="$CW4/BepInEx/LogOutput.log"
-CMD="$CW4/BepInEx/cw4ap-commands.txt"
-CFG="$CW4/BepInEx/config/com.droha.cw4archipelago.cfg"
+. "$(dirname "${BASH_SOURCE[0]}")/lib.sh" \
+  || { echo "FATAL: cannot source tools/lib.sh" >&2; exit 1; }
+require_game
+
+CMD="$AP_CMD"
+CFG="$AP_CFG"
 STORE="$HOME/Documents/My Games/creeperworld4/archipelago"
 MULTIDATA="$(ls -t "$REPO/.aptest/server/"*.archipelago 2>/dev/null | head -1)"
 SRV_IN="$REPO/.aptest/offline-srv-in"
@@ -76,10 +77,8 @@ verdict() { if [ "$1" = 0 ]; then PASS=$((PASS+1)); echo "  PASS  $2";
             else FAIL=$((FAIL+1)); echo "  FAIL  $2"; fi; }
 refute() { # assert a pattern is ABSENT since the mark
   if since | grep -q "$1"; then verdict 1 "$2"; else verdict 0 "$2"; fi; }
-MARK=0
-mark() { MARK=$(wc -l < "$L" 2>/dev/null || echo 0); }
-since() { local c; c=$(wc -l < "$L" 2>/dev/null || echo 0); [ "$c" -lt "$MARK" ] && MARK=0;
-          tail -n +"$((MARK+1))" "$L" 2>/dev/null; }
+since() { local c; c=$(wc -l < "$GAME_LOG" 2>/dev/null || echo 0); [ "$c" -lt "$MARK" ] && MARK=0;
+          tail -n +"$((MARK+1))" "$GAME_LOG" 2>/dev/null; }
 send() { printf "%s\n" "$1" > "$CMD"; sleep 2; }
 srv() { printf "%s\n" "$1" >> "$SRV_IN"; sleep 3; }
 wait_since() { local pat="$1" n="${2:-20}" i; for i in $(seq 1 "$n"); do
@@ -119,14 +118,14 @@ LOGDIR="$REPO/.aptest/offline-logs"
 # four times, so a failure in a later phase is undiagnosable after the fact
 # unless the log is kept. It was not, twice, and both times the next step was
 # guesswork. Keep a copy per phase.
-save_log() { mkdir -p "$LOGDIR"; [ -f "$L" ] && cp "$L" "$LOGDIR/$1.log"; }
+save_log() { mkdir -p "$LOGDIR"; [ -f "$GAME_LOG" ] && cp "$GAME_LOG" "$LOGDIR/$1.log"; }
 kill_game() { save_log "${1:-phase}"; taskkill //IM CW4.exe //F >/dev/null 2>&1; sleep 3; }
 write_cfg() {   # $1 = port, $2 = autoconnect
   mkdir -p "$(dirname "$CFG")"
   printf '[Connection]\nHost = localhost\nPort = %s\nSlot = %s\nPassword =\nAutoConnect = %s\n\n[Missions]\nShowSpan = false\n' \
     "$1" "$SLOT" "$2" > "$CFG"
 }
-launch() { ( cd "$CW4" && ./CW4.exe > /dev/null 2>&1 & ); sleep 14; MARK=0; }
+launch() { ( cd "$GAME_DIR" && ./CW4.exe > /dev/null 2>&1 & ); sleep 14; MARK=0; }
 
 [ -n "$MULTIDATA" ] || { echo "no multidata in .aptest/server - run tools/apbattery.sh first"; exit 1; }
 echo "offline-test: multidata $MULTIDATA"
@@ -285,7 +284,7 @@ since | grep "TRACKER:" | tail -2 | sed "s/^/        /"
 
 # ---------------------------------------------------------------- 6
 echo "step 6/6: zero plugin errors"
-ERR=$(grep -cE "\[Error  :CW4 Archipelago\]|tick failed|late tick failed" "$L" 2>/dev/null); ERR=${ERR:-0}
+ERR=$(grep -cE "\[Error  :CW4 Archipelago\]|tick failed|late tick failed" "$GAME_LOG" 2>/dev/null); ERR=${ERR:-0}
 [ "$ERR" -eq 0 ]; verdict $? "no plugin errors ($ERR)"
 
 echo "---"

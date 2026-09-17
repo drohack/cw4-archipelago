@@ -12,9 +12,11 @@
 # window closes. Read the gaps off the output and set the harness bound from
 # them, with headroom.
 set -u
-CW4="${CW4_DIR:-G:/Games/Steam/steamapps/common/Creeper World 4}"
-L="$CW4/BepInEx/LogOutput.log"
-CFG="$CW4/BepInEx/config/com.droha.cw4archipelago.cfg"
+
+. "$(dirname "${BASH_SOURCE[0]}")/lib.sh" \
+  || { echo "FATAL: cannot source tools/lib.sh" >&2; exit 1; }
+require_game
+CFG="$AP_CFG"
 WATCH="${1:-420}"          # seconds to observe
 
 listening() { netstat -ano | grep "LISTENING" | grep -q ":$1 "; }
@@ -65,7 +67,7 @@ CFGEOF
 sleep 2
 
 echo "retry-interval: dead port $DEAD, watching ${WATCH}s"
-rm -f "$CW4/BepInEx/cw4ap-commands.txt"
+rm -f "$GAME_DIR/BepInEx/cw4ap-commands.txt"
 
 alive() { tasklist //FI "IMAGENAME eq CW4.exe" 2>/dev/null | grep -qi "CW4.exe"; }
 
@@ -74,9 +76,9 @@ alive() { tasklist //FI "IMAGENAME eq CW4.exe" 2>/dev/null | grep -qi "CW4.exe";
 # log" test is answered by the old run.
 for i in $(seq 1 30); do alive || break; sleep 1; done
 alive && { echo "ABORT: a CW4 process would not die"; exit 1; }
-: > "$L"
+: > "$GAME_LOG"
 
-cd "$CW4" && ./CW4.exe > /dev/null 2>&1 &
+cd "$GAME_DIR" && ./CW4.exe > /dev/null 2>&1 &
 START=$SECONDS
 
 # Wait for the process to APPEAR before ever asking whether it has gone. Polling
@@ -88,10 +90,10 @@ echo "  process up at t+$((SECONDS - START))s"
 
 # And the log is genuinely this run's, so this gate genuinely waits.
 for i in $(seq 1 60); do
-  grep -q "ModCore initialized" "$L" 2>/dev/null && break
+  grep -q "ModCore initialized" "$GAME_LOG" 2>/dev/null && break
   sleep 1
 done
-grep -q "ModCore initialized" "$L" 2>/dev/null || { echo "ABORT: the mod never loaded"; exit 1; }
+grep -q "ModCore initialized" "$GAME_LOG" 2>/dev/null || { echo "ABORT: the mod never loaded"; exit 1; }
 echo "  mod up at t+$((SECONDS - START))s; counting from here"
 SEEN=0
 LAST=$((SECONDS - START))
@@ -112,10 +114,10 @@ while [ $((SECONDS - START)) -lt "$WATCH" ]; do
   # comparison below from a test into a hard error - the run printed
   # "integer expression expected" three times and skipped the branch, so
   # nothing was counted until the first match existed.
-  N=$(grep -c "AP RECONNECT: attempt" "$L" 2>/dev/null); N=${N:-0}
+  N=$(grep -c "AP RECONNECT: attempt" "$GAME_LOG" 2>/dev/null); N=${N:-0}
   if [ "${N:-0}" -gt "$SEEN" ]; then
     T=$((SECONDS - START))
-    LINE=$(grep "AP RECONNECT: attempt" "$L" 2>/dev/null | tail -1 | sed 's/^.*AP RECONNECT/AP RECONNECT/')
+    LINE=$(grep "AP RECONNECT: attempt" "$GAME_LOG" 2>/dev/null | tail -1 | sed 's/^.*AP RECONNECT/AP RECONNECT/')
     echo "  t+${T}s  (gap $((T - LAST))s)  $LINE"
     SEEN=$N
     LAST=$T
@@ -124,12 +126,12 @@ while [ $((SECONDS - START)) -lt "$WATCH" ]; do
 done
 echo "---"
 echo "retry-interval: $SEEN attempt line(s) in ${WATCH}s"
-grep "AP RECONNECT: attempt" "$L" 2>/dev/null | sed 's/^.*AP RECONNECT/    AP RECONNECT/'
+grep "AP RECONNECT: attempt" "$GAME_LOG" 2>/dev/null | sed 's/^.*AP RECONNECT/    AP RECONNECT/'
 
 # Preserve the log. A chain that stalls can only be diagnosed from what came
 # after the last attempt, and the next harness to run replaces this file.
 KEEP="$(cd "$(dirname "$0")/.." && pwd)/.aptest/retry-interval.log"
-mkdir -p "$(dirname "$KEEP")"; cp "$L" "$KEEP" 2>/dev/null
+mkdir -p "$(dirname "$KEEP")"; cp "$GAME_LOG" "$KEEP" 2>/dev/null
 echo "log kept at $KEEP"
 echo "  tail after the last attempt:"
 awk '/AP RECONNECT: attempt/ { last = NR } { line[NR] = $0 } END {

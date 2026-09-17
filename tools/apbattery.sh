@@ -7,6 +7,10 @@
 # checks / tracker colors / mission gating from LogOutput.log.
 set -u
 
+. "$(dirname "${BASH_SOURCE[0]}")/lib.sh" \
+  || { echo "FATAL: cannot source tools/lib.sh" >&2; exit 1; }
+require_game
+
 # --- pick our own port, and never kill anyone else's server -------------------
 # This used to be a fixed 38281 with a "kill whatever is listening on it"
 # cleanup, which takes out an unrelated project's Archipelago server and then
@@ -17,11 +21,7 @@ find_free_port() { local p; for p in $(seq "$1" "$2"); do
                      listening "$p" || { echo "$p"; return 0; }; done; return 1; }
 AP_PORT="$(find_free_port 38301 38380)"
 if [ -z "$AP_PORT" ]; then echo "ABORT: no free port in 38301-38380"; exit 1; fi
-CW4="${CW4_DIR:-G:/Games/Steam/steamapps/common/Creeper World 4}"
-REPO="$(cd "$(dirname "$0")/.." && pwd)"
-AP="$REPO/Archipelago"
-L="$CW4/BepInEx/LogOutput.log"
-CMD="$CW4/BepInEx/cw4ap-commands.txt"
+CMD="$AP_CMD"
 SLOT="DrohaCW4"
 MULTIDATA="${1:-$(ls -t "$REPO"/.aptest/server/*.archipelago 2>/dev/null | head -1)}"
 SRV_LOG="${TEMP:-/tmp}/cw4-apserver.log"
@@ -29,9 +29,6 @@ SRV_IN="${TEMP:-/tmp}/cw4-apserver.in"
 
 PASS=0; FAIL=0
 verdict() { if [ "$1" = 0 ]; then PASS=$((PASS+1)); echo "[apbattery] PASS: $2"; else FAIL=$((FAIL+1)); echo "[apbattery] FAIL: $2"; fi; }
-MARK=0
-mark() { MARK=$(wc -l < "$L" 2>/dev/null || echo 0); }
-since() { local cur; cur=$(wc -l < "$L" 2>/dev/null || echo 0); if [ "$cur" -lt "$MARK" ]; then MARK=0; fi; tail -n +"$((MARK+1))" "$L" 2>/dev/null; }
 send() { printf "%s\n" "$1" > "$CMD"; sleep 2; }
 srv() { printf "%s\n" "$1" >> "$SRV_IN"; sleep 3; }
 wait_since() { for i in $(seq 1 "$2"); do since | grep -q "$1" && return 0; sleep 2; done; return 1; }
@@ -53,8 +50,8 @@ echo "[apbattery] step 0: clean slate (kill game/servers, clear cache, write con
 taskkill //IM CW4.exe //F >/dev/null 2>&1
 kill_servers
 rm -rf "$(cygpath -u "$USERPROFILE" 2>/dev/null || echo "$HOME")/Documents/My Games/creeperworld4/archipelago/slots" 2>/dev/null
-mkdir -p "$CW4/BepInEx/config"
-cat > "$CW4/BepInEx/config/com.droha.cw4archipelago.cfg" <<CFGEOF
+mkdir -p "$GAME_DIR/BepInEx/config"
+cat > "$GAME_DIR/BepInEx/config/com.droha.cw4archipelago.cfg" <<CFGEOF
 [Connection]
 Host = localhost
 Port = $AP_PORT
@@ -84,7 +81,7 @@ grep -q "Hosting game at" "$SRV_LOG"; verdict $? "server up"
 
 echo "[apbattery] step 2/9: launching game (autoconnect)"
 rm -f "$CMD"
-cd "$CW4" && ./CW4.exe > /dev/null 2>&1 &
+cd "$GAME_DIR" && ./CW4.exe > /dev/null 2>&1 &
 sleep 12
 MARK=0   # BepInEx truncates LogOutput.log on launch; index from its start
 wait_since "ModCore initialized" 30; verdict $? "plugin loaded"
@@ -201,7 +198,7 @@ grep -q "Home - Totem 1" "$SRV_LOG"; verdict $? "disconnected check reached the 
 
 echo "[apbattery] step 10/10: zero plugin errors"
 mark; send "dump"; sleep 1
-ERR=$(grep -cE "\[Error :CW4 Archipelago\]|tick failed|late tick failed" "$L" 2>/dev/null); ERR=${ERR:-0}
+ERR=$(grep -cE "\[Error :CW4 Archipelago\]|tick failed|late tick failed" "$GAME_LOG" 2>/dev/null); ERR=${ERR:-0}
 [ "$ERR" -eq 0 ]; verdict $? "no plugin errors ($ERR)"
 
 echo "[apbattery] DONE: $PASS passed, $FAIL failed"

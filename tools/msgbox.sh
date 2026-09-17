@@ -22,19 +22,18 @@
 #      port under a test slot name. Free port plus snapshot/restore now,
 #      matching offline-test.sh.
 set -u
-CW4="${CW4_DIR:-G:/Games/Steam/steamapps/common/Creeper World 4}"
-REPO="$(cd "$(dirname "$0")/.." && pwd)"; AP="$REPO/Archipelago"
-L="$CW4/BepInEx/LogOutput.log"; CMD="$CW4/BepInEx/cw4ap-commands.txt"
-CFG="$CW4/BepInEx/config/com.droha.cw4archipelago.cfg"
+
+. "$(dirname "${BASH_SOURCE[0]}")/lib.sh" \
+  || { echo "FATAL: cannot source tools/lib.sh" >&2; exit 1; }
+require_game
+CMD="$AP_CMD"
+CFG="$AP_CFG"
 SLOT="DrohaCW4"; MULTIDATA="${1:-$(ls -t "$REPO"/.aptest/server/*.archipelago 2>/dev/null | head -1)}"
 SRV_LOG="${TEMP:-/tmp}/cw4-msgbox-srv.log"; SRV_IN="${TEMP:-/tmp}/cw4-msgbox-srv.in"
 
 PASS=0; FAIL=0
 verdict() { if [ "$1" = 0 ]; then PASS=$((PASS+1)); echo "[msgbox] PASS: $2";
             else FAIL=$((FAIL+1)); echo "[msgbox] FAIL: $2"; fi; }
-MARK=0
-mark() { MARK=$(wc -l < "$L" 2>/dev/null || echo 0); }
-since() { local c; c=$(wc -l < "$L" 2>/dev/null||echo 0); [ "$c" -lt "$MARK" ]&&MARK=0; tail -n +"$((MARK+1))" "$L" 2>/dev/null; }
 send() { printf "%s\n" "$1" > "$CMD"; sleep 2; }
 srv() { printf "%s\n" "$1" >> "$SRV_IN"; sleep 3; }
 wait_since() { for i in $(seq 1 "$2"); do since|grep -q "$1"&&return 0; sleep 2; done; return 1; }
@@ -111,7 +110,7 @@ tail -n +1 -f "$SRV_IN" | ( cd "$AP" && SKIP_REQUIREMENTS_UPDATE=1 python MultiS
 SRV_PID=$!
 for i in $(seq 1 25); do grep -q "Hosting game at" "$SRV_LOG" 2>/dev/null && break; sleep 1; done
 grep -q "Hosting game at" "$SRV_LOG"; verdict $? "server up on $PORT"
-rm -f "$CMD"; cd "$CW4" && ./CW4.exe > /dev/null 2>&1 &
+rm -f "$CMD"; cd "$GAME_DIR" && ./CW4.exe > /dev/null 2>&1 &
 sleep 12; MARK=0
 wait_since "AP CONNECTED slot='$SLOT'" 60; verdict $? "connected"
 
@@ -182,8 +181,8 @@ echo "[msgbox]   history after reboot=$H2"
 # a second build without the first being gone would orphan a box and double
 # every line. So count builds against mission entries rather than forbidding
 # them, and let the render and scroll assertions below prove it works.
-BUILDS=$(grep -c "MSGBOX: built on" "$L")
-ENTRIES=$(grep -c "New GameSpace" "$L")
+BUILDS=$(grep -c "MSGBOX: built on" "$GAME_LOG")
+ENTRIES=$(grep -c "New GameSpace" "$GAME_LOG")
 echo "[msgbox]   box builds=$BUILDS, mission entries=$ENTRIES"
 [ "${BUILDS:-0}" -le "${ENTRIES:-0}" ] && [ "${BUILDS:-0}" -ge 1 ]
 verdict $? "one box per mission entry, none orphaned ($BUILDS builds / $ENTRIES entries)"
@@ -215,7 +214,7 @@ awk -v s="${SCROLL:--1}" 'BEGIN { exit !(s >= 0 && s <= 0.02) }'
 verdict $? "the log opens at the bottom, not part-way up (scroll=$SCROLL)"
 
 echo "[msgbox] step 7: zero plugin errors"
-ERR=$(grep -cE "\[Error :CW4 Archipelago\]|tick failed" "$L" 2>/dev/null); ERR=${ERR:-0}
+ERR=$(grep -cE "\[Error :CW4 Archipelago\]|tick failed" "$GAME_LOG" 2>/dev/null); ERR=${ERR:-0}
 [ "$ERR" -eq 0 ]; verdict $? "no plugin errors ($ERR)"
 
 echo "[msgbox] DONE: $PASS passed, $FAIL failed"

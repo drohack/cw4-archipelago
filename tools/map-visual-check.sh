@@ -30,14 +30,16 @@
 # Usage: tools/map-visual-check.sh      (game must be CLOSED)
 #        The screenshot path is printed at the end. Delete it after reading.
 set -u
-CW4="${CW4_DIR:-G:/Games/Steam/steamapps/common/Creeper World 4}"
-L="$CW4/BepInEx/LogOutput.log"
-CMD="$CW4/BepInEx/cw4ap-commands.txt"
-SHOT="$CW4/ap_map.png"
+
+. "$(dirname "${BASH_SOURCE[0]}")/lib.sh" \
+  || { echo "FATAL: cannot source tools/lib.sh" >&2; exit 1; }
+require_game
+CMD="$AP_CMD"
+SHOT="$GAME_DIR/ap_map.png"
 send() { printf "%s\n" "$1" > "$CMD"; sleep 2; }
 taskkill //IM CW4.exe //F >/dev/null 2>&1; sleep 2
 rm -f "$CMD" "$SHOT"
-cd "$CW4" && ./CW4.exe > /dev/null 2>&1 &
+cd "$GAME_DIR" && ./CW4.exe > /dev/null 2>&1 &
 sleep 15
 
 # A KNOWN state, so the screenshot has a right answer.
@@ -69,9 +71,9 @@ sleep 3
 send "shot:$SHOT"
 sleep 5
 echo "--- glyph colours"
-grep "DEBUG GLYPHS:" "$L" | tail -25
+grep "DEBUG GLYPHS:" "$GAME_LOG" | tail -25
 echo "--- flashes during the still frame"
-grep -c "DIAG FLASH" "$L"
+grep -c "DIAG FLASH" "$GAME_LOG"
 echo "--- shot"
 ls -l "$SHOT" 2>/dev/null || echo "NO SHOT"
 taskkill //IM CW4.exe //F >/dev/null 2>&1

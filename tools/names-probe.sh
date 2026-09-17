@@ -23,9 +23,11 @@
 # Usage: tools/names-probe.sh          (game must be CLOSED)
 set -u
 
-CW4="${CW4_DIR:-G:/Games/Steam/steamapps/common/Creeper World 4}"
-L="$CW4/BepInEx/LogOutput.log"
-CMD="$CW4/BepInEx/cw4dev-commands.txt"      # dev tools channel, not the randomizer's
+. "$(dirname "${BASH_SOURCE[0]}")/lib.sh" \
+  || { echo "FATAL: cannot source tools/lib.sh" >&2; exit 1; }
+require_game
+
+CMD="$GAME_DIR/BepInEx/cw4dev-commands.txt"      # dev tools channel, not the randomizer's
 OUT="${TEMP:-/tmp}/cw4-names-probe.txt"
 send() { printf "%s\n" "$1" > "$CMD"; sleep "${2:-2}"; }
 
@@ -34,8 +36,8 @@ taskkill //IM CW4.exe //F >/dev/null 2>&1; sleep 2
 rm -f "$CMD"
 
 echo "[setup 2/3] launching"
-cd "$CW4" && ./CW4.exe > /dev/null 2>&1 &
-for i in $(seq 1 60); do grep -q "Dev Tools loaded" "$L" 2>/dev/null && break; sleep 2; done
+cd "$GAME_DIR" && ./CW4.exe > /dev/null 2>&1 &
+for i in $(seq 1 60); do grep -q "Dev Tools loaded" "$GAME_LOG" 2>/dev/null && break; sleep 2; done
 
 # story12 is where Farsite grants the Porter, so its button and ghost are the
 # most likely to exist. AllBuildings on so every ghost is loaded regardless.
@@ -47,33 +49,33 @@ send "dump" 5
 
 : > "$OUT"
 echo "== the decisive mapping: build ghost -> real unit name =="
-grep "DEVTOOLS build ghosts" "$L" | tail -1 | tr '  ' '\n' | grep -- "->" | sort | tee -a "$OUT"
+grep "DEVTOOLS build ghosts" "$GAME_LOG" | tail -1 | tr '  ' '\n' | grep -- "->" | sort | tee -a "$OUT"
 
 echo
 echo "== the 88-name registry (recorded nowhere in the repo until now) =="
-grep "DEVTOOLS ENEMY=false" "$L" | tail -1 | tee -a "$OUT"
+grep "DEVTOOLS ENEMY=false" "$GAME_LOG" | tail -1 | tee -a "$OUT"
 
 echo
 echo "== CMOD units (airship/bertha/sweeper report GUIDs, not names) =="
-grep "DEVTOOLS cmods" "$L" | tail -2 | tee -a "$OUT"
+grep "DEVTOOLS cmods" "$GAME_LOG" | tail -2 | tee -a "$OUT"
 
 # Independent confirmation: spawn takes the REAL name and says so when it is not.
 echo
 echo "== spawn oracle: does each candidate name actually exist? =="
 for n in DeliveryPad DeliveryDrone StoragePad Stash Reactor Collector Porter Strider Workall Transformer Max; do
   send "spawn:$n 1" 3
-  line=$(grep "DEVCMD spawn $n:" "$L" | tail -1)
+  line=$(grep "DEVCMD spawn $n:" "$GAME_LOG" | tail -1)
   echo "  ${line#*DEVCMD }" | tee -a "$OUT"
 done
 
 echo
 echo "== units actually on the map (data name + whether the cheats own it) =="
 send "dump" 4
-grep "DEVTOOLS units on map" "$L" | tail -1 | tee -a "$OUT"
+grep "DEVTOOLS units on map" "$GAME_LOG" | tail -1 | tee -a "$OUT"
 
 echo
 echo "== anything building that the player filter rejects (names the gap) =="
-grep -c "is building but is not in the player list" "$L"
+grep -c "is building but is not in the player list" "$GAME_LOG"
 
 taskkill //IM CW4.exe //F >/dev/null 2>&1
 echo "Saved: $OUT"
