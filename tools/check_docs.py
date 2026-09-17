@@ -365,6 +365,18 @@ UPSTREAM_PATHS = {
     "docs/apworld_dev_faq.md", "docs/tests.md", "docs/world api.md",
 }
 
+# DELIBERATELY ABSENT FROM A CLONE. src/GameDir.props is per-machine and
+# gitignored; three documents name it precisely because you have to create it.
+#
+# Found the way it should be: the first version of this rule passed on the
+# working tree, where the file exists, and failed on a `git archive` export of
+# the same commit - which is what CI checks out. Verifying a path rule against
+# a tree that carries gitignored files proves nothing about a clone, so the
+# export is now part of running it.
+GITIGNORED_PATHS = {
+    "src/GameDir.props",
+}
+
 # A CONVENTION, not an escape hatch: A LIVE THING IS NAMED BY REPO-RELATIVE
 # PATH, A RETIRED THING BY BASENAME. docs/ern-upgrade-measurements.md already
 # writes its eleven deleted harnesses as bare names and says why - they are
@@ -386,7 +398,7 @@ def path_claim_is_good(cand):
     """None when the candidate is not a claim at all; else whether it resolves."""
     if not cand.startswith(REPO_PREFIXES):
         return None
-    if cand in UPSTREAM_PATHS or cand in HISTORICAL_PATHS:
+    if cand in UPSTREAM_PATHS or cand in HISTORICAL_PATHS or cand in GITIGNORED_PATHS:
         return None
     if PLACEHOLDER.search(cand):
         return None

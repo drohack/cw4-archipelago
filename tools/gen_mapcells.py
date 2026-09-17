@@ -92,6 +92,33 @@ def main():
             print('  SKIP story%d - unreadable cell in the dump' % n)
             del caches[n]
 
+    # A PARTIAL DUMP MUST NOT SHRINK THE TABLE. The guard above catches a
+    # partial ROW; nothing caught a partial FILE. instance-dump.sh takes a
+    # mission list, so re-running it for two missions leaves a two-mission dump
+    # on disk - and this generator would then rewrite MapCells.cs with only
+    # those two, exit 0, and say "wrote ...". Found on 2026-09-17: the dump
+    # here covered 5 of the 20 missions from a re-run three days earlier, and
+    # regenerating dropped ELEVEN missions out of a compiled artifact.
+    #
+    # Cache positions are MAP data - they only change if the game moves a cache
+    # - so shrinking is essentially always the harness, not the game. Requiring
+    # a flag makes the rare real case explicit and the common accident loud.
+    existing = set()
+    if os.path.exists(OUT):
+        existing = {int(m) for m in re.findall(r'^\s*\[(\d+)\] = new\[\]',
+                                               io.open(OUT, encoding='utf-8').read(),
+                                               re.M)}
+    lost = existing - set(caches)
+    if lost and '--shrink' not in sys.argv:
+        sys.exit(
+            'REFUSING TO WRITE: the dump covers %d mission(s) but %s already\n'
+            'documents %d, and regenerating would drop %s.\n'
+            'The dump is almost certainly a partial re-run - instance-dump.sh\n'
+            'takes a mission list. Re-dump every mission, or pass --shrink if a\n'
+            'game update really did remove those caches.'
+            % (len(caches), os.path.relpath(OUT, REPO), len(existing),
+               ', '.join('story%d' % n for n in sorted(lost))))
+
     body = []
     for n in sorted(caches):
         entries = ', '.join('"%d,%d"' % (x, y) for x, y in caches[n])

@@ -237,9 +237,12 @@ class TestEarlyMissionFallback(bases.CW4TestBase):
         from ..items import STARTER_ELIGIBLE, force_early_mission
         from ..locations import SPAN_MISSION_NUMBERS
 
+        from ..items import bootstrap_threshold, opening_width
+
         world = self.world
         early = self.multiworld.local_early_items[self.player]
         real_roster, before = list(world.mission_roster), dict(early)
+        real_starters = list(world.starter_missions)
         try:
             # A roster with nothing starter-eligible left in it, which is
             # exactly what the fallback exists for.
@@ -248,9 +251,33 @@ class TestEarlyMissionFallback(bases.CW4TestBase):
                 set(), set(world.mission_roster) & set(STARTER_ELIGIBLE),
                 "the premise failed: this roster has a starter-eligible mission")
 
+            # THE OTHER HALF OF THE PREMISE, and leaving it to chance made this
+            # test FLAKY - 2 failures in 20 runs, measured 2026-09-17, and it
+            # had been so since it was written. force_early_mission returns
+            # EARLY when opening_width is below bootstrap_threshold, because
+            # bootstrap_opening owns those slots. opening_width sums over
+            # world.starter_missions, which this test did not substitute - so it
+            # was whatever that seed happened to draw, and on the draws that came
+            # out narrow the function correctly did nothing and the assertion
+            # below blamed the fallback for it.
+            #
+            # Missions 2 and 3 each carry exactly one cache collectable with a
+            # rift lab and a single tower, so this is a width of two, which
+            # clears the non-casual threshold. Neither is in the SPAN roster
+            # above, so the fallback branch is still the one under test.
+            world.starter_missions = [2, 3]
+            self.assertGreaterEqual(
+                opening_width(world), bootstrap_threshold(world),
+                "the premise failed: force_early_mission would return early and "
+                "this test would be blaming the fallback for not running")
+
+            # Cleared so that ANY grant is a new one. Generation has already put
+            # a mission unlock in here, and filtering against a stale snapshot
+            # would hide a real grant that happened to pick the same mission.
+            early.clear()
+
             force_early_mission(world)          # must not raise
-            granted = [name for name in early
-                       if name.startswith("Mission Unlock: ") and name not in before]
+            granted = [name for name in early if name.startswith("Mission Unlock: ")]
             self.assertTrue(granted, "the fallback granted nothing")
         finally:
             # RESTORED, because the other tests on this class share the world.
@@ -258,6 +285,7 @@ class TestEarlyMissionFallback(bases.CW4TestBase):
             # test, which passed in isolation and failed in a full run - the
             # worst shape a test failure can take.
             world.mission_roster = real_roster
+            world.starter_missions = real_starters
             early.clear()
             early.update(before)
 
