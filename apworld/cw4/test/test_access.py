@@ -15,7 +15,7 @@ class TestAccess(CW4TestBase):
         self.assertTrue(any(" - Cache " in n for n in reachable))
 
     def test_starters_are_drawn_from_the_eligible_set(self) -> None:
-        from ..items import STARTER_ELIGIBLE
+        from ..roster import STARTER_ELIGIBLE
         for n in self.world.starter_missions:
             self.assertIn(n, STARTER_ELIGIBLE)
 
@@ -23,7 +23,7 @@ class TestAccess(CW4TestBase):
         # A mission may only start unlocked if its cache is genuinely free -
         # waives the mission's requirements AND has none of its own. Archon
         # waives the weapon but still needs a Terp, so it must not qualify.
-        from ..items import STARTER_ELIGIBLE
+        from ..roster import STARTER_ELIGIBLE
         from ..rules import OBJECTIVE_OWN, WAIVES_INSTANCE, WAIVES_MISSION_REQUIREMENTS
         eligible = {
             m for (m, kind) in WAIVES_MISSION_REQUIREMENTS
@@ -49,7 +49,7 @@ class TestAccess(CW4TestBase):
         self.assertIn(["Cannon", "Mortar"], second, "the second cache needs a weapon")
 
     def test_farsite_can_open_a_seed(self) -> None:
-        from ..items import STARTER_ELIGIBLE
+        from ..roster import STARTER_ELIGIBLE
         self.assertIn(1, STARTER_ELIGIBLE)
 
     def test_no_weapon_is_granted(self) -> None:
@@ -81,7 +81,8 @@ class TestAccess(CW4TestBase):
     def test_missions_need_their_unlock(self) -> None:
         # Pick a mission this seed did NOT start with - starters are random now,
         # so naming one would fail whenever it happened to be a starter.
-        from ..items import MISSION_TITLES, STARTER_ELIGIBLE
+        from ..items import MISSION_TITLES
+        from ..roster import STARTER_ELIGIBLE
         n = next(m for m in STARTER_ELIGIBLE if m not in self.world.starter_missions)
         title = MISSION_TITLES[n]
         self.assertAccessDependency(
@@ -313,7 +314,7 @@ class TestAccess(CW4TestBase):
         # Miner requirement would break generation's opening.
         from ..rules import location_requirements
         self.assertEqual([], location_requirements("Not My Mars - Cache 1", 3))
-        from ..items import STARTER_ELIGIBLE
+        from ..roster import STARTER_ELIGIBLE
         self.assertIn(3, STARTER_ELIGIBLE)
 
     def test_shattered_needs_movement_for_the_THIRD_totem_only(self) -> None:

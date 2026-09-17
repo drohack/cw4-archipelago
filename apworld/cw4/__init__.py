@@ -10,7 +10,7 @@ from typing import Any
 from worlds.AutoWorld import WebWorld, World
 from BaseClasses import Tutorial
 
-from . import groups, items, locations, regions, rules
+from . import groups, items, locations, regions, roster, rules
 from . import options
 from .options import CW4Options
 
@@ -89,10 +89,10 @@ class CW4World(World):
     def generate_early(self) -> None:
         # Chosen before regions are built, because which missions start unlocked
         # decides which regions need no unlock item.
-        self.starter_missions = items.starter_missions(self)
+        self.starter_missions = roster.starter_missions(self)
         # STRICTLY AFTER the starters: the roster is built around them, so that a
         # seed can never start with a mission it does not contain.
-        self.mission_roster = items.mission_roster(self)
+        self.mission_roster = roster.mission_roster(self)
         items.force_early_mission(self)
         items.force_early_weapon(self)
 

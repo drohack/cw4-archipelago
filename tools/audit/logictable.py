@@ -16,7 +16,7 @@ import sys
 
 sys.path.insert(0, os.getcwd())
 
-from worlds.cw4 import items as I, locations as L, rules as R  # noqa: E402
+from worlds.cw4 import items as I, locations as L, roster as RO, rules as R  # noqa: E402
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 OUT = os.path.join(REPO, "docs", "randomizer-logic.md")
@@ -113,9 +113,9 @@ def main() -> int:
     w("")
     w("**Free at the start, with no item at all**")
     w("")
-    w(f"- {len(I.STARTER_ELIGIBLE)} missions are starter-eligible; "
+    w(f"- {len(RO.STARTER_ELIGIBLE)} missions are starter-eligible; "
       "`starter_missions` (default 2, range 2 to 6) of them open unlocked.")
-    w("  Eligible: " + ", ".join(L.MISSION_TITLES[n] for n in sorted(I.STARTER_ELIGIBLE)))
+    w("  Eligible: " + ", ".join(L.MISSION_TITLES[n] for n in sorted(RO.STARTER_ELIGIBLE)))
     w("- They are drawn at random per seed, and get no unlock item, which is why")
     w("  a default seed has 18 mission unlocks rather than 20.")
     w("")

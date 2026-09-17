@@ -193,7 +193,7 @@ class TestSpanRosterBreadth(bases.CW4TestBase):
     options = {"span_missions": 1}
 
     def test_the_roster_clears_the_floor(self) -> None:
-        from ..items import MIN_ROSTER_BREADTH, roster_breadth
+        from ..roster import MIN_ROSTER_BREADTH, roster_breadth
         from ..rules import is_casual
         breadth = roster_breadth(self.world.mission_roster, is_casual(self.world))
         self.assertGreaterEqual(breadth, MIN_ROSTER_BREADTH)
@@ -202,7 +202,7 @@ class TestSpanRosterBreadth(bases.CW4TestBase):
         # Stated as "never narrower than the campaign" rather than as a number,
         # so a logic change that moves the campaign's breadth moves the floor
         # with it instead of leaving an invented constant behind.
-        from ..items import MIN_ROSTER_BREADTH, roster_breadth
+        from ..roster import MIN_ROSTER_BREADTH, roster_breadth
         self.assertEqual(roster_breadth(range(1, 21)), MIN_ROSTER_BREADTH)
 
     def test_the_early_mission_is_always_granted(self) -> None:
@@ -234,7 +234,8 @@ class TestEarlyMissionFallback(bases.CW4TestBase):
     options = {"span_missions": 1}
 
     def test_a_span_only_roster_still_grants_an_early_mission(self) -> None:
-        from ..items import STARTER_ELIGIBLE, force_early_mission
+        from ..items import force_early_mission
+        from ..roster import STARTER_ELIGIBLE
         from ..locations import SPAN_MISSION_NUMBERS
 
         from ..items import bootstrap_threshold, opening_width
@@ -302,7 +303,7 @@ class TestSlotOrder(bases.CW4TestBase):
     options = {"span_missions": 1}
 
     def test_the_goal_sits_in_slot_nineteen(self) -> None:
-        from ..items import GOAL_SLOT
+        from ..roster import GOAL_SLOT
         from ..locations import FINAL_MISSION
         roster = list(self.world.mission_roster)
         self.assertEqual(FINAL_MISSION, roster[GOAL_SLOT - 1])

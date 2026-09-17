@@ -4,7 +4,6 @@ Source of truth: docs/randomizer-design.md in the repository root.
 Skeleton status: names and counts are real per the design doc; the pool is
 padded with build-limit filler to match the location count.
 """
-import functools
 from BaseClasses import Item, ItemClassification
 
 BASE_ID = 4_040_000
@@ -18,28 +17,6 @@ MISSION_TITLES = {
     20: "Ever After",
 }
 
-# Missions eligible to START unlocked.
-#
-# The only real constraint is that SOMETHING must be reachable with an empty
-# inventory, or the generator has nowhere to put a first item. That means a
-# mission whose cache can be taken with the rift lab and a single tower, with no
-# weapon and no other building.
-#
-# Farsite IS eligible, via a per-instance waiver. The worksheet splits its two
-# caches - "first item can get with just tower, 2nd item needs weapon to get over
-# creep" - and an earlier version excluded mission 1 outright because a per-TYPE
-# waiver could not say that without also claiming the second cache was free.
-# rules.WAIVES_INSTANCE says it properly, so Farsite can open a seed like any
-# other mission. Nothing requires the campaign to start at its beginning either:
-# missions are open, so picking at random varies the opening between seeds.
-#
-# Archon is excluded despite waiving the weapon, because its caches are buried:
-# they need a Terp and a Pylon, so they are not free.
-#
-# Kept in step with rules.WAIVES_MISSION_REQUIREMENTS and rules.WAIVES_INSTANCE
-# by a test - rules.py cannot be imported here without a cycle (locations imports
-# items).
-STARTER_ELIGIBLE = (1, 2, 3, 4, 5, 7, 10, 11, 13, 14)
 
 # EVERY mission's unlock exists as an item name, including the ones that end up
 # starting unlocked. Item ids must not depend on which missions a seed happens to
@@ -75,169 +52,6 @@ _dupes = sorted(set(MISSION_TITLES.values()) & set(SPAN_MISSION_TITLES.values())
 if _dupes:
     raise AssertionError(f"SPAN titles collide with Farsite titles: {_dupes}")
 
-
-# SPAN missions whose cache could open a seed. Exactly one qualifies: Far York
-# Farm is the ONLY map in the whole 26 with a cache at all, and it is exposed
-# (not buried) and in its map's single connected component.
-#
-# HELD LOOSELY, and deliberately not trusted alone. Whether creep covers that
-# cache is UNVERIFIED - the survey cannot see creeper, and two campaign missions
-# (More and More, Tower of Darkness) need a weapon for exactly that reason. So
-# starter_missions below always keeps at least one CAMPAIGN starter, and this
-# can only ever be the second one.
-SPAN_STARTER_ELIGIBLE = (38,)   # Far York Farm
-
-
-def span_enabled(world) -> bool:
-    return bool(world.options.span_missions)
-
-
-def starter_missions(world) -> list:
-    """The missions this seed starts with, chosen at random from the eligible
-    set. Deterministic for a seed because it draws from the world's random.
-
-    WITH SPAN ON, AT LEAST ONE STARTER IS ALWAYS A CAMPAIGN MISSION. The whole
-    SPAN roster holds one cache, so it cannot reliably supply an opening, and a
-    seed whose only starter turns out to have a creep-covered cache has nothing
-    reachable and fails to generate. Drawing the first from the campaign set
-    makes that impossible rather than unlikely.
-    """
-    count = min(world.options.starter_missions.value, len(STARTER_ELIGIBLE))
-    if not span_enabled(world):
-        return sorted(world.random.sample(list(STARTER_ELIGIBLE), count))
-
-    first = world.random.choice(list(STARTER_ELIGIBLE))
-    rest_pool = [n for n in list(STARTER_ELIGIBLE) + list(SPAN_STARTER_ELIGIBLE)
-                 if n != first]
-    rest = world.random.sample(rest_pool, max(0, count - 1))
-    return sorted([first] + rest)
-
-
-# The least WEAPON BREADTH a roster may have - how many of its checks the first
-# weapon opens, summed over the whole seed.
-#
-# NINE, WHICH IS THE CAMPAIGN'S OWN NUMBER, so the rule reads "a mixed seed never
-# opens narrower than the campaign does" rather than naming an invented constant.
-# The campaign's 9 is concentrated in five missions (Farsite 3, Home 2, More and
-# More 1, Tower of Darkness 1, Sequence 2) and a campaign seed always contains
-# all five. SPAN carries 16 across five more (the three Pod maps are worth 14 of
-# it, because loose liftic means their totems need no factory), so a mixed roster
-# averages MORE breadth than the campaign - 10.5 over 4,000 seeds.
-#
-# THE PROBLEM IS VARIANCE, NOT THE MEAN. Drawing 19 missions from 45 can miss
-# nearly all ten, and measured over 4,000 seeds the retry depth tracks this one
-# quantity and nothing else:
-#
-#     depth 1   3888 seeds   mean breadth 10.5
-#     depth 2     98 seeds   mean breadth  8.9
-#     depth 3     13 seeds   mean breadth  8.0
-#     depth 4      1 seed    mean breadth  5.0
-#
-# Opening width and the early-mission candidate count barely moved across those
-# rows. Six of the 4,000 had ZERO breadth: the first weapon opened nothing
-# anywhere in the seed. With the cap raised to 25 to see the real tail, one seed
-# in 10,000 needed SEVEN attempts - it would have failed at the shipped cap of 5,
-# where the campaign's worst in 20,000 is 4.
-MIN_ROSTER_BREADTH = 9
-
-
-def mission_roster(world) -> list:
-    """The missions this seed actually contains - always exactly 20.
-
-    The finale is always Founders, so 19 slots are drawn. With SPAN off that is
-    simply the campaign. With it on, the starters are already fixed (see above)
-    and the remaining slots come from the campaign and SPAN together.
-
-    THE DRAW IS THEN REPAIRED RATHER THAN REJECTED. A roster short of
-    MIN_ROSTER_BREADTH swaps its least useful missions for breadth-carrying ones
-    until it clears, instead of being re-rolled: re-rolling would quietly bias
-    the whole roster toward maps that happen to sit near breadth-carrying ones in
-    the draw, while a swap changes only the missions it has to.
-    """
-    from .locations import FINAL_MISSION
-    if not span_enabled(world):
-        return list(range(1, 21))
-
-    starters = list(world.starter_missions)
-    fixed = set(starters) | {FINAL_MISSION}
-    chosen = set(fixed)
-    pool = [n for n in list(range(1, 21)) + sorted(SPAN_MISSION_TITLES)
-            if n not in chosen]
-    need = max(0, 20 - len(chosen))
-    chosen |= set(world.random.sample(pool, min(need, len(pool))))
-
-    casual = _is_casual(world)
-    if roster_breadth(chosen, casual) < MIN_ROSTER_BREADTH:
-        chosen = _widen_roster(world, chosen, fixed, casual)
-    return _slot_order(chosen)
-
-
-# Which slot of the level-select spiral the GOAL occupies, 1-based.
-#
-# Nineteen, which is where Founders sits in the untouched campaign. The twentieth
-# position is the one vanilla parks off the map for Ever After, and
-# FinalePlacement moves whatever lands there onto the map as a side branch - so
-# putting the goal in it would hang the goal off the branch instead of the
-# chain.
-#
-# Missions are OPEN, so this changes nothing about what is playable. It is about
-# whether the spiral still reads as building toward the finale, which a plain
-# ascending sort loses: with the SPAN Experiments on, mission numbers 21..46 all
-# sort after Founders, so the goal ends up somewhere in the middle with ten maps
-# drawn after it.
-GOAL_SLOT = 19
-
-
-def _slot_order(chosen: set) -> list:
-    """The roster in LEVEL-SELECT SLOT ORDER, goal in its usual place.
-
-    Everything else is ascending by mission number, so the campaign keeps its
-    familiar order and the SPAN maps follow it in a stable one.
-    """
-    from .locations import FINAL_MISSION
-    rest = sorted(n for n in chosen if n != FINAL_MISSION)
-    if FINAL_MISSION not in chosen:
-        return rest
-    index = min(GOAL_SLOT - 1, len(rest))
-    return rest[:index] + [FINAL_MISSION] + rest[index:]
-
-
-def _is_casual(world) -> bool:
-    from .rules import is_casual
-    return is_casual(world)
-
-
-def roster_breadth(roster, casual: bool = False) -> int:
-    """How many checks the first weapon opens across a whole roster."""
-    return sum(weapon_breadth(n, casual) for n in roster)
-
-
-def _widen_roster(world, chosen: set, fixed: set, casual: bool) -> set:
-    """Swap breadth INTO a roster that has too little of it.
-
-    Takes out the missions that contribute nothing a weapon can open, richest
-    candidate first, and never touches a starter or the finale - those are
-    already committed and swapping one out would leave the seed starting on a
-    mission it does not contain.
-    """
-    chosen = set(chosen)
-    candidates = sorted(
-        (n for n in list(range(1, 21)) + sorted(SPAN_MISSION_TITLES)
-         if n not in chosen and weapon_breadth(n, casual) > 0),
-        key=lambda n: (-weapon_breadth(n, casual), n),
-    )
-    removable = sorted(n for n in chosen
-                       if n not in fixed and weapon_breadth(n, casual) == 0)
-    world.random.shuffle(removable)
-
-    for candidate in candidates:
-        if roster_breadth(chosen, casual) >= MIN_ROSTER_BREADTH:
-            break
-        if not removable:
-            break            # nothing left to trade; take what breadth we have
-        chosen.discard(removable.pop())
-        chosen.add(candidate)
-    return chosen
 
 # Vanilla-schedule units that become items. Only riftlab and tower are always
 # available - without a base and energy a mission cannot be started at all.
@@ -495,8 +309,6 @@ def create_item(world, name: str) -> CW4Item:
     return CW4Item(name, classification(name), ITEM_NAME_TO_ID[name], world.player)
 
 
-
-
 # How many empty reachable locations the opening needs before Archipelago's fill
 # is safe to take over. Two is not enough: one wasted placement still strands it.
 #
@@ -693,39 +505,6 @@ def bootstrap_threshold(world) -> int:
 # be finished. It is still worth fixing, but it never costs a playthrough.
 
 
-@functools.lru_cache(maxsize=None)
-def weapon_breadth(mission: int, casual: bool = False) -> int:
-    """How many of a mission's checks a WEAPON alone opens, beyond the free ones.
-
-    CACHED because it is a pure function of the rules, and the rules are module
-    state rather than seed state. It was cheap enough when only
-    force_early_mission asked, once per seed; mission_roster now sums it over
-    the whole roster on every SPAN seed, and _widen_roster ranks all 45
-    candidates by it, which without this would re-derive every location
-    requirement in the game several times per seed.
-
-    The opening's real capacity is not how many checks are free - it is how many
-    the fill's first progression item can unlock. A mission whose only early
-    check is its waived cache contributes one location and then nothing, however
-    many objectives it has.
-
-    Measured, not listed, so it tracks the rules: when Miner became a logic
-    requirement on Not My Mars and Ruins Repurposed, this began reporting 0 for
-    them without anything else being edited.
-    """
-    from .locations import location_names_for_mission
-    from .rules import OFFENSE, location_requirements
-    held = {OFFENSE[0]}
-    n = 0
-    for name in location_names_for_mission(mission):
-        reqs = location_requirements(name, mission, casual)
-        if not reqs:
-            continue                       # free already, not weapon-opened
-        if all(any(item in held for item in group) for group in reqs):
-            n += 1
-    return n
-
-
 # How many times to re-attempt our own progression fill before the error is
 # allowed out. Each attempt reshuffles, and every observed failure is the same
 # shape - the opening does not chain in the first few placements, which a
@@ -918,6 +697,12 @@ def force_early_mission(world) -> None:
     surgical version - it changes WHICH mission is granted, nothing else, and
     only when the starters cannot already carry the opening themselves.
     """
+    # LOCAL, and temporary. roster.py imports this module, so a top-level
+    # import here would be the cycle the split exists to remove. This whole
+    # function moves to opening.py next, which is downstream of both and needs
+    # no local import at all.
+    from .roster import STARTER_ELIGIBLE, weapon_breadth
+
     if opening_width(world) < bootstrap_threshold(world):
         return  # bootstrap_opening owns these slots
     roster = set(world.mission_roster)

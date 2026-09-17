@@ -18,7 +18,7 @@ OUT = os.path.join(REPO, ".aptest", "audit")
 os.environ.setdefault("SKIP_REQUIREMENTS_UPDATE", "1")
 sys.path.insert(0, AP)
 
-from worlds.cw4 import items as I, locations as L, options as O  # noqa: E402
+from worlds.cw4 import items as I, roster as RO, locations as L, options as O  # noqa: E402
 
 # ---------------------------------------------------------------- derivation
 LOCATIONS = (sum(c for c, _, _ in L.INSTANCE_COUNTS.values())
@@ -49,7 +49,7 @@ DEFAULTS.update({k: v.default for k, v in _OPTION_DEFAULTS.items()})
 def derive(**o):
     """The pool create_all_items will build, computed rather than observed."""
     opt = dict(DEFAULTS, **o)
-    starters = min(opt["starter_missions"], len(I.STARTER_ELIGIBLE))
+    starters = min(opt["starter_missions"], len(RO.STARTER_ELIGIBLE))
     unlocks = len(I.MISSION_UNLOCK_ITEMS) - starters
     # RETIRED names still live in UNIT_ITEMS - ids are positional, so a removed
     # name would renumber every id after it - but they are never generated. The

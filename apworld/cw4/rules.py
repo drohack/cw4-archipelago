@@ -44,7 +44,6 @@ from .locations import (
     beaten_event_name,
     LOCATIONS_PER_MISSION,
     OBJECTIVE_TYPES,
-    REQUIRED_OBJECTIVES,
     VICTORY_EVENT,
     VICTORY_ITEM,
     location_kind,
