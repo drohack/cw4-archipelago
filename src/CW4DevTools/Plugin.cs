@@ -21,9 +21,19 @@ namespace CW4DevTools;
 /// vs unit-name split written up in docs/research-findings.md ("Unit naming"),
 /// which had been making the cheats skip pylons and miners entirely.
 /// </summary>
-[BepInPlugin("com.droha.cw4devtools", "CW4 Dev Tools", "0.1.0")]
+[BepInPlugin("com.droha.cw4devtools", "CW4 Dev Tools", Plugin.Version)]
 public class Plugin : BasePlugin
 {
+    /// <summary>The one place this plugin's version is written in C#.
+    ///
+    /// The attribute below reads it rather than repeating the literal - the same
+    /// fix the shipping plugin got, for the same reason. The csproj states it
+    /// too, and tools/check-release.py holds the two equal; before that, these
+    /// were two independent strings with nothing holding them together.
+    ///
+    /// Deliberately NOT part of the mod's three-file version lock: this plugin
+    /// ships in no release and has its own lifecycle.</summary>
+    public const string Version = "0.1.0";
     public override void Load()
     {
         DevConfig.Init(Config);

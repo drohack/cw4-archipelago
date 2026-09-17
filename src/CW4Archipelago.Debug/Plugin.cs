@@ -21,10 +21,20 @@ namespace CW4ApDebug;
 /// initialised before the first tick. If the mod is absent this plugin does not
 /// load at all - BepInEx reports it as a missing hard dependency.
 /// </summary>
-[BepInPlugin("com.droha.cw4apdebug", "CW4 Archipelago Debug", "0.1.0")]
+[BepInPlugin("com.droha.cw4apdebug", "CW4 Archipelago Debug", Plugin.Version)]
 [BepInDependency("com.droha.cw4archipelago", BepInDependency.DependencyFlags.HardDependency)]
 public class Plugin : BasePlugin
 {
+    /// <summary>The one place this plugin's version is written in C#.
+    ///
+    /// The attribute below reads it rather than repeating the literal - the same
+    /// fix the shipping plugin got, for the same reason. The csproj states it
+    /// too, and tools/check-release.py holds the two equal; before that, these
+    /// were two independent strings with nothing holding them together.
+    ///
+    /// Deliberately NOT part of the mod's three-file version lock: this plugin
+    /// ships in no release and has its own lifecycle.</summary>
+    public const string Version = "0.1.0";
     public override void Load()
     {
         try

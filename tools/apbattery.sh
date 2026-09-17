@@ -1,7 +1,9 @@
 #!/bin/bash
 # Integration battery for the real CW4 Archipelago mod. Starts a local AP
-# server, launches the game (AutoConnect + DebugCommands via the pre-written
-# BepInEx config), and asserts connect / live items / unit gate / location
+# server, launches the game (AutoConnect via the pre-written BepInEx config; the
+# debug channel is enabled by the CW4ApDebug plugin being installed, not by any
+# setting - the DebugCommands key these scripts still write is inert), and
+# asserts connect / live items / unit gate / location
 # checks / tracker colors / mission gating from LogOutput.log.
 set -u
 

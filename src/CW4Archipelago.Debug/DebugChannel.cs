@@ -8,9 +8,21 @@ using UnityEngine.UI;
 namespace CW4Archipelago.Appliers;
 
 /// <summary>
-/// Config-gated file-command channel for hands-free testing (the batteries
-/// write to BepInEx/cw4ap-commands.txt). Off by default; never enabled for
-/// players. Runs on the main thread (called from ModCore.Tick).
+/// File-command channel for hands-free testing (the batteries write to
+/// BepInEx/cw4ap-commands.txt). Runs on the main thread, called from
+/// ModCore.Tick.
+///
+/// INSTALLING THIS PLUGIN IS ENABLING IT. There is no config gate, and this
+/// summary claimed there was one for as long as the flag has been gone - see
+/// Plugin.cs, which explains why presence of the DLL replaced the old
+/// `DebugCommands` setting. It is never enabled for players because the release
+/// zip never contains this assembly, which package-release.ps1 asserts on the
+/// built artifact.
+///
+/// Harness scripts in tools/ still write `DebugCommands = true` into the .cfg.
+/// That is inert - BepInEx ignores an unknown key - but it is why a reader
+/// debugging a silent channel should look at whether the DLL is installed
+/// rather than at any setting.
 /// </summary>
 public sealed class DebugChannel
 {

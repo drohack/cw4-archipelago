@@ -4,7 +4,11 @@
 
 - Creeper World 4 (Steam, Windows)
 - BepInEx 6 (IL2CPP, win-x64) - exact tested build linked in the mod's README
-- The CW4Archipelago release zip and cw4.apworld from the mod's releases page
+- Archipelago 0.6.7 or newer, if you are the one generating the multiworld
+- The CW4Archipelago release zip and cw4.apworld from the mod's releases page.
+  **Take both from the same release** - the mod and the apworld share one version
+  number and are built as a pair. Mixing them is not blocked, but the mod will
+  warn you in-game when it notices.
 
 ## Installation
 
