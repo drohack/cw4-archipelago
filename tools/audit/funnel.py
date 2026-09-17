@@ -19,7 +19,15 @@ import sys
 
 AP = os.getcwd()
 SEEDS = int(sys.argv[1]) if len(sys.argv) > 1 else 60
-STARTERS = sys.argv[2] if len(sys.argv) > 2 else "1"
+# DEFAULTED TO "1" UNTIL 2026-09-17, which had stopped being a value the option
+# would accept: the StarterMissions floor became 2 on 2026-09-03 because one
+# starter could not be made to generate reliably. So running this with no
+# arguments - the way the docs describe it - died on option validation before it
+# hunted a single seed, and had done for a fortnight. Audit 2 read this file and
+# did not catch it, because reading a tool does not run it.
+#
+# Pass "1" explicitly if a future change lowers the floor again.
+STARTERS = sys.argv[2] if len(sys.argv) > 2 else "2"
 
 os.environ.setdefault("SKIP_REQUIREMENTS_UPDATE", "1")
 sys.path.insert(0, AP)
