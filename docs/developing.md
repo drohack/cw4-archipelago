@@ -13,8 +13,40 @@
   enabling it - there is no config flag.
 - `src/CW4DevTools/` - a separate cheat and survey plugin, documented below.
   Deliberately not part of the randomizer and installed separately.
-- `apworld/cw4/` - the Archipelago world (Python source).
-- `tools/` - test batteries, probes and packaging scripts.
+- `apworld/cw4/` - the Archipelago world (Python source). Split by CONCERN, and
+  the split follows the import graph rather than file size:
+  - `items.py` - what items exist. The name tables, the positional id
+    assignment (`_all_names` and `ITEM_NAME_TO_ID`, which must never be
+    reordered), classification, and the pool.
+  - `roster.py` - which twenty missions this seed drew, and what a first weapon
+    opens on them.
+  - `opening.py` - how wide the opening is and what the world does when that is
+    too narrow: the bootstrap, the early-item forcing, and the world's own
+    progression fill.
+  - `locations.py`, `rules.py`, `options.py`, `groups.py`, `regions.py` -
+    locations and their ids, the logic tables, the yaml, the name groups, the
+    region graph.
+  - `span_data.py` - generated, and executed standalone by three tools, so it
+    must stay one file with no relative imports.
+
+  The dependency direction is `items -> locations -> rules -> roster ->
+  opening`. `items.py` carried ten function-local imports to break cycles and
+  now carries one, which is documented where it sits.
+- `tools/` - flat on purpose, and grouped by name prefix instead of by
+  directory, because 29 files compute their own path to the repo root from
+  their own depth and a subdirectory would silently break every one of them:
+  - `check_*.py` - the release and documentation gates, also run by CI.
+  - `gen_*.py` - generate a checked-in file. Each one's output declares which
+    generator produced it, and `check_docs.py` enforces that.
+  - `*.sh` - the in-game harnesses. All of them source `tools/lib.sh`, which
+    holds the one copy of the game path (`GAME_DIR`, from `CW4_DIR`), the log
+    and command-file paths, and the log helpers.
+  - `*.ps1` - release packaging and version bumping.
+  - `tools/audit/` - offline measurement, run with the working directory set to
+    an Archipelago clone. That different execution contract is why it is a
+    directory and the rest is not.
+  - `tools/reflect/` - a C# console tool that searches the interop assemblies
+    without launching the game.
 - `docs/randomizer-design.md` - the design source of truth (items, locations,
   logic rules, campaign survey data).
 - `docs/research-findings.md` - proven recipes and crash rules for modding

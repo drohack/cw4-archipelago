@@ -79,6 +79,60 @@ because the scan could not see Python docstrings, which is where most of this
 repo's prose lives - and were fixed rather than shipped green.
 
 
+### Restructuring audit
+
+A third audit moved things rather than correcting them. **No behaviour changed**,
+and that claim is measured rather than asserted: every step was checked with a
+new seed-parity harness that generates the same seeds on both sides and compares
+the real multidata, in a strict mode where nothing at all may differ - not even
+a new slot_data key. Both of its controls were run first, because a parity
+harness that has only ever passed proves nothing.
+
+**The Archipelago world is three modules instead of one.** `items.py` was 1,294
+lines and is now 481, with `roster.py` and `opening.py` beside it. Line count
+was not the reason - that file is 352 lines of code carrying 834 of
+measurement, and splitting it to look tidier would have fragmented the only
+thing it has. It was split because half of it sat UPSTREAM of the code it
+depended on, so it needed ten function-local imports to break cycles. It now
+needs one, and that one is documented where it sits. Item and location ids did
+not move; a new test hashes all 105 item ids the way the 236 location ids were
+already hashed.
+
+**One copy of the game path.** It was written out in 22 shell harnesses under
+two different variable names, and the repo root re-derived in 16 of them from a
+hard-coded directory depth. Both now live in `tools/lib.sh`, which asserts the
+root it computed is really the repo root - nothing checked that before, and a
+wrong one does not fail, it just writes somewhere else. The variable is
+`GAME_DIR` now rather than `G`, which read like a drive letter because the
+maintainer's install happens to sit on `G:`. `tools/reflect` had the same path
+hard-coded twice with no override at all and ran on exactly one machine.
+
+**Fourteen Python tools can be imported.** A hyphen makes a file unimportable
+and three tools were working around it with `runpy`. 66 references moved in one
+commit, including the seven generated artifacts, whose generator headers now all
+say the same thing.
+
+Three defects fell out of the checking rather than the moving:
+
+- **A generator could silently shrink a compiled file.** `gen_mapcells.py`
+  rewrote `MapCells.cs` with five missions where it had seventeen, printed
+  "wrote", and exited 0 - because the dump on disk was a partial re-run. It
+  refuses now, and names what it would have dropped.
+- **A test had been failing one run in ten since it was written**, so CI had
+  been failing spuriously at that rate. It forced one half of its premise and
+  left the other to the seed's draw.
+- **`funnel.py` had not been runnable for a fortnight**, defaulting to a
+  `starter_missions` value that stopped being selectable on 2026-09-03.
+
+The first and third were found only by RUNNING the tools. The documentation
+audit had read all of them and each was internally consistent.
+
+`tools/check_docs.py` gains two rules covering 283 path claims that nothing
+checked before, and CI reads shell for the first time - it had never parsed a
+harness. There is also a solution file, so `dotnet build` at the repo root
+works.
+
+
 **This is a pre-release.** The feature below is off unless you turn it on, and a
 seed that leaves it off plays exactly as v0.1.10 did: the campaign's 236 location
 ids did not move, a test now fails if they ever do, and the roster of a

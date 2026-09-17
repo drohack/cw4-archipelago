@@ -201,7 +201,13 @@ loading saves, and dumping tracker, objective, unit and UI state. See
   probes, as their own plugin so no release contains them
 - `apworld/cw4/` - the Archipelago world (Python)
 - `docs/` - design and research documentation
-- `tools/` - test batteries, probes and release packaging
+- `tools/` - one directory, grouped by name prefix: `check_*` gate a release,
+  `gen_*` generate a checked-in file, `*-test.sh` and the batteries drive the
+  live game, and `tools/audit/` holds the offline measurement scripts that run
+  inside an Archipelago clone
+
+Building needs `src/GameDir.props` (copy the `.example` beside it); the shell
+harnesses and `tools/reflect` read the same game path from `CW4_DIR`.
 
 Contributing and building: [docs/developing.md](docs/developing.md).
 Randomizer design: [docs/randomizer-design.md](docs/randomizer-design.md).
