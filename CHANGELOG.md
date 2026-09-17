@@ -177,8 +177,9 @@ a success, and no released seed ever hit the old limit.
   rains). So the logic over-requires rather than under-requires, and a seed
   should be harder than it needs to be rather than impossible.
 
-  If you play these maps, `docs/design/span-requirements-worksheet.md` is
-  pre-filled with every measurement and blank where only play can answer.
+  If you play these maps, `docs/design/span-requirements-worksheet.md` lists
+  every measurement and links a four-question form for reporting what a map
+  really needed.
 - **The finale now counts SPAN completions**, and locked SPAN maps really are
   locked. `MissionGate` used to let anything that was not a `storyN` specifier
   through untouched, so a SPAN map in a seed would have been launchable whatever

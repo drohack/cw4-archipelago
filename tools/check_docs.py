@@ -276,6 +276,7 @@ GENERATORS = {
     "src/CW4Archipelago.Core/MapCells.cs": "tools/gen_mapcells.py",
     "src/CW4Archipelago.Core/SpanMissionTable.g.cs": "tools/gen_spancsharp.py",
     "apworld/cw4/span_data.py": "tools/gen_spandata.py",
+    ".github/ISSUE_TEMPLATE/span-map-report.yml": "tools/gen_spanworksheet.py",
 }
 
 

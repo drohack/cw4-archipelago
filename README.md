@@ -71,8 +71,8 @@ received items.
   spiral still holds 20 missions, the goal is still Founders, and locked slots
   still show the native "?". The logic for those 26 maps was DERIVED from the
   game data rather than played, so it over-requires rather than under-requires -
-  see [docs/design/span-requirements-worksheet.md](docs/design/span-requirements-worksheet.md)
-  if you play them and want to correct it
+  see [what is measured and what is not](docs/design/span-requirements-worksheet.md)
+  if you play them, and report what a map really needed
 - Main menu slimmed to Farsite (SPAN hidden behind a config toggle) with the
   connection panel shown only on the menu
 - Server messages (item sends/receives, chat) appear in a scrollable,
@@ -108,7 +108,8 @@ find out, and three whole classes of requirement - creep advance, reach that is
 not about terrain, environmental hazards - are invisible to every measurement
 behind them. Expect a seed that is harder than it needs to be rather than one
 that cannot be finished, and
-[report what you find](docs/design/span-requirements-worksheet.md).
+[report what you find](docs/design/span-requirements-worksheet.md) - it is a
+four-question form.
 
 ## The other two plugins (build them yourself)
 
