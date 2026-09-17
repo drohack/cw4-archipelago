@@ -48,7 +48,17 @@ STRICT = os.environ.get("CW4_PARITY_STRICT") == "1"
 
 # Keys this change is ALLOWED to add. Anything else new, or any existing key
 # whose value moved, is a real difference and fails.
-EXPECTED_NEW_KEYS = {"mission_roster", "mission_titles", "span_missions"}
+EXPECTED_NEW_KEYS = {
+    # Added by the SPAN work, which is what this harness was built for.
+    "mission_roster", "mission_titles", "span_missions",
+    # Added by AUDIT 1, so the mod can notice it does not match the seed's
+    # apworld. Missing from this list until 2026-09-17, which meant
+    # span-off-parity.sh had reported a failure on every seed since that
+    # audit and nobody had seen it - the harness is not in CI and was not
+    # run again until the full sweep. The placements were identical the
+    # whole time; only the key was unlisted.
+    "world_version",
+}
 
 # Requirement ROWS that deliberately changed, with the reason. An allow-list that
 # outlives its change is rot, so each entry says why it is here and should be

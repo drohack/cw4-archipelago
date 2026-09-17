@@ -16,9 +16,7 @@ require_game
 # cleanup, which takes out an unrelated project's Archipelago server and then
 # races it for the bind. Choose a free port instead, remember the PID we start,
 # and kill only that.
-listening() { netstat -ano | grep "LISTENING" | grep -q ":$1 "; }
-find_free_port() { local p; for p in $(seq "$1" "$2"); do
-                     listening "$p" || { echo "$p"; return 0; }; done; return 1; }
+# listening() and find_free_port() come from tools/lib.sh.
 AP_PORT="$(find_free_port 38301 38380)"
 if [ -z "$AP_PORT" ]; then echo "ABORT: no free port in 38301-38380"; exit 1; fi
 CMD="$AP_CMD"

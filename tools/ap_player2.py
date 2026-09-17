@@ -4,7 +4,10 @@
 import asyncio, json, sys, uuid
 import websockets
 
-HOST = "ws://localhost:38281"
+# The port is passed in, because the harness picks a FREE one rather than
+# squatting on Archipelago's default and killing whatever is already there.
+PORT = sys.argv[2] if len(sys.argv) > 2 else "38281"
+HOST = "ws://localhost:%s" % PORT
 NAME = "Player2CW4"
 GAME = "Creeper World 4"
 N_CHECKS = int(sys.argv[1]) if len(sys.argv) > 1 else 0

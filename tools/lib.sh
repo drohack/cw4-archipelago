@@ -87,6 +87,28 @@ since() {
   tail -n +"$((MARK+1))" "$GAME_LOG" 2>/dev/null
 }
 
+# Picking a server port, and NOT killing somebody else's server.
+#
+# THIS HAS GONE WRONG TWICE. A harness that hard-codes Archipelago's default
+# port 38281 and cleans up by killing "whatever is listening on 38281" takes out
+# an unrelated project's server - the maintainer's own, on the same machine -
+# and then races it for the bind. apbattery.sh and apbattery2.sh were fixed for
+# this and carry the comment; msgfilter.sh was not, and killed a live server
+# again on 2026-09-17 during a full sweep.
+#
+# So the helpers live here rather than in two harnesses out of three. Pick a
+# free port from your own range, remember the PID you started, and kill only
+# that. Ranges in use: apbattery 38301-38380, offline-test 38401-38500,
+# msgfilter 38551-38600.
+listening() { netstat -ano 2>/dev/null | grep "LISTENING" | grep -q ":$1 "; }
+find_free_port() {
+  local p
+  for p in $(seq "$1" "$2"); do
+    listening "$p" || { echo "$p"; return 0; }
+  done
+  return 1
+}
+
 # Called by the harnesses that drive the game. NOT called on sourcing, because
 # span-off-parity.sh and refactor-parity.sh need the repo and the clone and no
 # game at all.

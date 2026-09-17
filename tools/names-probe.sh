@@ -29,6 +29,24 @@ require_game
 
 CMD="$GAME_DIR/BepInEx/cw4dev-commands.txt"      # dev tools channel, not the randomizer's
 OUT="${TEMP:-/tmp}/cw4-names-probe.txt"
+
+# RESTORE THE CHEAT STATE ON THE WAY OUT. This turns AllBuildings ON below, to
+# load every build ghost regardless of the campaign schedule, and used to leave
+# it on - which poisons the NEXT harness. span-survey.sh caught that on
+# 2026-09-17 and refused to run: with AllBuildings forcing the availability
+# flags, every map would have reported an identical build list and the survey
+# would have been 26 identical lies. Its positive control is why that was loud
+# rather than silent; this trap is why it should not recur.
+DEV_CFG_BAK="${TEMP:-/tmp}/cw4-names-probe-devcfg.bak"
+[ -f "$DEV_CFG" ] && cp "$DEV_CFG" "$DEV_CFG_BAK"
+restore_dev_cfg() {
+  if [ -f "$DEV_CFG_BAK" ]; then
+    cp "$DEV_CFG_BAK" "$DEV_CFG"
+    rm -f "$DEV_CFG_BAK"
+    echo "  (dev tools config restored)"
+  fi
+}
+trap restore_dev_cfg EXIT
 send() { printf "%s\n" "$1" > "$CMD"; sleep "${2:-2}"; }
 
 echo "[setup 1/3] game closed, dev tools channel"

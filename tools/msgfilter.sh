@@ -17,7 +17,15 @@ verdict() { if [ "$1" = 0 ]; then PASS=$((PASS+1)); echo "[mf] PASS: $2"; else F
 send() { printf "%s\n" "$1" > "$CMD"; sleep 2; }
 srv() { printf "%s\n" "$1" >> "$SRV_IN"; sleep 3; }
 wait_since() { for i in $(seq 1 "$2"); do since|grep -q "$1"&&return 0; sleep 2; done; return 1; }
-kill_servers() { for pid in $(netstat -ano 2>/dev/null|grep -E ':38281[[:space:]]'|grep -i listening|awk '{print $NF}'|sort -u); do taskkill //PID "$pid" //F >/dev/null 2>&1; done; }
+# A FREE port, not Archipelago's default. This used to hard-code 38281 and
+# kill whatever was listening there, which on 2026-09-17 took out the
+# maintainer's own unrelated Archipelago server mid-sweep. apbattery.sh and
+# apbattery2.sh had already been fixed for exactly this; this one had not.
+AP_PORT="$(find_free_port 38551 38600)"
+[ -n "$AP_PORT" ] || { echo "[mf] ABORT: no free port in 38551-38600"; exit 1; }
+kill_servers() { [ -n "${SRV_PIPE:-}" ] && kill "$SRV_PIPE" 2>/dev/null
+                 for pid in $(netstat -ano 2>/dev/null|grep -i listening|grep ":$AP_PORT "|awk '{print $NF}'|sort -u); do
+                   taskkill //PID "$pid" //F >/dev/null 2>&1; done; }
 
 [ -z "$MULTIDATA" ] || [ ! -f "$MULTIDATA" ] && { echo "[mf] FATAL: no 2-player multidata"; exit 1; }
 echo "[mf] multidata: $MULTIDATA"
@@ -27,7 +35,7 @@ rm -rf "$USERPROFILE/Documents/My Games/creeperworld4/archipelago/slots" 2>/dev/
 cat > "$GAME_DIR/BepInEx/config/com.droha.cw4archipelago.cfg" <<CFGEOF
 [Connection]
 Host = localhost
-Port = 38281
+Port = $AP_PORT
 Slot = $SLOT
 Password =
 AutoConnect = true
@@ -39,7 +47,7 @@ CFGEOF
 
 echo "[mf] step 1: server + launch + connect"
 : > "$SRV_LOG"; rm -f "$SRV_IN"; : > "$SRV_IN"
-tail -n +1 -f "$SRV_IN" | ( cd "$AP" && SKIP_REQUIREMENTS_UPDATE=1 python MultiServer.py "$MULTIDATA" --port 38281 --disable_save > "$SRV_LOG" 2>&1 ) &
+tail -n +1 -f "$SRV_IN" | ( cd "$AP" && SKIP_REQUIREMENTS_UPDATE=1 python MultiServer.py "$MULTIDATA" --port "$AP_PORT" --disable_save > "$SRV_LOG" 2>&1 ) &
 SRV_PIPE=$!
 for i in $(seq 1 20); do grep -q "Hosting game at" "$SRV_LOG"&&break; sleep 1; done
 rm -f "$CMD"; cd "$GAME_DIR" && ./CW4.exe > /dev/null 2>&1 &
@@ -61,7 +69,7 @@ echo "[mf] step 4: another player joins -> relevant=0 (filtered by default)"
 # slot is only a ServerChat 'Cheat console' notice = relevant=1, so it cannot
 # exercise this path - hence a real client.)
 mark
-python3 "$REPO/tools/ap_player2.py" 2 2>&1 | sed 's/^/[mf]   p2: /'
+python3 "$REPO/tools/ap_player2.py" 2 "$AP_PORT" 2>&1 | sed 's/^/[mf]   p2: /'
 sleep 2
 since | grep "MSGBOX APPEND" | sed 's/^.*CW4 Archipelago\] /[mf]   /'
 since | grep -q "MSGBOX APPEND relevant=0 shown=0"; verdict $? "other-player event relevant=0 hidden by default"
@@ -71,7 +79,7 @@ mark
 send "showall:on"; sleep 1
 since | grep -q "MSGBOX SHOWALL=1"; verdict $? "showall toggled on"
 mark
-python3 "$REPO/tools/ap_player2.py" 0 2>&1 | sed 's/^/[mf]   p2: /'
+python3 "$REPO/tools/ap_player2.py" 0 "$AP_PORT" 2>&1 | sed 's/^/[mf]   p2: /'
 sleep 2
 since | grep -q "MSGBOX APPEND relevant=0 shown=1"; verdict $? "other-player event shown when showall on"
 

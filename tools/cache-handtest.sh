@@ -1,11 +1,28 @@
 #!/usr/bin/env bash
 # Sets up the ONE check no script can send, then watches for it.
 #
-# Collecting an info cache is unscriptable here: synthetic mouse input does not
-# reach CW4's UI, and InfoCache.Retrieved (the only hook) sets the cache's own
-# flag without moving GameSpace.mustCollect or the Collect objective's count -
-# measured, see docs/research-findings.md. So the cache branch of LocationWatcher
-# needs a human to pick one up.
+# WHAT IS ACTUALLY UNSCRIPTABLE, because the old wording here misled a reader
+# into repeating that no script can send this check, which is not true.
+#
+# The CHECK is scripted already: cache:destroy calls DestroyUnit, mustCollect
+# loses its member and the location follows. eventdriven-test.sh and
+# instance-dump.sh both drive it, and instance-dump asserts it as a control.
+#
+# What cannot be scripted is the REAL PICKUP - the game collecting the cache
+# because your network reached it. Measured 2026-09-17, and the blocker is
+# narrower than "the UI": spawnat: CAN place a tower on the cache cell (proved
+# on Home, whose cache MapCells records at 145,91 - it placed), but boot: leaves
+# a mission at its LANDING PROMPT and there is no command to put the rift lab
+# down. spawnat:riftlab is refused. No rift lab means no network, so the tower
+# sits inert and the Collect slot never moves. Landing is a click on the map,
+# and synthetic mouse input does not reach CW4's UI.
+#
+# So a land: command that placed the rift lab at a cell would make this whole
+# harness automatable - everything after landing already works.
+#
+# Separately: InfoCache.Retrieved is NOT the pickup path. It sets the cache's
+# own flag and moves neither mustCollect nor the Collect count, and a real
+# pickup proved it is never called - see docs/research-findings.md.
 #
 # This script does everything either side of that: it puts the game in "Home"
 # with the cache registered as an Archipelago location and every unit unlocked,
