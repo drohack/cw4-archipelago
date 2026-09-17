@@ -39,12 +39,14 @@ jobs:
           world=$(python3 -c "import json;print(json.load(open('apworld/cw4/archipelago.json'))['world_version'])")
           echo "csproj=$csproj plugin=$plugin world=$world"
 
-          # 1. The three places the version is written must agree. They are
-          #    separate files and drifted once already.
-          if [ "$csproj" != "$plugin" ] || [ "$csproj" != "$world" ]; then
-            echo "::error::version mismatch - csproj $csproj, Plugin.cs $plugin, archipelago.json $world"
-            exit 1
-          fi
+          # 1. The three places the version is written must agree - plus the
+          #    Archipelago pin, the CHANGELOG section and the dev plugins.
+          #    tools/check-release.py owns all of that now; this job keeps only
+          #    the tag rule below, which needs git history the checker has no
+          #    business reading. The agreement test used to be inline here AND
+          #    in package-release.ps1 AND in bump-version.ps1 AND in
+          #    post-release-bump.yml - four implementations of one rule.
+          python3 tools/check-release.py
 
           # 2. And it must not be a version that has already SHIPPED. This is
           #    the check package-release.ps1 gained on 2026-09-03 after main sat
@@ -155,19 +157,38 @@ jobs:
           python tools/gen-spancsharp.py
           git diff --exit-code src/CW4Archipelago.Core/SpanMissionTable.g.cs
 
-      # The apworld is just the package directory zipped, so build it directly
-      # rather than depending on an Archipelago internal that may move.
-      - name: Package cw4.apworld
+      # BUILD IT THE WAY THE RELEASE DOES, not with `zip -r`.
+      #
+      # This used to be `zip -r ../cw4.apworld cw4 -x '*/__pycache__/*'`, chosen
+      # to avoid depending on an Archipelago internal. The cost was that CI's
+      # artifact was not the released artifact: tools/package-release.ps1 uses
+      # Archipelago's own "Build APWorlds", which honours data/GLOBAL.apignore
+      # plus the world's own .apignore and rewrites the manifest. The `zip` line
+      # hand-reimplemented exactly one rule of that file and silently dropped the
+      # rest, so a divergence between the two packagers could never be caught -
+      # and the world-local .apignore that keeps 41 percent of test code out of
+      # the artifact would have been honoured by the real builder and ignored
+      # here.
+      #
+      # It is safe headless: the builder ends in open_folder(), which on Linux
+      # with no xdg-open/gnome-open/kde-open logs a warning and returns.
+      - name: Build cw4.apworld the way a release does
+        working-directory: Archipelago
+        env:
+          SKIP_REQUIREMENTS_UPDATE: '1'
+        run: python Launcher.py "Build APWorlds" -- "Creeper World 4"
+
+      # And assert on the built file. Nothing used to: the old step ran
+      # `unzip -l`, which prints and exits 0.
+      - name: The release is consistent, and the artifact is what it claims
         run: |
-          cd apworld
-          zip -r ../cw4.apworld cw4 -x '*/__pycache__/*'
-          cd ..
-          unzip -l cw4.apworld
+          python tools/check-release.py \
+            --apworld Archipelago/build/apworlds/cw4.apworld
 
       - uses: actions/upload-artifact@v4
         with:
           name: cw4-apworld
-          path: cw4.apworld
+          path: Archipelago/build/apworlds/cw4.apworld
 
   compliance:
     name: Archipelago world compliance

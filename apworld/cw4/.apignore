@@ -1,0 +1,20 @@
+# Files that must not go into the built cw4.apworld.
+#
+# Gitignore syntax. Archipelago reads this per world and appends it to
+# data/GLOBAL.apignore, so everything that file already excludes
+# (__pycache__, .DS_Store, /archipelago.json, /.git, /.gitignore) stays
+# excluded and does not need repeating here.
+#
+# WHY THIS EXISTS. Until it did, the shipped .apworld carried the whole test
+# suite: measured from the v0.1.10 artifact, cw4/test/ was 96,709 of 237,705
+# uncompressed bytes - 41 percent of what every player downloads, to run code
+# that only ever runs in CI. Nothing noticed, because nothing in the release
+# path asserts anything about the .apworld's contents; tools/check-release.py
+# now does.
+#
+# __pycache__ was already excluded, but by GLOBAL.apignore rather than by any
+# decision made here - so the exclusion of test/ had simply never been
+# considered. Note that the CI job builds the apworld with `zip -r ... -x
+# '*/__pycache__/*'`, which hand-reimplements one line of the global file and
+# honours none of this; that artifact is uploaded and never shipped.
+/test/
