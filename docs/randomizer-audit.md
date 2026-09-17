@@ -207,7 +207,7 @@ Every one of these produced a confidently wrong number first.
 | 2026-09-16 | working tree | `apbattery.sh`, fresh campaign seed | 21/21 (a first run showed 6 failures, all caused by a stray harness writing the command file) |
 | 2026-09-16 | working tree | `apbattery2.sh`, same seed | 15/15 |
 | 2026-09-16 | working tree | `apbattery.sh` against a seed generated BEFORE `mission_roster` existed | 21/21, and 0 retargets logged - the fallback to the campaign roster works |
-| 2026-09-16 | working tree | `tools/generic-suite.py`, unpruned | 322 tests, the one known allow-listed failure (`test_itempool_not_modified`) and nothing new |
+| 2026-09-16 | working tree | `tools/generic_suite.py`, unpruned | 322 tests, the one known allow-listed failure (`test_itempool_not_modified`) and nothing new |
 | 2026-09-16 | working tree | `tools/span-e2e-test.sh`, 8 steps incl. a 6-map sweep and a quit-relaunch-resume | **41/41** (a first run was 37/39; both failures were the harness's own resume step looking for the mission panel while the game was inside a mission) |
 | 2026-09-16 | working tree | `tools/span-off-parity.sh` vs `0fe2bef`, span OFF, 5 seeds | same 236 location ids, **every one of 236 placements identical**, slot_data gains exactly 3 keys; the only rows that moved are Archon's three, which is the deliberate logic fix |
 | 2026-09-16 | working tree | Negative control for the above: two DIFFERENT seeds | 230 of 236 placements differ, so the comparison can see a change |

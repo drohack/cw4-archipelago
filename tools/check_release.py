@@ -1,7 +1,7 @@
 """The release must not be able to lie about itself.
 
-    py -3.13 tools/check-release.py
-    py -3.13 tools/check-release.py --apworld dist/cw4.apworld --zip dist/CW4Archipelago-v0.2.0.zip
+    py -3.13 tools/check_release.py
+    py -3.13 tools/check_release.py --apworld dist/cw4.apworld --zip dist/CW4Archipelago-v0.2.0.zip
 
 WHY THIS EXISTS. An audit of the build and release path on 2026-09-17 found that
 of the thirteen validations in package-release.ps1, all five CI jobs and both

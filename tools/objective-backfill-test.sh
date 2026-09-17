@@ -104,7 +104,7 @@ MULTIDATA="$(ls -t "$GENDIR/out/"*.archipelago 2>/dev/null | head -1)"
 # The premise, asserted rather than assumed. With no required_objectives in slot
 # data there is no backfill to exercise, and every assertion below would pass or
 # fail for the wrong reason.
-( cd "$AP" && SKIP_REQUIREMENTS_UPDATE=1 python "$REPO/tools/check-slotdata.py"     "$MULTIDATA" required_objectives story2 ) > "$GENDIR/slotdata.txt" 2>&1
+( cd "$AP" && SKIP_REQUIREMENTS_UPDATE=1 python "$REPO/tools/check_slotdata.py"     "$MULTIDATA" required_objectives story2 ) > "$GENDIR/slotdata.txt" 2>&1
 grep -q "^OK" "$GENDIR/slotdata.txt"; verdict $? "the seed carries required_objectives for Home"
 sed 's/^/  /' "$GENDIR/slotdata.txt" | head -1
 

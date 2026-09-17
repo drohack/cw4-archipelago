@@ -83,7 +83,7 @@ for s in $(seq 1 "$SEEDS"); do
     continue
   fi
   echo "-- seed $s"
-  ( cd "$AP" && SKIP_REQUIREMENTS_UPDATE=1 python "$REPO/tools/parity-check.py" "$o" "$n" )
+  ( cd "$AP" && SKIP_REQUIREMENTS_UPDATE=1 python "$REPO/tools/parity_check.py" "$o" "$n" )
   verdict $? "seed $s is unchanged"
 done
 

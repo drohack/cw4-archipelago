@@ -28,7 +28,7 @@ public class Plugin : BasePlugin
     ///
     /// The attribute below reads it rather than repeating the literal - the same
     /// fix the shipping plugin got, for the same reason. The csproj states it
-    /// too, and tools/check-release.py holds the two equal; before that, these
+    /// too, and tools/check_release.py holds the two equal; before that, these
     /// were two independent strings with nothing holding them together.
     ///
     /// Deliberately NOT part of the mod's three-file version lock: this plugin

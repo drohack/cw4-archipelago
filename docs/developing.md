@@ -85,7 +85,7 @@ Four tiers, in ascending cost:
 2b. **Archipelago's world compliance tests** - its own generic suite, run on
    every world, and the closest thing Archipelago has to a spec check. Nothing
    ran these until 2026-09-06, and the first run found a real violation (we
-   modify the itempool during `pre_fill`). `tools/generic-suite.py` carries that
+   modify the itempool during `pre_fill`). `tools/generic_suite.py` carries that
    one as a documented expected failure and fails if a NEW violation appears
    **or if the known one stops failing** - an allow-list that outlives its bug
    is rot.
@@ -152,7 +152,7 @@ Four tiers, in ascending cost:
      location ids, every placement, and slot_data row by row. "The span-off
      tests pass" and "a span-off seed is unchanged" are different claims, and a
      change that shifted every placement by one would satisfy the first and
-     still hand the player a different game. `tools/parity-check.py` does the
+     still hand the player a different game. `tools/parity_check.py` does the
      comparison and carries a documented allow-list of rows that changed on
      purpose. Run its negative control before trusting a clean result: two
      DIFFERENT seeds must report differences, and they do - 230 of 236.
@@ -163,7 +163,7 @@ Four tiers, in ascending cost:
      those numbers, they were measured once and frozen with mission numbers that
      can never be reordered, and until this existed nothing re-checked them - a
      game patch moving one would have shown up as a player unable to finish a
-     mission with no test failing anywhere. `tools/span-data-compare.py` does
+     mission with no test failing anywhere. `tools/span_data_compare.py` does
      the comparison and can also be pointed at the original survey dump, which
      answers the weaker question of whether the GENERATOR garbled anything.
    - `tools/msgbox.sh` - the message box on its own: it builds and anchors to

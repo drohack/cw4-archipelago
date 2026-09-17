@@ -9,7 +9,7 @@
 # sides are supposed to be identical, and "identical" is the passing answer
 # rather than the suspicious one.
 #
-# It also differs in what it tolerates. span-off-parity runs parity-check.py
+# It also differs in what it tolerates. span-off-parity runs parity_check.py
 # with its allow-lists live, because the SPAN change deliberately added
 # slot_data keys and deliberately fixed Archon. A restructure is allowed to
 # change NOTHING, so this sets CW4_PARITY_STRICT=1 and both allow-lists empty.
@@ -96,7 +96,7 @@ for cfg in off on; do
     produced=$((produced+1))
     echo "-- span $cfg, seed $s"
     ( cd "$AP" && SKIP_REQUIREMENTS_UPDATE=1 CW4_PARITY_STRICT=1 \
-        python "$REPO/tools/parity-check.py" "$o" "$n" )
+        python "$REPO/tools/parity_check.py" "$o" "$n" )
     verdict $? "span $cfg seed $s is unchanged"
   done
 

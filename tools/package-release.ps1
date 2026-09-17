@@ -246,7 +246,7 @@ Write-Output "wrote $yaml (requires Archipelago $minAp)"
 #
 # Assert on the artifacts, not on the steps that produced them: the .apworld must
 # carry this version and no test/, and the zip must actually contain the mod.
-& python (Join-Path $PSScriptRoot "check-release.py") --apworld $apworldOut --zip $zip
-if ($LASTEXITCODE -ne 0) { throw "the built assets did not pass tools/check-release.py" }
+& python (Join-Path $PSScriptRoot "check_release.py") --apworld $apworldOut --zip $zip
+if ($LASTEXITCODE -ne 0) { throw "the built assets did not pass tools/check_release.py" }
 
 Write-Output "release artifacts ready in $dist"

@@ -1,6 +1,6 @@
 """Compare a span-data-check log against apworld/cw4/span_data.py.
 
-    py -3.13 tools/span-data-compare.py .aptest/span-data-check/log.txt
+    py -3.13 tools/span_data_compare.py .aptest/span-data-check/log.txt
 
 Reads the DEVOBJ / DEVOBJSLOT lines CW4DevTools writes for each booted map and
 checks four things per map against the frozen table:
@@ -79,7 +79,7 @@ def parse(path):
 
 def main():
     if len(sys.argv) < 2:
-        print('usage: span-data-compare.py <log>', file=sys.stderr)
+        print('usage: span_data_compare.py <log>', file=sys.stderr)
         return 2
     live = parse(sys.argv[1])
 

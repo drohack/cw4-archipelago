@@ -1,6 +1,6 @@
 """The documentation and the comments must not lie, and nothing else checks them.
 
-    py -3.13 tools/check-docs.py
+    py -3.13 tools/check_docs.py
 
 WHY THIS EXISTS. An audit on 2026-09-17 found that this repo has exactly ONE
 document that cannot lie - docs/randomizer-logic.md, because
@@ -270,12 +270,12 @@ def check_double_summary():
 # campaign that missed one of them.
 GENERATORS = {
     "docs/randomizer-logic.md": "tools/audit/logictable.py",
-    "docs/design/span-requirements.md": "tools/gen-spanreqs.py",
-    "docs/design/span-survey.md": "tools/gen-spantable.py",
-    "docs/design/span-requirements-worksheet.md": "tools/gen-spanworksheet.py",
-    "src/CW4Archipelago.Core/MapCells.cs": "tools/gen-mapcells.py",
-    "src/CW4Archipelago.Core/SpanMissionTable.g.cs": "tools/gen-spancsharp.py",
-    "apworld/cw4/span_data.py": "tools/gen-spandata.py",
+    "docs/design/span-requirements.md": "tools/gen_spanreqs.py",
+    "docs/design/span-survey.md": "tools/gen_spantable.py",
+    "docs/design/span-requirements-worksheet.md": "tools/gen_spanworksheet.py",
+    "src/CW4Archipelago.Core/MapCells.cs": "tools/gen_mapcells.py",
+    "src/CW4Archipelago.Core/SpanMissionTable.g.cs": "tools/gen_spancsharp.py",
+    "apworld/cw4/span_data.py": "tools/gen_spandata.py",
 }
 
 

@@ -39,7 +39,7 @@ that quietly outlives its bug is rot - so an expected failure that STOPS failing
 is also an error here, meaning the entry should be deleted.
 
 Usage, from inside an Archipelago checkout with the world synced in:
-    python ../tools/generic-suite.py
+    python ../tools/generic_suite.py
 Exit 0 clean, 1 on any unexpected result.
 """
 import io

@@ -21,7 +21,7 @@ Run from inside an Archipelago checkout with the world synced in:
 
     powershell -File tools/ap-sync.ps1
     cd Archipelago
-    PYTHONUNBUFFERED=1 py -3.13 -u ../tools/seed-battery.py --seeds 20000
+    PYTHONUNBUFFERED=1 py -3.13 -u ../tools/seed_battery.py --seeds 20000
 
 Exit 0 when every configuration had zero failures, 1 otherwise.
 """

@@ -1,7 +1,7 @@
 """Print a slot_data key out of a generated .archipelago multidata.
 
 Usage (run from inside the Archipelago clone, which owns the pickle's classes):
-    python ../tools/check-slotdata.py <multidata> required_objectives story2
+    python ../tools/check_slotdata.py <multidata> required_objectives story2
 
 Exists because a harness reused whatever seed was newest in .aptest/server/ and
 that one predated `required_objectives`. The key was simply absent, so the
@@ -25,7 +25,7 @@ sys.path.insert(0, os.getcwd())
 
 def main() -> int:
     if len(sys.argv) < 3:
-        print("usage: check-slotdata.py <multidata> <key> [subkey]")
+        print("usage: check_slotdata.py <multidata> <key> [subkey]")
         return 2
     path, key = sys.argv[1], sys.argv[2]
     subkey = sys.argv[3] if len(sys.argv) > 3 else None

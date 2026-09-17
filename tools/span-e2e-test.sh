@@ -151,7 +151,7 @@ MULTIDATA="$(ls -t "$GENDIR/out/"*.archipelago 2>/dev/null | head -1)"
 # title read back out of this file carries a trailing carriage return, and every
 # grep for one fails against a log that plainly contains it - which read as "all
 # 20 missions missing" from a map that had all 20 of them.
-( cd "$AP" && SKIP_REQUIREMENTS_UPDATE=1 python "$REPO/tools/span-roster.py" \
+( cd "$AP" && SKIP_REQUIREMENTS_UPDATE=1 python "$REPO/tools/span_roster.py" \
     "$MULTIDATA" ) 2>&1 | tr -d '\r' > "$GENDIR/roster.txt"
 grep -q "knucracker\|demobonus" "$GENDIR/roster.txt"; verdict $? "the roster drew at least one SPAN map"
 echo "        roster:"; sed 's/^/          /' "$GENDIR/roster.txt"

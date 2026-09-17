@@ -96,4 +96,4 @@ cp "$GAME_LOG" "$OUT/log.txt"
 taskkill //IM CW4.exe //F >/dev/null 2>&1; sleep 2
 
 echo "span-data-check: comparing against apworld/cw4/span_data.py"
-py -3.13 "$REPO/tools/span-data-compare.py" "$OUT/log.txt"
+py -3.13 "$REPO/tools/span_data_compare.py" "$OUT/log.txt"

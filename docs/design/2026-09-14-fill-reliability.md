@@ -171,7 +171,7 @@ configuration still reaches 5, which against a cap of 5 is zero margin, so
 `OWN_FILL_ATTEMPTS` went from 5 to 8. An attempt only happens when the previous
 one failed, so the extra three cost nothing measurable.
 
-Reproduce with `tools/seed-battery.py` (`--cap 25` to see the tail,
+Reproduce with `tools/seed_battery.py` (`--cap 25` to see the tail,
 `--only "span ON"` to pick configurations).
 
 ## The test path is not the shipped path

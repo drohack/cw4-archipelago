@@ -1,6 +1,6 @@
 """Print a generated seed's mission roster as "specifier<TAB>title".
 
-    python ../tools/span-roster.py <multidata>
+    python ../tools/span_roster.py <multidata>
 
 Run from inside the Archipelago clone, which owns the pickle's classes -
 running from inside it is not enough on its own, since the working directory is
@@ -20,7 +20,7 @@ sys.path.insert(0, os.getcwd())
 
 def main() -> int:
     if len(sys.argv) < 2:
-        print("usage: span-roster.py <multidata>", file=sys.stderr)
+        print("usage: span_roster.py <multidata>", file=sys.stderr)
         return 2
     with open(sys.argv[1], "rb") as fh:
         raw = fh.read()

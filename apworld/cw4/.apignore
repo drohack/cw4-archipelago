@@ -9,7 +9,7 @@
 # suite: measured from the v0.1.10 artifact, cw4/test/ was 96,709 of 237,705
 # uncompressed bytes - 41 percent of what every player downloads, to run code
 # that only ever runs in CI. Nothing noticed, because nothing in the release
-# path asserts anything about the .apworld's contents; tools/check-release.py
+# path asserts anything about the .apworld's contents; tools/check_release.py
 # now does.
 #
 # __pycache__ was already excluded, but by GLOBAL.apignore rather than by any

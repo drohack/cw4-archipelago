@@ -41,12 +41,12 @@ jobs:
 
           # 1. The three places the version is written must agree - plus the
           #    Archipelago pin, the CHANGELOG section and the dev plugins.
-          #    tools/check-release.py owns all of that now; this job keeps only
+          #    tools/check_release.py owns all of that now; this job keeps only
           #    the tag rule below, which needs git history the checker has no
           #    business reading. The agreement test used to be inline here AND
           #    in package-release.ps1 AND in bump-version.ps1 AND in
           #    post-release-bump.yml - four implementations of one rule.
-          python3 tools/check-release.py
+          python3 tools/check_release.py
 
           # 2. And it must not be a version that has already SHIPPED. This is
           #    the check package-release.ps1 gained on 2026-09-03 after main sat
@@ -154,7 +154,7 @@ jobs:
       # generator and fail if it moved.
       - name: SpanMissionTable.g.cs is up to date
         run: |
-          python tools/gen-spancsharp.py
+          python tools/gen_spancsharp.py
           git diff --exit-code src/CW4Archipelago.Core/SpanMissionTable.g.cs
 
       # BUILD IT THE WAY THE RELEASE DOES, not with `zip -r`.
@@ -182,7 +182,7 @@ jobs:
       # `unzip -l`, which prints and exits 0.
       - name: The release is consistent, and the artifact is what it claims
         run: |
-          python tools/check-release.py \
+          python tools/check_release.py \
             --apworld Archipelago/build/apworlds/cw4.apworld
 
       - uses: actions/upload-artifact@v4
@@ -258,7 +258,7 @@ jobs:
         working-directory: Archipelago
         env:
           SKIP_REQUIREMENTS_UPDATE: '1'
-        run: python ../tools/generic-suite.py
+        run: python ../tools/generic_suite.py
 
   ascii:
     name: ASCII only
@@ -322,7 +322,7 @@ jobs:
       # No Archipelago clone and no game: this reads the working tree only, so
       # it is the cheapest job here and runs on every push.
       - name: Check the documentation and comments
-        run: python3 tools/check-docs.py
+        run: python3 tools/check_docs.py
 
       # CI HAS NEVER READ A SHELL SCRIPT. Before this, the only mention of .sh
       # anywhere in the workflow was an extension in the ASCII checker's list -

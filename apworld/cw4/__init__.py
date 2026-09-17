@@ -18,7 +18,7 @@ from .options import CW4Options
 def _world_version() -> str:
     """This apworld's version, from the manifest that already declares it.
 
-    The manifest is the canonical place (tools/check-release.py holds it equal to
+    The manifest is the canonical place (tools/check_release.py holds it equal to
     the csproj and Plugin.cs), so it is read rather than duplicated. A packaged
     .apworld carries archipelago.json at the same relative path, so this works
     from a zip as well as from a directory.

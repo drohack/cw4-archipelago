@@ -128,7 +128,7 @@ check(kinds["Mission Complete"] == expect_complete,
 #
 # A campaign seed is exactly story1..story20, which is what every configuration
 # below generates - the SPAN toggle is off by default and this audit does not
-# turn it on. tools/seed-battery.py is what exercises a mixed roster.
+# turn it on. tools/seed_battery.py is what exercises a mixed roster.
 seed_loc_names = [name for n in range(1, 21)
                   for name in L.location_names_for_mission(n)]
 

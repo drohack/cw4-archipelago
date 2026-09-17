@@ -27,7 +27,7 @@ who wonders why a release behaves differently than it used to.
   your installed copy of the mod, or leave a mixed set of assets behind; and the
   version can no longer be rewritten backwards onto a number that has shipped.
 
-None of this changes how a seed generates or plays. `tools/check-release.py` is
+None of this changes how a seed generates or plays. `tools/check_release.py` is
 the new gate, and every one of its rules was proved to fail on a deliberately
 broken tree before being trusted.
 
@@ -73,7 +73,7 @@ measurement harnesses (2,448 lines - one-shots whose numbers are tabulated in
 SPAN phase-0 spike, the playtest repro harness and a screenshot script the
 in-game `shot:` command replaced.
 
-`tools/check-docs.py` is the new gate, with six rules, and it has its own CI job.
+`tools/check_docs.py` is the new gate, with six rules, and it has its own CI job.
 Two of the six did not catch their deliberate break on the first try - both
 because the scan could not see Python docstrings, which is where most of this
 repo's prose lives - and were fixed rather than shipped green.
