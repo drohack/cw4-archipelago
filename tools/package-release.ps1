@@ -79,7 +79,21 @@ if ($tagged) {
            "world_version before packaging.")
 }
 
-dotnet build -c Release -v q $proj
+# CLEAN FIRST. bin\Release is gitignored, so it survives branch switches, and
+# `dotnet build` never removes a file it has stopped producing. The zip is then
+# assembled from a `*.dll` glob (below), so a dependency dropped from the csproj,
+# or an assembly that was renamed, would keep shipping forever. Measured across
+# all ten historical zips in dist/ the DLL set is identical, so this has not
+# bitten yet - which is the point at which to fix it.
+dotnet clean -c Release -v q $proj | Out-Null
+
+# -p:SkipDeploy=true, because PACKAGING MUST NOT TOUCH THE PLAYER'S INSTALL.
+# The csproj's DeployToGame target fires AfterTargets="Build" and copies into
+# $(GameDir)\BepInEx\plugins\CW4Archipelago. The escape hatch is documented three
+# lines above that target and this script - the one place it matters most - did
+# not use it, so cutting a release silently overwrote the maintainer's live mod
+# with a Release build mid-session.
+dotnet build -c Release -v q -p:SkipDeploy=true $proj
 if ($LASTEXITCODE -ne 0) { throw "build failed" }
 
 $out = Join-Path $repo "src\CW4Archipelago\bin\Release"
@@ -88,6 +102,17 @@ if (Test-Path $stage) { Remove-Item -Recurse -Force $stage }
 $plugdir = Join-Path $stage "BepInEx\plugins\CW4Archipelago"
 New-Item -ItemType Directory -Force $plugdir | Out-Null
 Copy-Item (Join-Path $out "*.dll") $plugdir
+
+# Copy-Item with a wildcard that matches NOTHING is a silent no-op, even under
+# $ErrorActionPreference = "Stop" - verified directly. So if the output path ever
+# moves (drop AppendTargetFrameworkToOutputPath and it becomes bin\Release\net6.0)
+# this stages an empty folder, the debug blocklist below passes trivially, and an
+# empty mod ships with a success message. Assert we actually staged something.
+$staged = @(Get-ChildItem $plugdir -Filter *.dll)
+if ($staged.Count -eq 0) {
+    throw ("no assemblies were staged from $out - the build output path has " +
+           "probably moved. Refusing to package an empty mod.")
+}
 $zip = Join-Path $dist "CW4Archipelago-v$version.zip"
 if (Test-Path $zip) { Remove-Item -Force $zip }
 Compress-Archive -Path (Join-Path $stage "BepInEx") -DestinationPath $zip
@@ -116,6 +141,16 @@ Write-Output "wrote $zip ($($entries.Count) entries, no debug assembly)"
 $ap = Join-Path $repo "Archipelago"
 if (-not (Test-Path $ap)) { throw "Archipelago clone not found at $ap" }
 & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "ap-sync.ps1")
+
+# DELETE THE PREVIOUS BUILD FIRST, so a stale file cannot be mistaken for a new
+# one. Archipelago's builder does not abort when a world fails to register - it
+# does `logging.error(...)` then `continue` and exits 0 - so an import error or a
+# world the pinned AP cannot load leaves build\apworlds untouched, $LASTEXITCODE
+# zero, and the copy below picks up the LAST run's artifact. The absent case
+# already failed loudly; the stale case was silent, and it is the dangerous one.
+$built = Join-Path $ap "build\apworlds\cw4.apworld"
+if (Test-Path $built) { Remove-Item -Force $built }
+
 Push-Location $ap
 try {
     $env:SKIP_REQUIREMENTS_UPDATE = "1"
@@ -130,8 +165,14 @@ try {
     python Launcher.py "Build APWorlds" -- "Creeper World 4"
     if ($LASTEXITCODE -ne 0) { throw "Build APWorlds failed" }
 } finally { Pop-Location }
-Copy-Item (Join-Path $ap "build\apworlds\cw4.apworld") $dist -Force
-Write-Output "wrote $(Join-Path $dist 'cw4.apworld')"
+if (-not (Test-Path $built)) {
+    throw ("Build APWorlds exited 0 but produced no cw4.apworld. The world " +
+           "most likely failed to register - Archipelago logs that and carries " +
+           "on. Check the output above for 'does not exist'.")
+}
+$apworldOut = Join-Path $dist "cw4.apworld"
+Copy-Item $built $apworldOut -Force
+Write-Output "wrote $apworldOut"
 
 # --- sample yaml ---
 # Shipped as a third asset so a player has something that works without first
@@ -194,5 +235,18 @@ if ($text -notmatch "(?m)^\s*version:\s*$([regex]::Escape($minAp))\b") {
     throw "the generated yaml does not declare Archipelago $minAp"
 }
 Write-Output "wrote $yaml (requires Archipelago $minAp)"
+
+# --- the three assets are from THIS run, and say what they should ---
+#
+# dist/ is never cleaned, and only the zip carries the version in its name - the
+# apworld and the yaml do not. So a throw anywhere between writing the zip and
+# here used to leave a NEW zip sitting beside the PREVIOUS run's apworld and
+# yaml, indistinguishable by inspection, for a human to hand-pick three files
+# out of. (Right now dist/ holds ten zips and a cw4.apworld declaring 0.1.10.)
+#
+# Assert on the artifacts, not on the steps that produced them: the .apworld must
+# carry this version and no test/, and the zip must actually contain the mod.
+& python (Join-Path $PSScriptRoot "check-release.py") --apworld $apworldOut --zip $zip
+if ($LASTEXITCODE -ne 0) { throw "the built assets did not pass tools/check-release.py" }
 
 Write-Output "release artifacts ready in $dist"
