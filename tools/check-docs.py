@@ -262,11 +262,20 @@ def check_double_summary():
 
 
 # ---------------------------------------------------------------- rule 5
+# SEVEN artifacts, not four. The rule started on the generated DOCS because that
+# is where a hand-edit gets silently destroyed, but three generated CODE and DATA
+# files have exactly the same contract and had no gate at all: MapCells.cs is
+# compiled and span_data.py ships. All three already declared their generator
+# correctly, so the gate was free to add - and it is what would catch a rename
+# campaign that missed one of them.
 GENERATORS = {
     "docs/randomizer-logic.md": "tools/audit/logictable.py",
     "docs/design/span-requirements.md": "tools/gen-spanreqs.py",
     "docs/design/span-survey.md": "tools/gen-spantable.py",
     "docs/design/span-requirements-worksheet.md": "tools/gen-spanworksheet.py",
+    "src/CW4Archipelago.Core/MapCells.cs": "tools/gen-mapcells.py",
+    "src/CW4Archipelago.Core/SpanMissionTable.g.cs": "tools/gen-spancsharp.py",
+    "apworld/cw4/span_data.py": "tools/gen-spandata.py",
 }
 
 
@@ -336,6 +345,125 @@ def check_option_defaults():
         ok("option defaults", "%d numeric default(s) agree with options.py" % checked)
 
 
+# ---------------------------------------------------------------- rules 7, 8
+# A PATH NAMED IN PROSE IS A CLAIM, and nothing checked one. Rule 1 validates
+# markdown LINKS, of which there are 37; there are 236 backticked slash-bearing
+# tokens across 21 documents, and a rename campaign rots every one of them
+# silently. Four were already wrong when this rule was written.
+#
+# ONLY THESE PREFIXES ARE CLAIMS ABOUT THIS REPO. That single decision disposes
+# of three whole classes of false positive with no allow-list at all: game paths
+# (BepInEx/..., saves/...), upstream Archipelago paths (worlds/, Players/,
+# custom_worlds/), and the eight third-party GitHub repos named in the feature
+# comparison.
+REPO_PREFIXES = ("tools/", "docs/", "src/", "apworld/", ".github/")
+
+# Paths that LOOK like ours and belong to the vendored Archipelago clone, which
+# is gitignored and may be absent. Listed rather than discovered, for the same
+# reason as UPSTREAM_TESTS above.
+UPSTREAM_PATHS = {
+    "docs/apworld_dev_faq.md", "docs/tests.md", "docs/world api.md",
+}
+
+# A CONVENTION, not an escape hatch: A LIVE THING IS NAMED BY REPO-RELATIVE
+# PATH, A RETIRED THING BY BASENAME. docs/ern-upgrade-measurements.md already
+# writes its eleven deleted harnesses as bare names and says why - they are
+# "the record of HOW each number was taken, not paths to open". So the prefix
+# rule exempts every obituary for free, and the rule stays enforceable because a
+# writer has something to follow. If a genuine case ever needs a prefixed dead
+# path it goes here, with a reason. It starts empty.
+HISTORICAL_PATHS = set()
+
+# Placeholders, not paths: anything carrying a substitution, a bracket or a space.
+PLACEHOLDER = re.compile(r"[{}<>$%\s]")
+BACKTICKED = re.compile(r"`([^`\n]+)`")
+# Bare paths in source comments, which do not use backticks consistently.
+BARE_PATH = re.compile(
+    r"\b((?:tools|docs|src|apworld)/[\w./-]+\.(?:py|sh|ps1|cs|md|yml|json|csproj))")
+
+
+def path_claim_is_good(cand):
+    """None when the candidate is not a claim at all; else whether it resolves."""
+    if not cand.startswith(REPO_PREFIXES):
+        return None
+    if cand in UPSTREAM_PATHS or cand in HISTORICAL_PATHS:
+        return None
+    if PLACEHOLDER.search(cand):
+        return None
+    target = cand.rstrip("/")
+    if "*" in target or "?" in target:
+        # Globs are RESOLVED rather than skipped, so `tools/*.sh` stays a real
+        # claim and would fail if tools/ ever lost its harnesses.
+        import glob
+        return bool(glob.glob(os.path.join(REPO, target)))
+    return os.path.exists(os.path.join(REPO, target))
+
+
+def strip_fences(text):
+    """The markdown outside fenced code blocks, as a list of lines.
+
+    Fenced blocks are example commands and sample output, full of paths that are
+    inputs and outputs rather than repo files. They are the single largest source
+    of false positives, so they are removed wholesale rather than allow-listed.
+    Lines are blanked rather than dropped, so line numbers stay true.
+    """
+    out, fenced = [], False
+    for line in text.split("\n"):
+        if line.lstrip().startswith("```"):
+            fenced = not fenced
+            out.append("")
+            continue
+        out.append("" if fenced else line)
+    return out
+
+
+def check_doc_paths():
+    bad = checked = 0
+    for path in walk((".md",)):
+        r = rel(path)
+        # A changelog records what SHIPPED. Rewriting a path there to a name
+        # introduced later makes it describe something that never existed under
+        # that version, so it is history rather than a claim about the tree.
+        if r == "CHANGELOG.md":
+            continue
+        for lineno, line in enumerate(strip_fences(read(path)), 1):
+            for cand in BACKTICKED.findall(line):
+                good = path_claim_is_good(cand.strip())
+                if good is None:
+                    continue
+                checked += 1
+                if not good:
+                    fail("doc paths", "%s:%d names %s, which does not exist"
+                         % (r, lineno, cand.strip()))
+                    bad += 1
+    if checked < 110:
+        fail("doc paths", "only found %d path citations - the scan is broken, "
+                          "not the repo" % checked)
+    elif not bad:
+        ok("doc paths", "%d path(s) named in prose all resolve" % checked)
+
+
+def check_comment_paths():
+    bad = checked = 0
+    for path in walk((".py", ".cs", ".sh", ".ps1")):
+        r = rel(path)
+        for lineno, line in comment_and_doc_text(path):
+            for cand in BARE_PATH.findall(line):
+                good = path_claim_is_good(cand)
+                if good is None:
+                    continue
+                checked += 1
+                if not good:
+                    fail("comment paths", "%s:%d names %s, which does not exist"
+                         % (r, lineno, cand))
+                    bad += 1
+    if checked < 50:
+        fail("comment paths", "only found %d path citations - the scan is "
+                              "broken, not the repo" % checked)
+    elif not bad:
+        ok("comment paths", "%d path(s) named in comments all resolve" % checked)
+
+
 def main():
     print("check-docs: %s" % REPO, flush=True)
     check_links()
@@ -344,6 +472,8 @@ def main():
     check_double_summary()
     check_generated_declared()
     check_option_defaults()
+    check_doc_paths()
+    check_comment_paths()
     print("Done: %d failure(s)" % len(FAILURES), flush=True)
     return 1 if FAILURES else 0
 

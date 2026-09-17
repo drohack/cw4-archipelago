@@ -247,7 +247,7 @@ because a trap item would need them.**
   state, and `ModCore.Tick` drives its restore (it also drops the snapshot if
   the mission changes mid-burst, so it never writes through stale IL2CPP
   pointers).
-- `src/CW4Archipelago/Appliers/DebugChannel.cs` - `trap:<name> [args]`, plus two
+- `src/CW4Archipelago.Debug/DebugChannel.cs` - `trap:<name> [args]`, plus two
   pieces of test scaffolding this spike needed: `sim:run [speed]` / `sim:pause`
   (clears every entry in `GameSpace.pauseOwner` so a battery can run the sim
   without a human pressing play) and `spawn:<unitKey> [n]` (places units beside
