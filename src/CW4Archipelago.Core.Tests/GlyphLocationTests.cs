@@ -76,20 +76,20 @@ public class GlyphLocationTests
     [Fact]
     public void FarsiteCustomIsDrawnAsATotem_AndMapsBack()
     {
-        Assert.Equal(1, MissionRules.DisplayObjective(1, 5));
-        Assert.Equal(5, MissionRules.LogicalObjective(1, 1));
+        Assert.Equal(1, ObjectiveIcons.DisplayObjective(1, 5));
+        Assert.Equal(5, ObjectiveIcons.LogicalObjective(1, 1));
         // Round trip, which is the property the colouring pass depends on.
-        Assert.Equal(5, MissionRules.LogicalObjective(1, MissionRules.DisplayObjective(1, 5)));
+        Assert.Equal(5, ObjectiveIcons.LogicalObjective(1, ObjectiveIcons.DisplayObjective(1, 5)));
         // Farsite's other icon is untouched.
-        Assert.Equal(4, MissionRules.DisplayObjective(1, 4));
-        Assert.Equal(4, MissionRules.LogicalObjective(1, 4));
+        Assert.Equal(4, ObjectiveIcons.DisplayObjective(1, 4));
+        Assert.Equal(4, ObjectiveIcons.LogicalObjective(1, 4));
         // No other mission aliases anything - a real totem stays a totem and a
         // real custom stays a custom.
         for (int m = 2; m <= 20; m++)
             for (int i = 0; i < MissionRules.ObjectiveTypes.Length; i++)
             {
-                Assert.Equal(i, MissionRules.DisplayObjective(m, i));
-                Assert.Equal(i, MissionRules.LogicalObjective(m, i));
+                Assert.Equal(i, ObjectiveIcons.DisplayObjective(m, i));
+                Assert.Equal(i, ObjectiveIcons.LogicalObjective(m, i));
             }
     }
 

@@ -281,7 +281,7 @@ public sealed class TrackerView
             if (!active) continue;              // hidden surplus is fine
             int obj;
             try { obj = m.objective; } catch { return false; }
-            if (seen >= want.Count || obj != MissionRules.DisplayObjective(mission, want[seen]))
+            if (seen >= want.Count || obj != ObjectiveIcons.DisplayObjective(mission, want[seen]))
                 return false;
             seen++;
         }
@@ -295,7 +295,7 @@ public sealed class TrackerView
         // Draw the ALIASED index - Farsite's Custom check is shown as a totem,
         // because lighting its two totems is what the mission actually asks.
         // ColorGlyphs inverts this when it reads the marker back.
-        int drawn = MissionRules.DisplayObjective(mission, objective);
+        int drawn = ObjectiveIcons.DisplayObjective(mission, objective);
         try { if (!m.gameObject.activeSelf) m.gameObject.SetActive(true); } catch { }
         try { if (m.objective != drawn) m.objective = drawn; } catch { }
         try { m.transform.localPosition = new Vector3(GlyphSpacing * ordinal, 0f, 0f); } catch { }
@@ -363,7 +363,7 @@ public sealed class TrackerView
             // Undo the cosmetic alias: a totem icon on Farsite stands for its
             // Custom check, and colouring it from Farsite's (nonexistent) totem
             // locations would leave it permanently green.
-            int objIndex = MissionRules.LogicalObjective(mission, drawnIndex);
+            int objIndex = ObjectiveIcons.LogicalObjective(mission, drawnIndex);
             // One marker stands for every instance of that objective, so
             // aggregate them. Asking for a single type-shaped name matched
             // nothing after locations became per-instance, which quietly
