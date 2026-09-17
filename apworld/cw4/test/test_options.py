@@ -1029,6 +1029,55 @@ class TestLocationIdsNeverMove(bases.CW4TestBase):
                          len(LOCATION_NAME_TO_ID))
 
 
+class TestItemIdsNeverMove(bases.CW4TestBase):
+    """All 105 item ids are frozen, the way the location ids already were.
+
+    WHY THIS EXISTS. Items had a pin before this
+    (test_ids_are_pinned_so_nothing_renumbers) and it was not the same kind of
+    pin: it asserts three positions - 0, 57 and 68 - plus contiguity and
+    uniqueness. A reorder INSIDE UNIT_ITEMS or BOON_ITEMS moves ids while
+    leaving all five of those assertions true. TestLocationIdsNeverMove had
+    already said why that is not enough, in its own docstring: "pinning a
+    handful of ids would miss a reorder in the middle". Locations got the hash
+    and items did not.
+
+    That gap matters now because the world is being split into modules. Nothing
+    in a refactor is supposed to touch _all_names, and this is what says so
+    rather than trusting that it did not.
+
+    Hashing NAME=ID pairs in _all_names order fails for all three ways this goes
+    wrong: a name changed, an id moved, or the concatenation order changed.
+
+    IF THIS FAILS AND THE CHANGE WAS INTENTIONAL, the fix is not to update the
+    hash. Item ids are positional and the client's map must match the server's,
+    so a name may only ever be APPENDED - to the END of _all_names, never into
+    one of the lists it concatenates.
+    """
+
+    # Measured 2026-09-16 on the tree that shipped SPAN, before the module split.
+    ITEM_COUNT = 105
+    ITEM_SHA256 = "69ec0ee7a789bae2267ae2b4bc3df9847f5802fd54d585724211593ae996d06d"
+
+    def test_every_item_id_is_unchanged(self) -> None:
+        import hashlib
+        from ..items import BASE_ID, ITEM_NAME_TO_ID, _all_names
+
+        self.assertEqual(self.ITEM_COUNT, len(_all_names))
+        joined = "|".join("%s=%d" % (n, ITEM_NAME_TO_ID[n]) for n in _all_names)
+        got = hashlib.sha256(joined.encode()).hexdigest()
+        self.assertEqual(
+            self.ITEM_SHA256, got,
+            "an item name or id has MOVED. Append to the end of _all_names "
+            "rather than updating this hash.")
+
+        # Anchors, so a failure says WHERE rather than only THAT. +78 is the
+        # last pre-SPAN id, which is the boundary _all_names' own comment
+        # promises never moves.
+        self.assertEqual(BASE_ID + 0, ITEM_NAME_TO_ID["Mission Unlock: Farsite"])
+        self.assertEqual(BASE_ID + 78, ITEM_NAME_TO_ID[_all_names[78]])
+        self.assertEqual(BASE_ID + 104, ITEM_NAME_TO_ID[_all_names[104]])
+
+
 class TestSlotDataCarriesTheWorldVersion(bases.CW4TestBase):
     """The mod compares this against its own to spot a mismatched pair.
 

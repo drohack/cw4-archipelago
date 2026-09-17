@@ -32,6 +32,20 @@ import zlib
 # seed changed".
 sys.path.insert(0, os.getcwd())
 
+# STRICT MODE, for a refactor rather than a feature.
+#
+# The two allow-lists below exist because the SPAN change deliberately added
+# slot_data keys and deliberately fixed Archon's logic. A RESTRUCTURE is
+# supposed to change nothing at all, and running it against those allow-lists
+# would let exactly those differences through unnoticed - the change most likely
+# to be introduced by accident while moving code is a change to the tables the
+# allow-lists cover.
+#
+# So `CW4_PARITY_STRICT=1` empties both. A pure refactor that needs an
+# allow-list entry is not a pure refactor, and should fail here rather than be
+# argued about later.
+STRICT = os.environ.get("CW4_PARITY_STRICT") == "1"
+
 # Keys this change is ALLOWED to add. Anything else new, or any existing key
 # whose value moved, is a real difference and fails.
 EXPECTED_NEW_KEYS = {"mission_roster", "mission_titles", "span_missions"}
@@ -54,6 +68,10 @@ EXPECTED_CHANGED_REQUIREMENTS = {
 }
 REQUIREMENT_TABLES = ("location_requirements", "strict_location_requirements")
 
+if STRICT:
+    EXPECTED_NEW_KEYS = set()
+    EXPECTED_CHANGED_REQUIREMENTS = set()
+
 
 def load(path):
     with open(path, "rb") as fh:
@@ -73,6 +91,9 @@ def main():
         print("usage: parity-check.py <old.archipelago> <new.archipelago>",
               file=sys.stderr)
         return 2
+    print("  MODE  %s" % ("STRICT - nothing may differ, not even a new "
+                          "slot_data key" if STRICT else
+                          "feature - the allow-listed keys and rows may differ"))
     old, new = load(sys.argv[1]), load(sys.argv[2])
     bad = 0
 
@@ -160,8 +181,12 @@ def main():
     elif not changed:
         print("  PASS  every pre-existing slot_data key is byte-for-byte the same")
 
-    print("parity: %s" % ("IDENTICAL apart from the new keys" if not bad
-                          else "%d DIFFERENCE(S)" % bad))
+    if bad:
+        print("parity: %d DIFFERENCE(S)" % bad)
+    elif STRICT:
+        print("parity: IDENTICAL - nothing differed at all")
+    else:
+        print("parity: IDENTICAL apart from the new keys")
     return 1 if bad else 0
 
 
