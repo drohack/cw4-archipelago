@@ -15,6 +15,27 @@ from . import options
 from .options import CW4Options
 
 
+def _world_version() -> str:
+    """This apworld's version, from the manifest that already declares it.
+
+    The manifest is the canonical place (tools/check-release.py holds it equal to
+    the csproj and Plugin.cs), so it is read rather than duplicated. A packaged
+    .apworld carries archipelago.json at the same relative path, so this works
+    from a zip as well as from a directory.
+    """
+    import json
+    import os
+    path = os.path.join(os.path.dirname(__file__), "archipelago.json")
+    try:
+        with open(path, encoding="utf-8") as fh:
+            return str(json.load(fh).get("world_version", ""))
+    except Exception:
+        # Never fail generation over a version string. An empty value simply
+        # means the mod cannot compare, which is the behaviour of every seed
+        # generated before this key existed.
+        return ""
+
+
 class CW4WebWorld(WebWorld):
     game = "Creeper World 4"
     theme = "ice"
@@ -190,6 +211,20 @@ class CW4World(World):
             for n in self.mission_roster
         }
         data["span_missions"] = bool(self.options.span_missions)
+        # WHICH APWORLD BUILT THIS SEED, so the mod can say so when they differ.
+        #
+        # Three documents promise that the plugin and the apworld are a matched
+        # pair, and until this key existed nothing enforced it anywhere but the
+        # build: no version travelled in slot data, the mod read none, and
+        # required_client_version was never set, so it sat at AutoWorld's
+        # (0, 1, 6) default which passes for any client ever built. A player
+        # running a v0.1.5 mod against a v0.2.0 seed connected cleanly and
+        # desynchronised silently - the exact failure the whole version
+        # apparatus exists to prevent.
+        #
+        # Read from archipelago.json rather than restated here: a second literal
+        # is the thing this key is meant to stop.
+        data["world_version"] = _world_version()
         data["ern_per_item"] = 1
         data["missions_for_finale"] = self.options.missions_for_finale.value
         # Amounts for the energy upgrades. They are here rather than in the item

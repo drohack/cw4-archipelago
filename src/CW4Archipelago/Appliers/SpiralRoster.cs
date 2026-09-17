@@ -54,11 +54,18 @@ public sealed class SpiralRoster
 
     private bool _applied;
 
+    /// <summary>How many ticks a failing retarget is retried before giving up.
+    /// Bounded so a permanently broken map logs once and stops, rather than
+    /// erroring every frame for the rest of the session.</summary>
+    private const int MaxAttempts = 10;
+    private int _attempts;
+
     /// <summary>Re-run per visit: the planets are rebuilt with the scene, so both
     /// the flag and the recorded slots have to go.</summary>
     public void OnSceneChanged()
     {
         _applied = false;
+        _attempts = 0;
         SlotOfPlanet.Clear();
     }
 
@@ -72,7 +79,14 @@ public sealed class SpiralRoster
     /// Without this the level select would show the campaign for the whole of
     /// the first visit whenever the connect lands after the first paint, which
     /// with AutoConnect is the ordinary case rather than an edge one.</summary>
-    public void Invalidate() => _applied = false;
+    public void Invalidate()
+    {
+        _applied = false;
+        // Fresh budget: the retry cap counts attempts at ONE roster, and a state
+        // change means a possibly different one. Leaving it spent would make a
+        // later connect inherit an exhausted counter and give up immediately.
+        _attempts = 0;
+    }
 
     /// <summary>The slot a planet occupies, or 0 if it is not one of the twenty.
     /// Answers correctly both before and after the retarget.</summary>
@@ -135,6 +149,7 @@ public sealed class SpiralRoster
         }
 
         int changed = 0;
+        int failed = 0;
         for (int slot = 1; slot <= 20; slot++)
         {
             var planet = bySlot[slot];
@@ -148,9 +163,38 @@ public sealed class SpiralRoster
             int mission = roster[slot - 1];
             string want = MissionRules.Specifier(mission);
             bool differs = GuidOf(planet) != want;
-            if (Retarget(planet, mission) && differs)
-                changed++;
+            if (Retarget(planet, mission))
+            {
+                if (differs) changed++;
+            }
+            else
+            {
+                // A FAILED RETARGET IS NOT A NO-OP, and this used to be treated
+                // as one: Retarget returning false merely failed to increment
+                // `changed`, which is indistinguishable from "this slot was
+                // already correct". The planet is left pointing at the wrong
+                // mission while every other applier resolves it by title, so the
+                // gate and the tracker disagree with what the spiral shows - and
+                // the log said "retargeted N of 20" with no hint anything went
+                // wrong.
+                failed++;
+                ModCore.Log.LogError(
+                    $"AP: slot {slot} could not be retargeted at '{want}' " +
+                    $"({MissionRules.Titles[mission]}) - the planet still reads " +
+                    $"'{GuidOf(planet)}'");
+            }
         }
+
+        // Only call it done when it IS done. A failure leaves _applied false so
+        // the next tick retries, which is worth doing because the usual cause is
+        // a planet still being rebuilt. Bounded, so a permanently broken map
+        // cannot spin: after this many passes it gives up and says so.
+        if (failed > 0 && ++_attempts < MaxAttempts)
+            return;
+        if (failed > 0)
+            ModCore.Log.LogError(
+                $"AP: giving up after {_attempts} attempts with {failed} slot(s) " +
+                "still wrong - the level select does not match this seed");
 
         _applied = true;
         if (changed > 0)

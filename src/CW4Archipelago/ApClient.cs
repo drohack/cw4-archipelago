@@ -393,6 +393,21 @@ public sealed class ApClient
         _retryCount = 0;   // healthy connection re-arms the retry budget
         SetStatus(ConnectionStatus.Connected, $"connected as {slot} (seed {seed})");
         _log.LogInfo($"AP CONNECTED slot='{slot}' seed='{seed}' locations={allLocations.Count} received={received.Count}");
+
+        // DOES THIS MOD MATCH THE APWORLD THAT BUILT THE SEED? Nothing asked
+        // until now: no version travelled in slot data and the world left
+        // required_client_version at a default that admits every client ever
+        // built, so a mismatched pair connected cleanly and desynchronised in
+        // silence. Warn rather than refuse - a version difference is not proof
+        // of incompatibility, and stranding someone mid-run over a patch bump
+        // would be worse than the problem. Empty means a seed from before the
+        // key existed and says nothing.
+        var versionNote = VersionRules.Describe(Plugin.Version, State.Hints.WorldVersion);
+        if (versionNote != null)
+        {
+            _log.LogWarning($"AP VERSION MISMATCH: {versionNote}");
+            ModCore.EnqueueToast(versionNote);
+        }
         // The seed's shape, in one greppable line. Which missions start unlocked
         // is decided per seed and was previously invisible: a player asking "why
         // can I only play these two?" had no answer, and a test had no choice but

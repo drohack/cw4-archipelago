@@ -1026,3 +1026,32 @@ class TestLocationIdsNeverMove(bases.CW4TestBase):
         from ..locations import LOCATION_NAME_TO_ID
         self.assertEqual(len(set(LOCATION_NAME_TO_ID.values())),
                          len(LOCATION_NAME_TO_ID))
+
+
+class TestSlotDataCarriesTheWorldVersion(bases.CW4TestBase):
+    """The mod compares this against its own to spot a mismatched pair.
+
+    Nothing checked that at runtime until 2026-09-17: no version travelled in
+    slot data, the mod read none, and `required_client_version` was never set,
+    so it sat at AutoWorld's (0, 1, 6) default which admits any client ever
+    built. A v0.1.5 mod on a v0.2.0 seed connected cleanly and desynchronised
+    silently.
+    """
+
+    def test_the_key_is_present_and_non_empty(self) -> None:
+        data = self.world.fill_slot_data()
+        self.assertIn("world_version", data)
+        self.assertTrue(data["world_version"],
+                        "empty means the mod cannot compare, which is the "
+                        "pre-2026-09-17 behaviour this key exists to end")
+
+    def test_it_equals_the_manifest_rather_than_restating_it(self) -> None:
+        # A second literal is exactly what this key exists to prevent, so it
+        # must be READ from archipelago.json, not written out again.
+        import json
+        import os
+        from .. import __file__ as world_file
+        manifest = os.path.join(os.path.dirname(world_file), "archipelago.json")
+        with open(manifest, encoding="utf-8") as fh:
+            declared = json.load(fh)["world_version"]
+        self.assertEqual(declared, self.world.fill_slot_data()["world_version"])

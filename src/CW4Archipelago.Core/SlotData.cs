@@ -149,6 +149,14 @@ public sealed class SlotData
     [JsonPropertyName("ern_cap_max_build_speed_percent")]
     public int ErnCapMaxBuildSpeedPercent { get; set; } = 150;
 
+    /// <summary>The apworld version that generated this seed.
+    ///
+    /// EMPTY MEANS AN OLDER SEED, generated before the key existed, and is not a
+    /// mismatch - it simply cannot be compared. See
+    /// <see cref="VersionRules.Describe"/> for what is done with it.</summary>
+    [JsonPropertyName("world_version")]
+    public string WorldVersion { get; set; } = "";
+
     public static readonly SlotData Empty = new();
 
     public static SlotData FromJson(string json)
