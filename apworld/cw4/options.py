@@ -205,7 +205,13 @@ class LogicDifficulty(Choice):
 
 
 class SpanMissions(Toggle):
-    """Mix the SPAN Experiments into the seed. EXPERIMENTAL.
+    """Mix the SPAN Experiments into the seed. UNTESTED, BUT PLAYABLE.
+
+    Nobody has yet played a seed containing these 26 maps. Turning this on is
+    safe in the sense that matters - the maps load, their objectives register,
+    and their checks send - but no human has confirmed that any individual map
+    is beatable with the items the logic thinks it needs. Leaving it off gives
+    you exactly the campaign-only seed you would have had without it.
 
     The level select still holds 20 missions and the goal is still Founders;
     with this on, the other 19 are drawn from the 19 remaining campaign missions

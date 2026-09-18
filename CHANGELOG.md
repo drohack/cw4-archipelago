@@ -3,7 +3,22 @@
 Versions follow semantic versioning. The plugin and the apworld share one number,
 so a release is a matched pair - if you update one, update the other.
 
-## v0.2.0 - The SPAN Experiments, experimental and off by default
+## v0.2.0 - The SPAN Experiments, untested but playable, off by default
+
+**This is a full release and it is backwards compatible.** Everything a v0.1.x
+seed did, it still does: `span_missions` defaults to off, and with it off the
+placements are byte-identical to the previous release (asserted by
+`tools/span-off-parity.sh`, 7 of 7).
+
+**With it on, you are the first person to play those maps.** The 26 SPAN
+Experiments load, register their objectives and send their checks - that much is
+tested end to end - but no human has finished one inside a seed, and their item
+requirements were DERIVED from the map files rather than observed in play. The
+logic deliberately over-requires, so the risk is a map that is harder than it
+needs to be rather than one that cannot be finished. If you play them,
+`docs/design/span-requirements-worksheet.md` is how to report what they actually
+needed, and there is a GitHub issue form that asks the same four questions.
+
 
 ### Build and release audit
 
