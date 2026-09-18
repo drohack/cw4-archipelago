@@ -499,6 +499,69 @@ land to produce, and the claim also takes time to grow. Any energy experiment
 built on spawned towers measures nothing. Real towers, placed by hand, do
 produce (GEN 1 -> 1.6).
 
+## The game's own build path, and a real cache pickup (2026-09-18)
+
+`spawn:` and `spawnat:` call `CreateUnitAtPosition`, and the finding above - that
+those units never join the network - turned out to be total rather than
+energy-specific. Measured on Home, whose cache is at cell (145,91): a rift lab
+and towers spawned five cells away, on clear height-3 ground, placed while the
+sim was paused, with instant build on, still read `energyProduction=0` and
+collected nothing. Not creep, not burial, not distance, not ghost state. The
+simulation does not adopt what `CreateUnitAtPosition` makes.
+
+**The path that does work is the one the game uses for a mouse click.** A player
+placing a unit drives a `UnitBuildGhost`:
+
+```
+InputManager.unitToBuild : UnitBuildGhost    the ghost in the player's hand
+  ubg.IsLegal(x, y)   -> bool                will the game accept this cell
+  ubg.SetPosition(x, y, true)                where a click would put it
+  ubg.Build()         -> bool                calls CreateUnit internally
+```
+
+`Build()` calls `UnitBuildGhost.CreateUnit` from inside the game's own code, so
+the unit is adopted exactly as a hand-placed one is. `build:` in CW4DevTools is
+those three calls and nothing else.
+
+**Filling the hand needs no mouse either.** Every unit has its own left-pane
+handler - `LeftPane.BuildUnitTower()`, `BuildUnitCollector()`, forty of them -
+and invoking one puts its ghost in `unitToBuild`. This is the `story:open` trick
+applied to the build pane. The rift lab is the exception: it is not on the left
+pane at all, it has `GameSpace.commandBaseButtonMgmt.buildCommandBaseButton`.
+Clicking that and calling `Build()` LANDS THE LAB - `GameSpace.commandBase`
+becomes non-null - which is the landing click that was believed unscriptable.
+
+**Four wrong theories died on the way, each of which looks reasonable:**
+
+- *The units are ghosts.* No. Instant build on or off made no difference; the
+  problem was `CreateUnitAtPosition` itself.
+- *The cache is buried.* No. `World.GetCreeper(145,91)` reads **0** at tick zero.
+- *The sim is running.* It was not. A mission is paused by owner `main`, and
+  ADA's opening messages RE-PAUSE it as owner `gamemessage`. Six minutes of game
+  time took two minutes of wall clock only once both were cleared repeatedly.
+  A screenshot showing `Time: 0:05.0` after 120 seconds is what caught this.
+- *Eleven cells is the tower range.* Horizontally. **Range is 3D and height
+  counts**, so nine-cell hops that measure fine on a flat map dump are over range
+  wherever the ground steps. Hops of three are safe on any terrain.
+
+**A lab cannot be placed next to most things.** It needs a footprint, and on Home
+the nearest cell the game will accept one on is **20 cells from the cache**.
+`build:scan <unit> [x y]` reports the whole-map legal count and the nearest legal
+cell, which is how that was found rather than guessed.
+
+With all of that, `build:chain` lands the lab and walks towers to a target, and
+the cache is collected for real: `mustCollect` 1/1 -> 0/1, `infoCaches` 1 -> 0,
+and the randomizer's objective slot 4 reads `DONE`. First scripted REAL pickup -
+not `cache:destroy` faking the consequence.
+
+**What this does NOT prove, and the distinction matters.** The harness freezes
+the creeper, makes units indestructible, and force-places a lab wherever the
+game will take it. Those are exactly the constraints a real playthrough has to
+satisfy, so a PASS here means "a network that reaches this cache collects it",
+never "a player can reach this cache". Randomizer logic questions - buried
+caches needing a Terp, caches under creep, caches behind enemy lines - are
+untouched by it and must not be answered from it.
+
 ## How a unit dies: health is only one of the paths (2026-08-29)
 
 Found because platforms kept being destroyed with CW4DevTools' Indestructible

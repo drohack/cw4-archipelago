@@ -106,6 +106,14 @@ send "spawn:CommandBase 1" 4
 send "spawn:Cannon 2" 4
 send "spawn:Factory 1" 5
 grep -q "DEVCMD spawn Cannon: 2/2" "$GAME_LOG"; check "spawn by real name" $?
+# THE RIFT LAB RESULT, which this fixture has been throwing away. It has sent
+# spawn:CommandBase every run since it was written and only ever asserted the
+# Cannon, so whether the game will create a rift lab by name has never once been
+# recorded - and it is the question that decides whether a mission can be driven
+# without a human clicking the landing prompt. CommandBase is the REAL unit
+# name; riftlab is a build-pane key and places nothing.
+grep -q "DEVCMD spawn CommandBase: 1/1" "$GAME_LOG"
+check "spawn the rift lab by its real name (CommandBase)" $?
 grep -q "pre-existing map unit(s) will not be touched" "$GAME_LOG"; check "map content snapshot taken" $?
 grep -q "spawn pylon\|0/1 - is that the REAL" "$GAME_LOG" || true
 
@@ -120,15 +128,43 @@ echo "  $S"
 [ "$(field building)" = "0" ]; check "instant build: no player unit still building" $?
 # InfiniteResources: weapons hold ammo AND wares are filled (the two-way bug).
 [ "$(field withAmmo)" -gt 0 ] 2>/dev/null; check "infinite resources: weapons have ammo" $?
-# Ware filling needs a REAL factory wired into the packet network. A factory
-# spawned by CreateUnitAtPosition has no network, and SetWareHeld does not stick
-# on it, so this fixture cannot prove it either way. Confirmed working in play
-# (liftic/redon/bluite all filled). Left visible rather than deleted so it is not
-# mistaken for covered.
+# Ware filling needs a REAL factory wired into the packet network, and for a
+# long time this fixture could not build one: spawn: calls
+# CreateUnitAtPosition, whose units the simulation never adopts, so SetWareHeld
+# did not stick and the assertion was SKIPPED every run.
+#
+# build: fixes that. It drives the game's own UnitBuildGhost - SetPosition then
+# Build() - which is the two calls a mouse click makes, so the lab and what it
+# powers are as real as hand-placed ones. Land the lab first, since a building
+# with nothing to connect to is the old problem again.
+#
+# A SPRAYER, not a refinery. The cheat fills AMMO_WARES - what a unit CONSUMES -
+# and a refinery produces wares rather than consuming any, so it reports zero
+# however well it is connected. The sprayer takes bluite.
+send "build:riftlab 40 40" 5
+send "build:Sprayer 44 44" 5
+# A refused cell is normal and the command says where to go instead, so use that
+# rather than hard-coding a second guess that rots the next time the map moves.
+if grep -q "DEVCMD build Sprayer at (44,44): legal=False" "$GAME_LOG"; then
+  alt="$(grep -oE "DEVCMD build nearest legal cell: \(([0-9]+),([0-9]+)\)" "$GAME_LOG"          | tail -1 | grep -oE "[0-9]+,[0-9]+" | tr ',' ' ')"
+  [ -n "$alt" ] && send "build:Sprayer $alt" 5
+fi
+sleep 8
+send "dump" 6
+S="$(state)"
+# STILL NOT PROVEN, but the reason has changed and that is worth more than the
+# old wording. The blocker WAS "this fixture cannot build a real factory".
+# It can now: the lines above land a lab and build a sprayer through the game's
+# own ghost, and DEVSTATE's mine count rises, so both are units the simulation
+# adopted. wareTotal is nonetheless 0, which rules the network out - a built,
+# connected, ware-CONSUMING unit gets nothing filled on story7. What is left is
+# the cheat's own condition: it writes only slots present in u.AMMO_WARES, and
+# nothing here has shown that dictionary to be populated on this map.
+# Confirmed working in play (liftic/redon/bluite all filled).
 if [ "$(field wareTotal)" -gt 0 ] 2>/dev/null; then
-  check "infinite resources: wares filled" 0
+  check "infinite resources: wares filled (real network-connected sprayer)" 0
 else
-  skipped "infinite resources: wares filled" "needs a network-connected factory; verify by hand"
+  skipped "infinite resources: wares filled"           "lab and sprayer now build for real and still fill nothing - AMMO_WARES looks empty here, not a network problem"
 fi
 # Assert on energyStore, not energyProduction: the sim recomputes production
 # from the network every tick, so a dump taken later reads its value, not ours -

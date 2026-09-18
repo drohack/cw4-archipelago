@@ -65,6 +65,7 @@ public sealed class DevCommands
         if (lower == "ada:close") { CloseAda(); return; }
         if (lower.StartsWith("sim:")) { Sim(line.Substring(4).Trim()); return; }
         if (lower.StartsWith("spawn:")) { Spawn(line.Substring(6).Trim()); return; }
+        if (lower.StartsWith("build:")) { Build(line.Substring(6).Trim()); return; }
         if (lower.StartsWith("shot:")) { Shot(line.Substring(5).Trim()); return; }
         if (lower == "dump") { DevTools.DumpUnitsNow(); return; }
         if (lower == "story:open") { StoryOpen(); return; }
@@ -89,7 +90,8 @@ public sealed class DevCommands
 
         _log.LogWarning($"DEVCMD unknown: {line} " +
                         "(boot:storyN | ada:close | sim:run [speed] | sim:pause | " +
-                        "spawn:<UnitName> [n] | shot:<path> | dump | story:open | " +
+                        "spawn:<UnitName> [n] | build:[unit] <x> <y> | build:scan <unit> [x y] | build:chain [x y [hop]] | " +
+                        "shot:<path> | dump | story:open | " +
                         "planets:dump | obj:dump | buildings:dump | map:dump <path> | " +
                         "totems:dump | wares:names | " +
                         "overlay:dump | " +
@@ -98,6 +100,423 @@ public sealed class DevCommands
                         "span:swap <planet> <spanguid> | span:icons <planet> <slots> | " +
                         "span:play <planet> | span:goto | " +
                         "set:<cheat>=on|off)");
+    }
+
+    /// <summary>Places a unit the way a PLAYER does, at cell x,y.
+    ///
+    /// <para>This is not a second <c>spawn:</c>. They use different game code and
+    /// only one of them produces a unit the simulation treats as real:</para>
+    ///
+    /// <list type="bullet">
+    /// <item><c>spawn:</c> calls <c>CreateUnitAtPosition</c>, which makes a unit
+    /// the sim never adopts. Measured on Home 2026-09-18: a rift lab and a tower
+    /// spawned five cells from the info cache, on clear height-3 ground, placed
+    /// while paused with instant build on, still read energyProduction=0 and
+    /// never collected the cache. It is not creep, burial, distance or ghost
+    /// state - the unit claims no land, so there is no network.</item>
+    /// <item><c>build:</c> drives the ghost the game itself builds from:
+    /// <c>SetPosition</c> then <c>Build()</c>, the same two calls a mouse click
+    /// makes. <c>Build()</c> calls <c>CreateUnit</c> from inside the game's own
+    /// path, so whatever adoption a hand-placed unit gets, this gets.</item>
+    /// </list>
+    ///
+    /// <para>Two forms, because the rift lab arrives differently from everything
+    /// else. <c>build:&lt;x&gt; &lt;y&gt;</c> places what is ALREADY in the
+    /// player's hand - which at a mission's landing prompt is the rift lab, held
+    /// in <c>InputManager.unitToBuild</c>. That is the landing click, and it is
+    /// why this command exists: <c>boot:</c> leaves a mission at that prompt, and
+    /// synthetic mouse input does not reach CW4's UI.
+    /// <c>build:&lt;unit&gt; &lt;x&gt; &lt;y&gt;</c> first fills the hand by
+    /// invoking the left pane's own button handler (<c>BuildUnitTower</c> and
+    /// friends), then places it.</para>
+    ///
+    /// <para>Reports what it ACHIEVED, not that it ran: the legality verdict, the
+    /// Build() return, and whether GameSpace.commandBase is non-null afterwards.
+    /// Every outcome logs a line starting DEVCMD build, so a harness greps one
+    /// anchor and a failure never reads like a hung mod.</para>
+    /// </summary>
+    private void Build(string arg)
+    {
+        var tok = arg.Split(new[] { ' ', ',' }, StringSplitOptions.RemoveEmptyEntries);
+        if (tok.Length >= 1 && tok[0].Equals("chain", StringComparison.OrdinalIgnoreCase))
+        {
+            int cx2 = -1, cy2 = -1, hop = 0;
+            if (tok.Length >= 3) { int.TryParse(tok[1], out cx2); int.TryParse(tok[2], out cy2); }
+            if (tok.Length >= 4) int.TryParse(tok[3], out hop);
+            Chain(cx2, cy2, hop);
+            return;
+        }
+        if (tok.Length >= 2 && tok[0].Equals("scan", StringComparison.OrdinalIgnoreCase))
+        {
+            int tx = -1, ty = -1;
+            if (tok.Length >= 4) { int.TryParse(tok[2], out tx); int.TryParse(tok[3], out ty); }
+            Scan(tok[1], tx, ty);
+            return;
+        }
+
+        string? unit = null;
+        int x, y;
+        if (tok.Length >= 3) { unit = tok[0]; }
+        else if (tok.Length != 2) { _log.LogWarning("DEVCMD build: need <x> <y> or <unit> <x> <y>"); return; }
+        if (!int.TryParse(tok[tok.Length - 2], out x) || !int.TryParse(tok[tok.Length - 1], out y))
+        { _log.LogWarning("DEVCMD build: x and y must be whole cells"); return; }
+
+        var gs = GameSpace.instance;
+        if (gs == null) { _log.LogWarning("DEVCMD build: no GameSpace"); return; }
+
+        InputManager? im = null;
+        try { im = gs.inputManager; } catch { }
+        if (im == null) { _log.LogWarning("DEVCMD build: no InputManager"); return; }
+
+        if (unit != null && !FillHand(unit)) return;
+
+        UnitBuildGhost? ubg = null;
+        try { ubg = im.unitToBuild; } catch { }
+        if (ubg == null)
+        {
+            _log.LogWarning(unit == null
+                ? "DEVCMD build: nothing in hand - at a landing prompt the rift lab should be there, so this means the mission is past it"
+                : $"DEVCMD build {unit}: the left pane handler ran but put nothing in hand");
+            return;
+        }
+
+        bool legal = false;
+        try { legal = ubg.IsLegal(x, y); } catch (Exception e) { _log.LogWarning($"DEVCMD build: IsLegal threw: {e.Message}"); }
+
+        bool built = false;
+        try
+        {
+            ubg.SetPosition(x, y, true);
+            built = ubg.Build();
+        }
+        catch (Exception e) { _log.LogWarning($"DEVCMD build: {e.Message}"); return; }
+
+        bool haveLab = false;
+        try { haveLab = gs.commandBase != null; } catch { }
+
+        _log.LogInfo($"DEVCMD build {unit ?? "inhand"} at ({x},{y}): legal={legal} built={built} commandBase={(haveLab ? 1 : 0)}");
+
+        // An illegal cell is the common failure and the least self-explanatory:
+        // the ghost knows why, and says nothing. A footprint needs room and flat
+        // ground, so the cell you picked off a terrain dump is often a cell or
+        // two from one that works. Reporting the nearest legal cell turns a dead
+        // end into the next command to send, and costs one scan only when the
+        // build has already failed.
+        if (!built && !legal) ReportNearestLegal(ubg, x, y);
+    }
+
+    /// <summary>Lands the rift lab and walks a tower line to a target cell, so a
+    /// harness reaches an objective in one command instead of a hand-tuned list
+    /// of coordinates per map.
+    ///
+    /// <para>With no arguments it aims at the first outstanding info cache,
+    /// which is what every cache test wants and removes the last per-map
+    /// constant from the harness.</para>
+    ///
+    /// <para>Two things here were learned the hard way and are why the hops are
+    /// short and the lab is not placed where asked:</para>
+    ///
+    /// <list type="bullet">
+    /// <item><b>Tower range is 3D.</b> Eleven cells is the horizontal figure;
+    /// height counts too, so a hop that measures nine on a flat map dump is over
+    /// range wherever the ground steps. Hops of three keep every link inside
+    /// range no matter what the terrain does, at the cost of a few more towers -
+    /// which cost nothing here.</item>
+    /// <item><b>The lab needs a footprint.</b> On Home the nearest cell the game
+    /// will accept a lab on is twenty away from the cache, so asking for one next
+    /// to the target simply fails. The scan finds the nearest legal cell and the
+    /// chain starts from wherever that turns out to be.</item>
+    /// </list>
+    ///
+    /// <para>Leaves the towers UNBUILT on purpose - the caller decides whether to
+    /// cheat them up with instantbuild or let the lab build them, and a lab that
+    /// builds them is itself the proof they are connected.</para>
+    /// </summary>
+    private void Chain(int tx, int ty, int hop)
+    {
+        var gs = GameSpace.instance;
+        if (gs == null) { _log.LogWarning("DEVCMD build chain: no GameSpace"); return; }
+
+        if (tx < 0 || ty < 0)
+        {
+            try
+            {
+                foreach (var u in gs.mustCollect)
+                {
+                    if (u == null) continue;
+                    tx = u.cellX; ty = u.cellY; break;
+                }
+            }
+            catch { }
+            if (tx < 0 || ty < 0) { _log.LogWarning("DEVCMD build chain: nothing left to collect, and no target given"); return; }
+            _log.LogInfo($"DEVCMD build chain: aiming at the outstanding cache ({tx},{ty})");
+        }
+
+        InputManager? im = null;
+        try { im = gs.inputManager; } catch { }
+        if (im == null) { _log.LogWarning("DEVCMD build chain: no InputManager"); return; }
+
+        // LAND AT MOST ONE LAB. The rift lab button builds a lab every time it is
+        // pressed, so a chain run on a mission that already has one - a second
+        // call, or a mission that starts with one placed - quietly produces two.
+        int lx, ly;
+        bool already = false;
+        try { already = gs.commandBase != null; } catch { }
+        if (already)
+        {
+            lx = -1; ly = -1;
+            try { lx = gs.commandBase.cellX; ly = gs.commandBase.cellY; } catch { }
+            _log.LogInfo($"DEVCMD build chain: a lab is already down at ({lx},{ly}), not landing another");
+        }
+        else
+        {
+            if (!FillHand("riftlab")) return;
+            UnitBuildGhost? lab = null;
+            try { lab = im.unitToBuild; } catch { }
+            if (lab == null) { _log.LogWarning("DEVCMD build chain: no lab ghost in hand"); return; }
+
+            if (!NearestLegal(lab, tx, ty, out lx, out ly))
+            { _log.LogWarning("DEVCMD build chain: the map has no legal cell for a rift lab"); return; }
+            bool labBuilt = false;
+            try { lab.SetPosition(lx, ly, true); labBuilt = lab.Build(); } catch (Exception e) { _log.LogWarning($"DEVCMD build chain: lab: {e.Message}"); return; }
+            if (!labBuilt) { _log.LogWarning($"DEVCMD build chain: the lab refused ({lx},{ly})"); return; }
+        }
+
+        if (!FillHand("Tower")) return;
+        UnitBuildGhost? tw = null;
+        try { tw = im.unitToBuild; } catch { }
+        if (tw == null) { _log.LogWarning("DEVCMD build chain: no tower ghost in hand"); return; }
+
+        // Hop size is a trade, and the first version got it backwards by being
+        // timid. Towers reach 11 cells horizontally and range is 3D, so 6 is
+        // still comfortably inside it over any terrain step - and HALVES the
+        // tower count. That matters more than the margin does: with instant
+        // build off the lab has to send packets to every one of them, and its
+        // GEN is small, so a chain of tiny hops spends its energy budget
+        // crawling rather than arriving. The distance that decides the pickup
+        // is the LAST tower's distance from the item, which the loop does not
+        // control at all - the final placement below is what controls it.
+        int HOP = hop > 0 ? hop : 6;
+        int cx = lx, cy = ly, towers = 0;
+        for (int guard = 0; guard < 200; guard++)
+        {
+            int dx = tx - cx, dy = ty - cy;
+            int dist = Math.Max(Math.Abs(dx), Math.Abs(dy));
+            // Stop as soon as the last tower covers the target. Stopping at 1
+            // instead ran the guard out at 200 towers on every map: inside one
+            // hop the waypoint rounds onto ground the ghost refuses, the nearest
+            // legal cell is beside it rather than nearer, and the loop places
+            // tower after tower without ever closing the gap.
+            if (dist <= HOP) break;
+            int steps = Math.Max(Math.Abs(dx), Math.Abs(dy));
+            int wx = cx + (int)Math.Round((double)dx * HOP / steps);
+            int wy = cy + (int)Math.Round((double)dy * HOP / steps);
+            if (wx == cx && wy == cy) break;
+            if (!NearestLegal(tw, wx, wy, out int px, out int py)) break;
+            bool ok = false;
+            try { tw.SetPosition(px, py, true); ok = tw.Build(); } catch { }
+            if (!ok) break;
+            towers++;
+            int moved = Math.Max(Math.Abs(tx - px), Math.Abs(ty - py));
+            cx = px; cy = py;
+
+            // A hop that does not get closer is not the end of the road, it is a
+            // hop that was too long. Tower legality tightens once a lab is down
+            // - the cell must be reachable from the network - so a six-cell
+            // waypoint over creeper or a gap resolves to the nearest legal cell
+            // BEHIND it, and the first version read that as a dead end and
+            // stopped 16 cells short of Far York Farm's cache. Shorten and try
+            // again; only a stall at hop 1 is genuinely blocked.
+            if (moved >= dist)
+            {
+                if (HOP > 1) { HOP = HOP > 2 ? HOP / 2 : 1; continue; }
+                _log.LogWarning($"DEVCMD build chain: blocked at ({px},{py}), {moved} from target");
+                break;
+            }
+            // The hand empties on a single-build ghost, so refill before the
+            // next hop. Without this the chain silently stops after one tower.
+            try { if (im.unitToBuild == null) { FillHand("Tower"); tw = im.unitToBuild; } } catch { }
+            if (tw == null) break;
+        }
+
+        // FINISH ON THE TARGET, not wherever the hops ran out. The loop stops
+        // once it is within one hop, which leaves the last tower up to three
+        // cells short - and then the nearest legal cell to that waypoint can
+        // drift further still, in any direction. On Home that was the
+        // difference between collecting the cache and ending beside it: the
+        // run that first worked finished two cells out.
+        //
+        // So place one more tower at the legal cell nearest the TARGET itself.
+        // It is within a hop of the last one by construction, so it is in range.
+        if (tw != null && NearestLegal(tw, tx, ty, out int ex, out int ey)
+            && (ex != cx || ey != cy))
+        {
+            bool okEnd = false;
+            try { tw.SetPosition(ex, ey, true); okEnd = tw.Build(); } catch { }
+            if (okEnd) { towers++; cx = ex; cy = ey; }
+        }
+
+        // Leave the hand EMPTY. A ghost left held renders as a unit that is not
+        // there, which reads as an extra building in a screenshot and is how a
+        // "there are two rift labs" turns out to be one lab and one ghost.
+        try
+        {
+            var pane = UnityEngine.Object.FindObjectOfType<LeftPane>();
+            if (pane != null) pane.ClearSelected();
+            im.unitToBuild = null;
+        }
+        catch { }
+
+        int left = Math.Max(Math.Abs(tx - cx), Math.Abs(ty - cy));
+        _log.LogInfo($"DEVCMD build chain: lab ({lx},{ly}), {towers} towers, ends ({cx},{cy}), {left} from ({tx},{ty})");
+    }
+
+    /// <summary>First cell the ghost accepts, searched outward from x,y. Shared by
+    /// the chain and by the failure report, so both agree on what "nearest"
+    /// means.</summary>
+    private bool NearestLegal(UnitBuildGhost ubg, int x, int y, out int fx, out int fy)
+    {
+        fx = fy = -1;
+        for (int r = 0; r <= 40; r++)
+        {
+            for (int dx = -r; dx <= r; dx++)
+            {
+                for (int dy = -r; dy <= r; dy++)
+                {
+                    if (r > 0 && Math.Max(Math.Abs(dx), Math.Abs(dy)) != r) continue;
+                    bool ok = false;
+                    try { ok = ubg.IsLegal(x + dx, y + dy); } catch { }
+                    if (!ok) continue;
+                    fx = x + dx; fy = y + dy;
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /// <summary>Rings outward from a refused cell and names the first legal one.
+    /// Silent if nothing within twelve cells works, which is itself the answer:
+    /// the problem is the area, not the cell.</summary>
+    private void ReportNearestLegal(UnitBuildGhost ubg, int x, int y)
+    {
+        for (int r = 1; r <= 12; r++)
+        {
+            for (int dx = -r; dx <= r; dx++)
+            {
+                for (int dy = -r; dy <= r; dy++)
+                {
+                    if (Math.Max(Math.Abs(dx), Math.Abs(dy)) != r) continue;
+                    bool ok = false;
+                    try { ok = ubg.IsLegal(x + dx, y + dy); } catch { }
+                    if (!ok) continue;
+                    _log.LogInfo($"DEVCMD build nearest legal cell: ({x + dx},{y + dy}), {r} from ({x},{y})");
+                    return;
+                }
+            }
+        }
+        _log.LogInfo($"DEVCMD build nearest legal cell: none within 12 of ({x},{y})");
+    }
+
+    /// <summary>Asks the ghost for every cell on the map it would accept.
+    ///
+    /// <para>Written because "no legal cell within twelve" is an answer that
+    /// cannot be acted on: it does not distinguish a bad neighbourhood from a
+    /// ghost that refuses everywhere. A whole-map count settles which, and when
+    /// there IS a legal area it names where, so the next command is known rather
+    /// than guessed. Twenty thousand IsLegal calls cost a frame and run only
+    /// when asked.</para></summary>
+    private void Scan(string unit, int tx, int ty)
+    {
+        var gs = GameSpace.instance;
+        InputManager? im = null;
+        try { im = gs?.inputManager; } catch { }
+        if (im == null) { _log.LogWarning("DEVCMD build scan: no InputManager"); return; }
+        if (!FillHand(unit)) return;
+
+        UnitBuildGhost? ubg = null;
+        try { ubg = im.unitToBuild; } catch { }
+        if (ubg == null) { _log.LogWarning($"DEVCMD build scan {unit}: nothing in hand"); return; }
+
+        int w = World.WORLD_CELL_WIDTH, h = World.WORLD_CELL_HEIGHT;
+        int n = 0, minX = int.MaxValue, minY = int.MaxValue, maxX = -1, maxY = -1;
+        int bestX = -1, bestY = -1, bestD = int.MaxValue;
+        var first = "";
+        for (int cx = 0; cx < w; cx++)
+        {
+            for (int cy = 0; cy < h; cy++)
+            {
+                bool ok = false;
+                try { ok = ubg.IsLegal(cx, cy); } catch { }
+                if (!ok) continue;
+                n++;
+                if (n <= 5) first += $" ({cx},{cy})";
+                if (tx >= 0)
+                {
+                    // Chebyshev, because that is the metric tower range uses -
+                    // a cell eleven away diagonally is in range, so ranking by
+                    // Euclidean distance would recommend the wrong cell.
+                    int d = Math.Max(Math.Abs(cx - tx), Math.Abs(cy - ty));
+                    if (d < bestD) { bestD = d; bestX = cx; bestY = cy; }
+                }
+                if (cx < minX) minX = cx;
+                if (cy < minY) minY = cy;
+                if (cx > maxX) maxX = cx;
+                if (cy > maxY) maxY = cy;
+            }
+        }
+        _log.LogInfo(n == 0
+            ? $"DEVCMD build scan {unit}: 0 legal cells on the whole {w}x{h} map"
+            : $"DEVCMD build scan {unit}: {n} legal cells, box ({minX},{minY})-({maxX},{maxY}), first{first}");
+        if (tx >= 0 && bestX >= 0)
+            _log.LogInfo($"DEVCMD build scan {unit}: nearest legal to ({tx},{ty}) is ({bestX},{bestY}), {bestD} away");
+    }
+
+    /// <summary>Puts <paramref name="unit"/> in the player's hand by invoking the
+    /// left pane's own click handler, the <c>story:open</c> trick rather than a
+    /// faked mouse event.
+    ///
+    /// <para>The handlers are named <c>BuildUnit&lt;Thing&gt;</c> - one per unit,
+    /// forty of them - so this resolves by name instead of carrying a forty-case
+    /// switch that would rot the first time a unit is added. The name wanted is
+    /// the CAMEL one from the pane (<c>Tower</c>, <c>Collector</c>,
+    /// <c>TowerBridge</c>), matched case-insensitively so a harness can write
+    /// <c>tower</c>.</para>
+    /// </summary>
+    private bool FillHand(string unit)
+    {
+        // The rift lab is not on the left pane - it has a button of its own, and
+        // at a landing prompt that button is what the player presses first. So
+        // it is NOT already in hand when boot: returns, which is why the first
+        // version of this command found unitToBuild null and reported the
+        // mission was past its prompt. It was not; nobody had pressed the button.
+        if (unit.Equals("riftlab", StringComparison.OrdinalIgnoreCase) ||
+            unit.Equals("commandbase", StringComparison.OrdinalIgnoreCase))
+        {
+            try
+            {
+                var btn = GameSpace.instance?.commandBaseButtonMgmt?.buildCommandBaseButton;
+                if (btn == null) { _log.LogWarning("DEVCMD build: no rift lab button"); return false; }
+                btn.onClick.Invoke();
+                return true;
+            }
+            catch (Exception e) { _log.LogWarning($"DEVCMD build riftlab: {e.Message}"); return false; }
+        }
+
+        LeftPane? pane = null;
+        try { pane = UnityEngine.Object.FindObjectOfType<LeftPane>(); } catch { }
+        if (pane == null) { _log.LogWarning("DEVCMD build: no LeftPane - is a mission actually loaded?"); return false; }
+
+        var want = "BuildUnit" + unit;
+        foreach (var m in typeof(LeftPane).GetMethods())
+        {
+            if (m.GetParameters().Length != 0) continue;
+            if (!string.Equals(m.Name, want, StringComparison.OrdinalIgnoreCase)) continue;
+            try { m.Invoke(pane, null); return true; }
+            catch (Exception e) { _log.LogWarning($"DEVCMD build {unit}: {m.Name} threw: {e.Message}"); return false; }
+        }
+        _log.LogWarning($"DEVCMD build: no left-pane handler {want} - use the pane's own name, e.g. Tower, Collector, TowerBridge");
+        return false;
     }
 
     /// <summary>Loads a mission directly. Unlike the randomizer's boot, there is
@@ -423,11 +842,70 @@ public sealed class DevCommands
 
         int nullifiable = 0;
         try { foreach (var u in gs.nullifiableUnits) { if (u != null) nullifiable++; } } catch { }
+
+        // WHERE the nullify targets are. Caches got cells first because that was
+        // the objective under test, but across the 26 SPAN Experiments there is
+        // exactly ONE cache and 163 nullifiable units - so for SPAN this is the
+        // objective that matters, and a count cannot be aimed at any more than
+        // the cache count could.
+        try
+        {
+            foreach (var u in gs.nullifiableUnits)
+            {
+                if (u == null) continue;
+                int creepN = -1, terrN = -1;
+                try { creepN = world.GetCreeper(u.cellX, u.cellY); } catch { }
+                try { terrN = world.GetTerrain(u.cellX, u.cellY); } catch { }
+                _log.LogWarning($"DEVOBJ nullifiable {u.name} at cell ({u.cellX},{u.cellY}) " +
+                                $"cellHeight {u.cellHeight} terrain {terrN} creeper {creepN}");
+            }
+        }
+        catch { }
         int mustCollect = 0;
         try { foreach (var u in gs.mustCollect) { if (u != null) mustCollect++; } } catch { }
         int caches = 0;
         try { foreach (var c in gs.infocaches) { if (c != null) caches++; } } catch { }
         int maxCollect = 0; try { maxCollect = gs.maxMustCollect; } catch { }
+
+        // WHERE the caches are, not just how many. A count cannot be aimed at.
+        // The static map data said Home's cache was at 145,91; a network built
+        // around that cell claimed land all round it and collected nothing,
+        // which is exactly what a wrong coordinate looks like from the outside.
+        // Ask the live units instead - they are the only authority on this.
+        try
+        {
+            foreach (var u in gs.mustCollect)
+            {
+                if (u == null) continue;
+                _log.LogWarning($"DEVOBJ mustCollect {u.name} at cell ({u.cellX},{u.cellY}) height {u.cellHeight}");
+            }
+        }
+        catch { }
+        try
+        {
+            foreach (var c in gs.infocaches)
+            {
+                if (c == null) continue;
+                // Creeper on the cell, because that is the standing theory for
+                // why a network ringing this cache still supplies it nothing:
+                // creeper denies the claim, and a frozen creeper preserves
+                // whatever was already there rather than clearing it.
+                int creep = -1;
+                try { creep = world.GetCreeper(c.cellX, c.cellY); } catch { }
+                // BURIED is a terrain fact, not a creeper one, and the two get
+                // confused constantly. A buried cache sits BELOW the ground at
+                // its own cell and needs a Terp to dig out; a flooded one sits
+                // on open ground under creeper. Print both numbers so a harness
+                // can tell which map it is looking at instead of assuming.
+                int terr = -1;
+                try { terr = world.GetTerrain(c.cellX, c.cellY); } catch { }
+                bool buried = terr >= 0 && terr > c.cellHeight;
+                _log.LogWarning($"DEVOBJ infocache {c.name} at cell ({c.cellX},{c.cellY}) " +
+                                $"cellHeight {c.cellHeight} terrain {terr} buried {buried} " +
+                                $"creeper {creep} retrieved {c.retrieved}");
+            }
+        }
+        catch { }
 
         // IS THE MISSION ALREADY WON? The SPAN survey found 25 of 26 maps with
         // no REQUIRED objective, which raises a specific danger: if

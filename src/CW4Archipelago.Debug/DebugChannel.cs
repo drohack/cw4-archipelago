@@ -1422,15 +1422,41 @@ public sealed class DebugChannel
             ModCore.Log.LogWarning("spawnat: need 'key x y'");
             return;
         }
+        // Resolve the four known aliases rather than making every caller
+        // remember them. CreateUnitAtPosition wants a UNIT NAME from the
+        // 88-entry registry; the names people reach for are BUILD-PANE KEYS,
+        // which are a different set and silently return null. This channel
+        // lowercases every line, so the comparison is done lowercase and the
+        // registry's own casing is what gets passed on.
         var key = tok[0].ToLowerInvariant();
+        switch (key)
+        {
+            case "riftlab":   key = "CommandBase"; break;
+            case "pylon":     key = "TowerBridge"; break;
+            case "miner":     key = "Collector"; break;
+            case "ernportal": key = "ERNInterface"; break;
+        }
         float ground = 0f;
         try { ground = UnitManager.GetMinHeight(new Vector3(cx, 0f, cy), 0f, 0, false, false, false); }
         catch { }
         try
         {
             var made = UnitManager.CreateUnitAtPosition(key, new Vector3(cx, ground, cy));
-            ModCore.Log.LogInfo(
-                $"SPAWNAT {key}: {(made != null ? "placed" : "FAILED")} at ({cx},{cy}) y={ground:0.##}");
+            ModCore.Log.LogInfo(made != null
+                ? $"SPAWNAT {key}: placed at ({cx},{cy}) y={ground:0.##}"
+                : $"SPAWNAT {key}: FAILED at ({cx},{cy}) - is that the REAL unit name? "
+                  + "build-pane keys do not work, and only riftlab, pylon, miner and "
+                  + "ernportal are aliased here");
+
+            // And a unit that IS placed is still not a unit the game will use.
+            // CreateUnitAtPosition produces something the simulation never
+            // adopts: it claims no land, joins no network and collects nothing,
+            // at any distance, on clear ground, paused, with instant build on.
+            // Anything that needs a REAL unit wants CW4DevTools' build:, which
+            // drives the game's own UnitBuildGhost.
+            if (made != null)
+                ModCore.Log.LogInfo("SPAWNAT note: spawned units never join a network - "
+                                    + "use CW4DevTools build: for a real one");
         }
         catch (Exception e) { ModCore.Log.LogWarning($"SPAWNAT {key}: threw {e.Message}"); }
     }

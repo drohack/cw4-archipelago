@@ -231,9 +231,10 @@ cp=$(perf_field cachePokes)
 verdict $([ "${cp:-0}" -ge 1 ] && echo 0 || echo 1) "cache patch fired (cachePokes=${cp:-none})"
 n=$(since | grep -c "LOCATION CHECK: Home - Cache 1")
 verdict $([ "$n" = 1 ] && echo 0 || echo 1) "cache 1 sent exactly once (got $n)"
-echo "  NOTE  a real PICKUP is unscriptable (mouse input never reaches CW4's UI)."
-echo "        Confirmed by hand on 2026-08-31: mustCollect 1->0, objective 4 DONE,"
-echo "        'Home - Cache 1' sent exactly once. See tools/cache-handtest.sh."
+echo "  NOTE  this step drives cache:destroy, which fakes the consequence."
+echo "        A real PICKUP - the game collecting because your network reached"
+echo "        the cache - is no longer unscriptable: tools/cache_autotest.sh does"
+echo "        it on every campaign mission, using CW4DevTools build:chain."
 
 echo "step 8/8: shut down"
 taskkill //IM CW4.exe //F >/dev/null 2>&1

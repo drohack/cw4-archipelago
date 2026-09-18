@@ -1,33 +1,37 @@
 #!/usr/bin/env bash
-# Sets up the ONE check no script can send, then watches for it.
+# The HAND route to a real cache pickup. Superseded for regression purposes by
+# tools/cache_autotest.sh, which now does it unattended - kept because a human
+# playing the mission is still the only check on whether the automated route is
+# measuring the same thing.
 #
-# WHAT IS ACTUALLY UNSCRIPTABLE, because the old wording here misled a reader
-# into repeating that no script can send this check, which is not true.
+# WHAT CHANGED, 2026-09-18. This file used to say a real pickup could not be
+# scripted, because boot: leaves a mission at its landing prompt and synthetic
+# mouse input does not reach CW4's UI. Both halves were true and the conclusion
+# was still wrong: you do not need mouse input, you need the ghost the game
+# builds from.
 #
-# The CHECK is scripted already: cache:destroy calls DestroyUnit, mustCollect
-# loses its member and the location follows. eventdriven-test.sh and
-# instance-dump.sh both drive it, and instance-dump asserts it as a control.
+#   InputManager.unitToBuild : UnitBuildGhost   the ghost in the player's hand
+#     ubg.IsLegal(x, y) -> bool                 will the game accept this cell
+#     ubg.SetPosition(x, y, true)               where a click would put it
+#     ubg.Build()       -> bool                 calls CreateUnit inside the game
 #
-# What cannot be scripted is the REAL PICKUP - the game collecting the cache
-# because your network reached it. Measured 2026-09-17, and the blocker is
-# narrower than "the UI": spawnat: CAN place a tower on the cache cell (proved
-# on Home, whose cache MapCells records at 145,91 - it placed), but boot: leaves
-# a mission at its LANDING PROMPT and there is no command to put the rift lab
-# down. spawnat:riftlab is refused. No rift lab means no network, so the tower
-# sits inert and the Collect slot never moves. Landing is a click on the map,
-# and synthetic mouse input does not reach CW4's UI.
+# Filling the hand needs no mouse either: every unit has its own left-pane
+# handler (LeftPane.BuildUnitTower and forty siblings) and the rift lab has
+# GameSpace.commandBaseButtonMgmt.buildCommandBaseButton. Clicking that and
+# calling Build() IS the landing click. CW4DevTools build: is those calls.
 #
-# So a land: command that placed the rift lab at a cell would make this whole
-# harness automatable - everything after landing already works.
+# spawn:/spawnat: remain useless for this, and that is the one part of the old
+# text that held up: CreateUnitAtPosition makes units the simulation never
+# adopts - no land claimed, no network, at any distance, on clear ground,
+# paused, with instant build on.
 #
-# Separately: InfoCache.Retrieved is NOT the pickup path. It sets the cache's
-# own flag and moves neither mustCollect nor the Collect count, and a real
-# pickup proved it is never called - see docs/research-findings.md.
+# Separately, and still true: InfoCache.Retrieved is NOT the pickup path. It
+# sets the cache's own flag and moves neither mustCollect nor the Collect count
+# - see docs/research-findings.md.
 #
-# This script does everything either side of that: it puts the game in "Home"
-# with the cache registered as an Archipelago location and every unit unlocked,
-# then polls until the check fires, recording BOTH cache signals so a
-# disagreement between them is visible rather than inferred.
+# This script puts the game in "Home" with the cache registered as an
+# Archipelago location and every unit unlocked, then polls until the check
+# fires, recording BOTH cache signals so a disagreement is visible.
 #
 # Usage: tools/cache-handtest.sh          (game must be CLOSED)
 #        Then play, connect your network to the info cache, and read the result.
