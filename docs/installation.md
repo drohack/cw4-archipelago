@@ -86,18 +86,19 @@ To check the world loaded, the generator prints a line per game; look for
 ## Yaml options
 
 Every option has a default, so a yaml that names none of them generates a
-sensible seed. All 25 are listed below; the yaml template shipped with the
-release carries each option's full description, and this table is the summary.
+sensible seed. All 25 are listed below. The yaml shipped with the release
+lists the 21 that do something, each with a one-line description, in the same
+order as the options page on the Archipelago website.
 
 **The ones most worth setting:**
 
 | Option | Default | Range | What it does |
 |---|---|---|---|
 | `missions_for_finale` | 12 | 0 to 19 | How many other missions must be completable before the finale can be won. 0 disables the gate |
-| `logic_difficulty` | standard | standard, casual | `standard` assumes only what is needed to WIN. `casual` also assumes a sniper or missile launcher from We Were Never Alone onward, so anti-air arrives earlier |
+| `logic_difficulty` | standard | standard, casual, easy | `standard` assumes only what is needed to WIN. `casual` also assumes a sniper or missile launcher from We Were Never Alone (mission 6) onward, so anti-air arrives earlier. `easy` is casual until The Experiment (mission 13), the first real spike in difficulty, and from there assumes both a sniper and a missile launcher and both a cannon and a mortar |
 | `starter_missions` | 2 | 2 to 6 | How many missions start unlocked, drawn from those whose cache needs no weapon. The minimum was 1 until 2026-09-03: one starter is a one-location opening, and about one seed in 400 failed to generate from it, so the floor is now 2 |
 | `span_missions` | off | on, off | **Experimental.** Mixes the game's 26 SPAN Experiment maps in with the campaign, so the 19 missions behind the goal are drawn from all 45. The level select still holds 20 planets and the goal is still Founders. Their requirements were derived from the game data rather than played, so the logic over-requires: expect a seed harder than it needs to be rather than one that cannot be finished |
-| `early_weapon` | random | mortar, cannon, random | Which of Cannon and Mortar is guaranteed to arrive first, in the very first sphere. `mortar` is the slower opening, `cannon` the brisk one. It does not affect when the OTHER weapon arrives - that is about two thirds of the way in either way |
+| `early_weapon` | random | mortar, cannon, random | Which of Cannon and Mortar is guaranteed to arrive first: it is placed in one of the checks you can reach with nothing. `mortar` is the slower opening, `cannon` the brisk one. Two exceptions. In a multiworld with other games, if only one check is reachable at the start (about 1 seed in 10 with SPAN on at 2 starters), the mission unlock gets it and the weapon is not guaranteed first. And when every player is Creeper World 4 and the opening is narrow (casual or easy logic at 2 starters, or that same SPAN draw), the world places the opening itself: the chosen weapon still arrives before the other one in all but about 1 seed in 2,000 on casual, and 1 in 150 on easy. It does not affect when the OTHER weapon arrives. Before v0.2.1 this was ignored on seeds where every player was Creeper World 4 |
 | `trap_percentage` | 50 | 0 to 100 | Share of the non-progression slots that are traps. **50 is a lot in a solo game** - lower it if they grate. 0 removes them |
 | `progressive_erns` | 4 | 0 to 40 | How many Progressive ERN items go in the pool. ERNs are never required, so this is purely pool budget |
 
@@ -131,7 +132,8 @@ old name so existing yamls stay valid), `trap_weight_energy_drain`,
 `trap_weight_emitter_overdrive`, exists but is inert - see below.
 
 **Four options are accepted but do nothing.** They are kept so that a yaml
-naming them stays valid rather than erroring:
+naming them stays valid rather than erroring, and they are hidden from the
+options page and the shipped yaml:
 
 - `trap_weight_emitter_overdrive` - Emitter Overdrive is not generated. It does
   nothing on missions that have no emitters, which is a third of the campaign,

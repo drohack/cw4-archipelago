@@ -18,3 +18,7 @@
 # '*/__pycache__/*'`, which hand-reimplements one line of the global file and
 # honours none of this; that artifact is uploaded and never shipped.
 /test/
+
+# The player yaml ships as its own release asset, not inside the apworld. It
+# lives in the package only so TestPlayerYaml can find it.
+/player.yaml

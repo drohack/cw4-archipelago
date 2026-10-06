@@ -131,8 +131,9 @@ mistakes most likely to be re-introduced:
   general rule. Tower energy carries every map, tested on the one mission that
   looked like an exception - see "Cross-mission questions, answered".
 - **Anti-air is not required in the standard tier.** Sniper and Missile Launcher
-  gate nothing except The Compound. Under `logic_difficulty: casual` they become
-  a required pair from mission 6 onward.
+  gate nothing except The Compound. Under `logic_difficulty: casual` one of
+  them - either - is required from mission 6 onward; under `easy` the same,
+  and then from mission 13 both are, and both weapons too.
 - **Logic is NOT bounded by the vanilla unlock schedule.** The draft claimed logic
   "never requires MORE than vanilla, only equivalents". That is false, and
   deliberately so: mission 11 needs Porter or Platform (vanilla gives them at 12
@@ -312,7 +313,27 @@ missions add to it:
 
 The Compound is the only mission where a sniper is in logic **in the standard
 tier**. Under `logic_difficulty: casual`, a Sniper OR Missile Launcher is
-required from mission 6 onward.
+required from mission 6 onward. Under `easy` (added 2026-10-06) that holds
+until The Experiment, mission 13, and from there every one of Sniper, Missile
+Launcher, Cannon and Mortar is required - by story number, so every SPAN map
+too, and every check except the free caches.
+
+The boundary moved once. The first version asked for all four from mission 6,
+as requested ("an easy difficulty that adds both of them, and the other
+starting weapon from the same mission onward"); the designer then judged that
+too early for the second weapon and asked for it "wherever i said in level
+order where it starts to get harder". The worksheet says that once, about The
+Experiment: "This is a tougher map ... Sniper and Missle (factory) nice to have
+to make easier. might be able to do with only moarter, but cannon will make
+this easier ... another small spike in map difficulty." See
+`rules.EASY_FULL_FROM`.
+
+The generated logic table names the three missions where easy reaches further
+than casual: Sequence, The Compound and Wallis each have a check that already
+needs a Sniper in standard, so casual's either-or adds nothing there and easy's
+four do. Measured over 21,000 seeds in all seven earlysweep shapes - solo,
+two and four CW4 players, and CW4 beside one to four other games: 0
+generation failures.
 
 ### Caches that need no weapon
 
@@ -493,7 +514,7 @@ mission that could never open a seed. Waivers are now keyed by INSTANCE
 cell, so Farsite waives cache 1 alone. Archon stays excluded: it waives the
 weapon, but its caches are buried behind a Terp.
 
-`items.force_early_mission` additionally forces one more free-cache unlock that
+`opening.force_early_mission` additionally forces one more free-cache unlock that
 is not already a starter, so the opening always widens. Without something like
 it, generation failed on 1 of the first 20 seeds tested.
 
@@ -780,6 +801,34 @@ option does not cause it and cannot fix it.
 What forcing buys is an opening weapon in the first sphere rather than somewhere
 in the first four. The only real cost is the extreme tail: the second weapon
 landing in the FINAL sphere goes from 0 seeds in 20 to 2 or 3.
+
+**It stopped working two days after it shipped, and nobody noticed for a
+month.** The table above was measured on 2026-09-01. On 2026-09-03 our own
+progression fill arrived (see "Generation reliability" below): on any seed where
+every player is Creeper World 4 it places all of our progression in `pre_fill`,
+and Archipelago's early-items step runs after that and looks for the requested
+items in the pool by name - where they no longer were. The request was dropped
+without a warning. Measured on 2026-10-06 over 10,000 solo seeds, the requested
+weapon reached sphere 0 on **38 percent** and the early unlock on **11
+percent**. Every test checked that the request was RECORDED; none checked where
+the weapon LANDED.
+
+A second hole sat beside it. `force_early_*` stood their requests down whenever
+the opening was narrower than `bootstrap_threshold`, deferring to
+`bootstrap_opening` - which only runs when every player is Creeper World 4. With
+another game present, a narrow opening (casual logic at two starters, or a SPAN
+roster one location wide) got neither, and 13 to 48 percent of CW4 players in
+those multiworlds never had a weapon requested at all.
+
+Both are fixed in v0.2.1: `place_own_progression` places the requested early
+items into the locations reachable holding nothing before the rest, inside its
+retry loop, and `force_early_*` ask `World.needs_bootstrap` rather than the
+width. `tools/audit/earlysweep.py` generated 10,000 seeds in each of seven
+multiworld shapes - solo, two and four CW4 players, and CW4 beside ChecksFinder,
+VVVVVV, Meritous and Timespinner - with 0 failures and every request early. The
+same run shows the fill retrying 7 to 20 times less often than with the requests
+dropped. `TestOwnFillHonoursEarlyItems` and four sibling classes pin it; run
+against the old code they fail 64 times.
 
 The first row is history rather than a setting. An `unforced` value existed
 briefly and was removed: it reproduced the old distribution exactly, but once the
@@ -1383,7 +1432,7 @@ the opening failed to chain in the first few placements and it stopped with the
 world still empty (one had 231 of 236 locations unfilled, holding 15 mission
 unlocks).
 
-WHAT DID NOT WORK, all measured, all recorded in apworld/cw4/items.py:
+WHAT DID NOT WORK, all measured, all recorded in apworld/cw4/opening.py:
 bootstrapping standard seeds (7x worse), pre-placing a guaranteed opener (8x),
 dropping the early weapon request (24x), extra early unlocks (worse), and
 ordering the fill's location list in EITHER direction (3x). Constraining the
@@ -1396,7 +1445,7 @@ WHAT WORKED. Two things, both about the problem rather than the search:
 1. **Merging the greenar pair** into one item, so the campaign's biggest
    "opens nothing alone" class disappeared. 4x better, and a simplification the
    designer wanted anyway.
-2. **Placing our own progression, with retries** - `items.place_own_progression`,
+2. **Placing our own progression, with retries** - `opening.place_own_progression`,
    called from `World.pre_fill`. A world cannot catch or retry the MAIN fill, but
    it can place its own items and retry, which is exactly what `oot` does for
    songs (6 attempts) and `pokemon_emerald` for badges and HMs.
@@ -1417,7 +1466,14 @@ percent against 0.025) because it skips the priority pass and
 `accessibility_corrections`. It wins only by being allowed to roll again. That
 is fine - and checked: 0 unreachable and 0 unbeatable seeds in 1,500.
 
-SOLO ONLY (`items.OWN_FILL_SOLO_ONLY`). A multiworld does not need it - measured
+WHAT IT BROKE, found 2026-10-06: Archipelago's early items. They are placed
+inside `distribute_items_restrictive`, after `pre_fill`, by looking for the
+requested items in the pool - and this fill had already taken them. So
+`early_weapon` and the early mission unlock did nothing on any seed this fill ran
+on, from the day it landed. It now places them first itself; see "Which weapon
+opens the seed" above for the measurements.
+
+SOLO ONLY (`opening.OWN_FILL_SOLO_ONLY`). A multiworld does not need it - measured
 0 failures in 200 - and applying it there would place all our progression
 locally, costing the cross-game placements the design values. The designer
 initially asked for it everywhere, then chose solo-only once it was clear the

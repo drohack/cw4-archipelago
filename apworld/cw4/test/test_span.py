@@ -209,9 +209,9 @@ class TestSpanRosterBreadth(bases.CW4TestBase):
         # It used to draw only from STARTER_ELIGIBLE inside the roster, and on
         # 1.1 percent of mixed seeds that set was empty, so it silently granted
         # nothing. The bootstrap path owns the narrow openings; outside it there
-        # must always be a grant.
-        from ..opening import bootstrap_threshold, opening_width
-        if opening_width(self.world) < bootstrap_threshold(self.world):
+        # must always be a grant. needs_bootstrap is the guard force_early_mission
+        # itself uses, so the skip matches the code rather than restating it.
+        if self.world.needs_bootstrap():
             self.skipTest("bootstrap_opening owns this seed's opening")
         early = self.multiworld.local_early_items[self.player]
         self.assertTrue([name for name in early
@@ -238,8 +238,6 @@ class TestEarlyMissionFallback(bases.CW4TestBase):
         from ..roster import STARTER_ELIGIBLE
         from ..locations import SPAN_MISSION_NUMBERS
 
-        from ..opening import bootstrap_threshold, opening_width
-
         world = self.world
         early = self.multiworld.local_early_items[self.player]
         real_roster, before = list(world.mission_roster), dict(early)
@@ -255,8 +253,9 @@ class TestEarlyMissionFallback(bases.CW4TestBase):
             # THE OTHER HALF OF THE PREMISE, and leaving it to chance made this
             # test FLAKY - 2 failures in 20 runs, measured 2026-09-17, and it
             # had been so since it was written. force_early_mission returns
-            # EARLY when opening_width is below bootstrap_threshold, because
-            # bootstrap_opening owns those slots. opening_width sums over
+            # EARLY when world.needs_bootstrap() is true, because
+            # bootstrap_opening owns those slots - on a solo seed, whenever
+            # opening_width is below bootstrap_threshold. opening_width sums over
             # world.starter_missions, which this test did not substitute - so it
             # was whatever that seed happened to draw, and on the draws that came
             # out narrow the function correctly did nothing and the assertion
@@ -267,8 +266,8 @@ class TestEarlyMissionFallback(bases.CW4TestBase):
             # clears the non-casual threshold. Neither is in the SPAN roster
             # above, so the fallback branch is still the one under test.
             world.starter_missions = [2, 3]
-            self.assertGreaterEqual(
-                opening_width(world), bootstrap_threshold(world),
+            self.assertFalse(
+                world.needs_bootstrap(),
                 "the premise failed: force_early_mission would return early and "
                 "this test would be blaming the fallback for not running")
 

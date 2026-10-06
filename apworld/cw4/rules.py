@@ -643,9 +643,43 @@ DEFENSIVE = ["Sniper", "Missile Launcher"]
 # casual tier and nowhere else. Do not promote it.
 CASUAL_DEFENSE_FROM = 6
 
+# THE LOGIC TIERS, in the order they assume more. The value is the option's,
+# and it is what every `casual` parameter in this module carries: 0 adds
+# nothing, 1 adds one anti-air unit from CASUAL_DEFENSE_FROM, 2 (easy) adds the
+# same one anti-air unit there and then BOTH anti-air units and BOTH weapons
+# from EASY_FULL_FROM. The parameter kept its name rather than churning seventy
+# call sites: read it as "how much more than standard", and it is truthy for
+# both tiers above standard, which is what every caller that only branches on
+# it wants.
+LOGIC_STANDARD, LOGIC_CASUAL, LOGIC_EASY = 0, 1, 2
+LOGIC_TIERS = (LOGIC_STANDARD, LOGIC_CASUAL, LOGIC_EASY)
 
-def is_casual(world) -> bool:
-    return world.options.logic_difficulty.value == 1
+# What easy adds from EASY_FULL_FROM, each item on its own - all four held, not
+# any one. With a weapon already required (OFFENSE), this is the point at which
+# logic expects your whole early arsenal.
+EASY_DEFENSE = ["Sniper", "Missile Launcher", "Cannon", "Mortar"]
+
+# The Experiment, by story number. droha, 2026-10-06, on a first version that
+# asked for all four from mission 6: "level 6 is a bit early for the 2nd weapon
+# ... wherever i said in level order where it starts to get harder". Where that
+# was said is the worksheet's note on mission 13, the only place it names a
+# difficulty spike, and it names both pairs:
+#
+#   "This is a tougher map, as there's a lot of starting creep ... Sniper and
+#    Missle (factory) nice to have to make easier. might be able to do with
+#    only moarter, but cannon will make this easier ... This is one of the
+#    first levels where you really need to turtle for a minute to build up,
+#    another small spike in map difficulty."
+#
+# Before it, easy asks what casual asks.
+EASY_FULL_FROM = 13
+
+
+def is_casual(world) -> int:
+    """The seed's logic tier - LOGIC_STANDARD, LOGIC_CASUAL or LOGIC_EASY.
+
+    The name predates easy. It is truthy for both tiers above standard."""
+    return world.options.logic_difficulty.value
 
 
 # ------------------------------------------------------------------- SPAN
@@ -690,8 +724,12 @@ for _n in SPAN_NEEDS_MOVER:
     MISSION_EXTRA[_n] = [["Pylon", "Porter", "Platform"]]
 
 
-def _casual_defense(mission: int, casual: bool) -> list:
-    return [list(DEFENSIVE)] if casual and mission >= CASUAL_DEFENSE_FROM else []
+def _casual_defense(mission: int, casual: int) -> list:
+    if not casual or mission < CASUAL_DEFENSE_FROM:
+        return []
+    if casual >= LOGIC_EASY and mission >= EASY_FULL_FROM:
+        return [[item] for item in EASY_DEFENSE]
+    return [list(DEFENSIVE)]
 
 
 def _simplify(groups: list) -> list:
@@ -955,10 +993,11 @@ def logic_item_names() -> set:
     global _LOGIC_ITEMS
     if _LOGIC_ITEMS is None:
         names = set()
-        # BOTH tiers. An item that gates only under casual logic must still be
-        # classified progression: classification is computed per item NAME, not
-        # per seed, so a casual seed could otherwise place it behind itself.
-        for casual in (False, True):
+        # EVERY tier. An item that gates only under casual or easy logic must
+        # still be classified progression: classification is computed per item
+        # NAME, not per seed, so such a seed could otherwise place it behind
+        # itself.
+        for casual in LOGIC_TIERS:
             groups = requirement_groups(casual)
             for table in (groups["mission_requirements"], groups["location_requirements"]):
                 for entry in table.values():

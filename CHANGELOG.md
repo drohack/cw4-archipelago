@@ -3,6 +3,58 @@
 Versions follow semantic versioning. The plugin and the apworld share one number,
 so a release is a matched pair - if you update one, update the other.
 
+## v0.2.1 - Early Weapon does what it says, and a yaml you can read
+
+- **Fixed: `early_weapon` did nothing when every player was Creeper World 4**,
+  solo included, from v0.1.3 to v0.2.0. The option asks Archipelago to place
+  the chosen weapon - and a second mission unlock - in the checks you can reach
+  with nothing. But on those seeds the world places its own progression first,
+  so it can retry where Archipelago's fill would give up, and it took both items
+  out of the pool before Archipelago looked for them. Nothing warned. Measured
+  over 10,000 solo seeds: the chosen weapon came first on 38 percent of them,
+  the early unlock on 11. The world now places both itself, first.
+- **Fixed: in a multiworld with other games, a narrow opening asked for
+  nothing early.** Casual logic at 2 starters, or a SPAN draw with only one
+  check open at the start, stood its requests down for a bootstrap that only
+  runs when every player is Creeper World 4. 13 to 48 percent of CW4 players in
+  those multiworlds got neither. They now get the requests. When only one check
+  is open, the mission unlock gets it.
+- **Measured, not assumed.** A new tool, `tools/audit/earlysweep.py`, generates
+  through the same path a player's seed takes and checks where the items
+  actually LAND. 10,000 seeds in each of seven shapes - solo, two and four CW4
+  players, and CW4 beside ChecksFinder, VVVVVV, Meritous and Timespinner: 0
+  generation failures, 0 unreachable or unbeatable seeds, and the weapon and
+  the unlock early in every one that asked. As a side effect the world's own
+  fill now has to retry 7 to 20 times less often.
+- **Placements change.** A solo or all-CW4 seed number generates a different
+  layout than it did in v0.2.0, and so does a mixed multiworld whose CW4
+  opening is narrow; any other mixed multiworld is unchanged.
+  `tools/span-off-parity.sh` and `tools/refactor-parity.sh` report the
+  difference, by design.
+- **The yaml is short now.** `Creeper World 4.yaml` used to be the template
+  Archipelago generates, 635 lines of its own boilerplate and of notes written
+  for whoever maintains the world. It is now written by hand, 120 lines: each
+  option at its default with a line or two on what it does and the values it
+  takes, in the order of the options page - Archipelago's own progression
+  balancing and accessibility first, as in its official template, then the
+  goal and logic, traps, energy upgrades and ERNs. The descriptions on the options page are
+  rewritten for players as well; the design notes moved into the code.
+- **New: `logic_difficulty: easy`.** Casual asks for a Sniper OR a Missile
+  Launcher from We Were Never Alone (mission 6) onward. Easy asks the same until
+  The Experiment (mission 13) - the designer's "small spike in map difficulty",
+  where the worksheet calls snipers, missiles and a cannon over a mortar all
+  worth having - and from there all four of Sniper, Missile Launcher, Cannon
+  and Mortar. Like casual it counts by story number, so every SPAN map gets all
+  four, and it gates every check on those missions except the free caches. The
+  in-game tracker needs no update: it reads the requirements from the seed, so
+  a check missing one of the four shows yellow. Measured over 21,000 seeds in
+  seven multiworld shapes - solo, two and four CW4 players, and CW4 beside one
+  to four other games: 0 generation failures, and the early weapon still lands
+  early.
+- **Four options that do nothing are hidden** from the options page and the
+  yaml: `trap_weight_emitter_overdrive` and the three `filler_*_weight`
+  options. A yaml that still names them generates as before.
+
 ## v0.2.0 - The SPAN Experiments, untested but playable, off by default
 
 **This is a full release and it is backwards compatible.** Everything a v0.1.x

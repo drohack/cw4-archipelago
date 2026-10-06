@@ -14,6 +14,9 @@ The measurements are the point of this file. SAFE_OPENING, its rejected
 alternatives and the nine-thousand-seed sweep below are why the numbers are the
 numbers, and they are carried across unchanged.
 """
+import logging
+from collections import Counter
+
 from .items import ALL_MISSION_TITLES
 from .locations import location_names_for_mission
 from .roster import STARTER_ELIGIBLE, weapon_breadth
@@ -78,6 +81,25 @@ SAFE_OPENING = 6
 # steps in. At or above it, Archipelago's fill is left alone.
 SAFE_OPENING_MIN = 2
 
+# How many free locations it takes to hold BOTH early requests, the mission
+# unlock and the weapon. Below this the unlock gets the one slot - see
+# force_early_weapon. Numerically the same as SAFE_OPENING_MIN and deliberately
+# a separate name: that one is about slack for the fill, this one is a count of
+# items.
+TWO_EARLY_ITEMS = 2
+
+
+def every_player_is_cw4(world) -> bool:
+    """True when no other game shares the multiworld - solo, or all CW4.
+
+    Two things hang off this and they must agree: whether bootstrap_opening
+    runs (World.needs_bootstrap) and whether place_own_progression runs. With
+    another game present, Archipelago's own fill places everything, early items
+    included.
+    """
+    mw = world.multiworld
+    return all(mw.worlds[p].game == world.game for p in mw.player_ids)
+
 
 def bootstrap_threshold(world) -> int:
     """The opening width below which the world widens it itself.
@@ -101,6 +123,12 @@ def bootstrap_threshold(world) -> int:
     Deliberately +1 and not more. Bootstrapping costs the cross-game placements
     that make a narrow opening interesting (see World.needs_bootstrap), so it
     buys exactly enough slack for casual's extra requirement and no more.
+
+    EASY GETS THE SAME +1 (is_casual is truthy for it), and that was measured
+    rather than assumed: 2026-10-06, tools/audit/earlysweep.py --logic easy,
+    3,000 seeds in each of four shapes, 0 failures and no solo seed needing a
+    second own-fill attempt. Easy asks for more items than casual, from mission
+    13, but the free caches that make up the opening are the same.
     """
     return SAFE_OPENING_MIN + 1 if is_casual(world) else SAFE_OPENING_MIN
 def force_early_mission(world) -> None:
@@ -123,9 +151,15 @@ def force_early_mission(world) -> None:
     pool-exactly-fills-locations invariant on every solo seed. This is the
     surgical version - it changes WHICH mission is granted, nothing else, and
     only when the starters cannot already carry the opening themselves.
+
+    DEFERS TO THE BOOTSTRAP ONLY WHEN THE BOOTSTRAP WILL RUN. This used to test
+    the width alone, but bootstrap_opening also needs every player to be CW4, so
+    in a multiworld with another game a narrow opening (casual at two starters,
+    or a SPAN roster one location wide) got neither: no request and no
+    bootstrap. Measured 2026-10-06 with tools/audit/earlysweep.py.
     """
 
-    if opening_width(world) < bootstrap_threshold(world):
+    if world.needs_bootstrap():
         return  # bootstrap_opening owns these slots
     roster = set(world.mission_roster)
     options = [n for n in STARTER_ELIGIBLE
@@ -158,8 +192,12 @@ def force_early_mission(world) -> None:
     # start that leads to fill errors"). early_items may be satisfied in ANOTHER
     # player's world (Fill.py splits them into early_local_prog_items and
     # early_local_rest_items), which does nothing for an
-    # opening that needs OUR locations to chain. Identical for a solo seed;
-    # correct for a multiworld.
+    # opening that needs OUR locations to chain.
+    #
+    # WHO HONOURS IT depends on the multiworld. With another game present,
+    # Archipelago's distribute_early_items does. When every player is CW4,
+    # place_own_progression places our progression before that step runs, so
+    # it honours the request itself - see there.
     world.multiworld.local_early_items[world.player][name] = 1
 
 
@@ -194,9 +232,17 @@ def force_early_weapon(world) -> None:
     taste in pacing. Placement is.
 
     The same mechanism already forces a second mission unlock early, so a seed can
-    ask for two early items; if the opening is narrow enough that there are not
-    two free locations to hold them, Archipelago places what it can and the rest
-    fall where they fall.
+    ask for two early items. When the opening has only one free location the
+    unlock gets it and the weapon is not requested at all - see below.
+
+    WHO PLACES IT. The request is only a request: with another game in the
+    multiworld Archipelago's distribute_early_items honours it, and when every
+    player is CW4 place_own_progression does. From 2026-09-03 to 2026-10-06 the
+    second case silently ignored it - the own fill placed every CW4 item before
+    Archipelago's early step looked for them - so on solo seeds the weapon
+    reached sphere 0 on only 27 percent of seeds. Every test checked that the
+    request was RECORDED, none where the weapon LANDED; tools/audit/earlysweep.py
+    and TestOwnFillHonoursEarlyItems now check the landing.
     """
     # "random" needs no branch here: Archipelago resolves it while parsing the
     # yaml, so by now the option holds mortar or cannon either way.
@@ -235,14 +281,23 @@ def force_early_weapon(world) -> None:
     # numbers above do NOT generalise: at two slots the early weapon is doing
     # most of the work, presumably because it opens the rest of whichever
     # starter mission can use it. Do not remove this request.
-    if opening_width(world) < bootstrap_threshold(world):
+    world.early_weapon = name
+    if world.needs_bootstrap():
         # bootstrap_opening handles this width instead, and can still honour the
         # weapon - see there. Requesting it here would only claim the single
         # sphere-0 location and leave the chain nowhere to go.
-        world.early_weapon = name
+        #
+        # needs_bootstrap and not the width alone: the bootstrap also needs every
+        # player to be CW4, and testing the width alone left a narrow opening in
+        # a mixed multiworld with no request and no bootstrap either - see
+        # force_early_mission.
         return
-
-    world.early_weapon = name
+    if opening_width(world) < TWO_EARLY_ITEMS:
+        # One free location and the mission unlock has it, per the width-1
+        # measurement above. Only reachable here with another game present (a
+        # SPAN roster whose second starter has no free cache); a solo seed at
+        # this width bootstraps instead.
+        return
     # LOCAL, for the same reason as force_early_mission above.
     world.multiworld.local_early_items[world.player][name] = 1
 
@@ -374,13 +429,21 @@ def bootstrap_opening(world) -> list:
 # one-starter option that cannot be filled reliably. Both came from the
 # designer, not from reasoning about the fill.
 #
-# DO NOT PRE-PLACE ANYTHING INTO A TWO-SLOT OPENING. The first three rows of the
-# table above are that experiment, and the mechanism took all three to see:
-# with two starter missions there
-# are exactly two locations reachable holding nothing, and Archipelago's fill
-# needs BOTH of them free to run its own search and swapping. Spending one to
-# guarantee something - even something as useful as a mission unlock that
-# chains - costs more than the guarantee buys.
+# DO NOT PUT ANYTHING ELSE INTO A TWO-SLOT OPENING. The first three rows of the
+# table above are that experiment. With two starter missions there are exactly
+# two locations reachable holding nothing, and the configuration every row lost
+# to was the one where those two slots hold the early WEAPON and the early
+# mission UNLOCK.
+#
+# (Corrected 2026-10-06. This paragraph used to say Archipelago's fill "needs
+# BOTH of them free", which misread its own baseline: the six rows were
+# measured before place_own_progression existed, when distribute_early_items
+# was still honouring both requests, so neither slot was ever free. Each
+# losing row displaced one of the two - the standard bootstrap filled both
+# slots with random picks, the guaranteed broad unlock took one, and dropping
+# the weapon request handed one to the fill. place_own_progression now puts
+# the weapon and the unlock there itself, which restores the configuration
+# that won rather than adding a seventh intervention.)
 #
 # This is also why a BROAD STARTER works where "reach a broad mission early"
 # does not: a starter mission is open for free and consumes no slot, whereas
@@ -501,6 +564,22 @@ def bootstrap_opening(world) -> list:
 # The cost of the extra attempts is nothing: an attempt only happens when the
 # previous one failed, which is 2 percent of seeds at depth 2 and effectively
 # never past 5.
+#
+# EVERY TABLE ABOVE WAS MEASURED WITH THE EARLY REQUESTS SILENTLY DROPPED (see
+# place_own_progression). Re-measured 2026-10-06 with tools/audit/earlysweep.py,
+# the real Generate/Main path with the CW4 options rolled per seed, 10,000 seeds
+# per shape, depth per CW4 player-world:
+#
+#     shape          requests dropped (old)    early items honoured (now)
+#     solo           9953 / 45 / 2             9998 / 2 / -
+#     two CW4        16864 / 72 / 4 (8,470)    19988 / 12 / -
+#     four CW4       13856 / 59 / 5 (3,480)    39973 / 25 / 2
+#
+# (attempts 1 / 2 / 3; the old two- and four-player runs were stopped at the
+# seed counts in brackets.) Honouring the weapon and the unlock makes the fill
+# retry 7 to 20 times LESS often (0.47 to 0.02 percent solo, 0.45 and 0.46 to
+# 0.06 and 0.07 percent with two and four players) - the configuration the DO NOT PUT
+# ANYTHING ELSE paragraph above calls the winner. Deepest observed 3 of 8.
 OWN_FILL_ATTEMPTS = 8
 
 # SOLO SEEDS ONLY. place_own_progression returns immediately in any multiworld
@@ -538,20 +617,26 @@ def place_own_progression(world) -> list:
     retry, which is exactly what oot does for songs (6 attempts) and
     pokemon_emerald for badges and HMs. This is that idiom.
 
-    Two things distribute_items_restrictive does around fill_restrictive that we
-    must therefore do ourselves:
+    Three things distribute_items_restrictive does around fill_restrictive that
+    we must therefore do ourselves:
       - EXCLUDED locations must never take progression, or a player's
         exclude_locations option is silently ignored.
       - PRIORITY locations should be used first. fill_restrictive takes the
         first VALID location in list order, so putting them at the front is
         enough to honour priority_locations.
+      - EARLY ITEMS go first, into the locations reachable holding nothing.
+        Archipelago does this in distribute_early_items, which runs AFTER
+        pre_fill and looks for the requested items in the pool by name - and
+        by then this function has taken them out. Until 2026-10-06 nothing
+        here did it, so early_weapon and the early mission unlock were dropped
+        without a warning on every seed this runs on (measured over 2,000 solo
+        seeds: weapon in sphere 0 on 27 percent, unlock on 11).
     """
     from BaseClasses import LocationProgressType
     from Fill import FillError, fill_restrictive, sweep_from_pool
 
     mw = world.multiworld
-    if OWN_FILL_SOLO_ONLY and not all(mw.worlds[p].game == world.game
-                                      for p in mw.player_ids):
+    if OWN_FILL_SOLO_ONLY and not every_player_is_cw4(world):
         return []
 
     ours = [item for item in mw.itempool
@@ -571,6 +656,23 @@ def place_own_progression(world) -> list:
     if OWN_FILL_ATTEMPTS < 1:
         return []            # switched off - see test/bases.py CW4TestBase
 
+    # WHAT "EARLY" MEANS is exactly what distribute_early_items means: reachable
+    # from the starting state swept through EVENT locations only. Sweeping every
+    # filled location instead would count spots opened by items placed earlier
+    # in this same fill, and would stop agreeing with the measurement in
+    # tools/audit/earlysweep.py, which uses this definition. The early phase
+    # below is restricted to these locations by LIST, not by fill_restrictive's
+    # own access check: that check assumes every still-unplaced item is held,
+    # so while placing the weapon it would count what the unlock opens as early.
+    early_state = mw.state.copy()
+    early_state.sweep_for_advancements(
+        locations=(loc for loc in mw.get_filled_locations() if loc.address is None))
+    early_spots = {loc for loc in priority + default if loc.can_reach(early_state)}
+    # Both dicts, as distribute_early_items reads both. Only local_early_items
+    # is written by this world; early_items costs nothing to honour as well.
+    wanted = Counter(mw.local_early_items[world.player])
+    wanted.update(mw.early_items[world.player])
+
     placed = []
     for attempt in range(1, OWN_FILL_ATTEMPTS + 1):
         world.random.shuffle(priority)
@@ -578,12 +680,43 @@ def place_own_progression(world) -> list:
         locations = priority + default
         pool = list(ours)
         world.random.shuffle(pool)
+        counts = Counter(wanted)
+        early = []
+        for item in pool:
+            if counts[item.name] > 0:
+                counts[item.name] -= 1
+                early.append(item)
+        # fill_restrictive places from the END of its list, so sorting the
+        # mission unlock last places it first: if a player's excluded locations
+        # leave only one early slot, the unlock gets it, as at width one.
+        early.sort(key=lambda item: item.name.startswith("Mission Unlock:"))
         filled = []
         try:
-            fill_restrictive(mw, sweep_from_pool(mw.state), locations, pool,
+            if early:
+                # swap=False: every candidate is reachable from the start, so a
+                # swap could only come from an item rule, and would record the
+                # same location twice.
+                fill_restrictive(mw, early_state,
+                                 [loc for loc in locations if loc in early_spots],
+                                 early, single_player_placement=True, lock=False,
+                                 swap=False, allow_partial=True,
+                                 on_place=filled.append, name="CW4 early items")
+                if early:
+                    # Whatever is left goes to the general fill below, the same
+                    # outcome Archipelago gives and with the same kind of notice.
+                    logging.warning(
+                        f"CW4: could not place early items {[i.name for i in early]} "
+                        f"for {world.player_name}; they go to the general fill.")
+            # The pool in its shuffled order minus what was just placed, and only
+            # EMPTY locations: Location.can_fill never checks occupancy, so a
+            # filled early location left in the list would be overwritten.
+            rest = [item for item in pool if item.location is None]
+            fill_restrictive(mw, sweep_from_pool(mw.state),
+                             [loc for loc in locations if loc.item is None], rest,
                              single_player_placement=True, lock=False,
                              on_place=filled.append, name="CW4 own progression")
-            placed = [(loc.name, loc.item.name) for loc in filled]
+            # dict.fromkeys: a swap can record the same location twice.
+            placed = [loc for loc in dict.fromkeys(filled) if loc.item is not None]
             # Recorded so a run can show how often the retry actually fires and
             # whether it recovers - the only direct evidence that the retry, and
             # not luck, is what removed the failures.
@@ -592,6 +725,8 @@ def place_own_progression(world) -> list:
         except FillError:
             # Undo the attempt completely before reshuffling, the way
             # pokemon_emerald does, or the next attempt inherits half a fill.
+            # The early placements are in `filled` too, so they are undone with
+            # the rest.
             for loc in filled:
                 if loc.item is not None:
                     loc.item.location = None
@@ -600,9 +735,9 @@ def place_own_progression(world) -> list:
             if attempt == OWN_FILL_ATTEMPTS:
                 raise
 
-    for _loc_name, item_name in placed:
-        for item in mw.itempool:
-            if item.player == world.player and item.name == item_name:
-                mw.itempool.remove(item)
-                break
+    # By identity, not by name: an item is out of the pool because THAT object
+    # was placed.
+    taken = {id(loc.item) for loc in placed}
+    mw.itempool[:] = [item for item in mw.itempool if id(item) not in taken]
+    placed = [(loc.name, loc.item.name) for loc in placed]
     return placed

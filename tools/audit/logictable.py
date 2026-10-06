@@ -49,6 +49,38 @@ def main() -> int:
     w("Requirements are what the STANDARD logic tier assumes; the `casual` column")
     w("shows where that tier asks for more.")
     w("")
+    # EASY GETS A SENTENCE, NOT A COLUMN, and the sentence is checked rather than
+    # trusted - a column of "same as casual but four items" on 900 rows would
+    # say less than one line that is enforced. Before EASY_FULL_FROM easy must
+    # equal casual exactly. From it, every check casual touches easy must touch
+    # too; easy may touch MORE, where standard already asks for one anti-air
+    # unit (The Compound's Sniper) so casual's either-or adds nothing and easy's
+    # four do. Those are named rather than hidden - an earlier version of this
+    # said "exactly the same checks" and this guard proved it false.
+    every = [(name, n) for n in tuple(range(1, 21)) + L.SPAN_MISSION_NUMBERS
+             for name in L.location_names_for_mission(n)]
+    also = []
+    for name, n in every:
+        std = R.location_requirements(name, n, casual=R.LOGIC_STANDARD)
+        cas = R.location_requirements(name, n, casual=R.LOGIC_CASUAL)
+        easy = R.location_requirements(name, n, casual=R.LOGIC_EASY)
+        if n < R.EASY_FULL_FROM and easy != cas:
+            raise SystemExit(f"easy differs from casual at {name}, before "
+                             f"mission {R.EASY_FULL_FROM}; the sentence below "
+                             f"would be false")
+        if cas != std and easy == std:
+            raise SystemExit(f"casual adds to {name} and easy does not; the "
+                             f"sentence below would be false")
+        if easy != std and cas == std:
+            also.append(I.ALL_MISSION_TITLES[n])
+    also = sorted(set(also))
+    w(f"The `easy` tier is casual until {I.ALL_MISSION_TITLES[R.EASY_FULL_FROM]} "
+      f"(mission {R.EASY_FULL_FROM}). From there it asks for "
+      f"{' + '.join(R.EASY_DEFENSE)} where casual asks for "
+      f"{' or '.join(R.DEFENSIVE)}: on every check the `casual` column changes"
+      + (f", and also on {', '.join(also)}, where standard already asks for one "
+         f"anti-air unit so casual adds nothing." if also else "."))
+    w("")
 
     # --- per mission -----------------------------------------------------
     w("## What each mission requires")
@@ -126,12 +158,17 @@ def main() -> int:
     w("  (default `random`, resolved per seed). LOCAL rather than `early_items`,")
     w("  because Archipelago may satisfy `early_items` in another player's world,")
     w("  which does nothing for an opening that has to chain through ours.")
-    w("- One extra mission unlock, but ONLY when the starters cannot carry the")
-    w("  opening themselves. If a starter already opens up under a weapon the")
-    w("  choice stays uniform, so openings stay varied.")
-    w(f"- A bootstrap places items itself while the opening is narrower than")
-    w(f"  {OP.SAFE_OPENING} free locations, drawn only from items that actually")
-    w("  open something.")
+    w("- One extra mission unlock. When no starter opens up under a weapon it")
+    w("  is drawn from missions that do; otherwise the choice stays uniform, so")
+    w("  openings stay varied.")
+    w("- Both land in the locations reachable holding nothing. When every player")
+    w("  is Creeper World 4 our own fill places them, because it runs before")
+    w("  Archipelago's early-items step; with another game present Archipelago")
+    w("  does. An opening one location wide requests only the unlock.")
+    w(f"- When every player is Creeper World 4 and the opening is narrower than")
+    w(f"  the fill can risk, a bootstrap replaces both requests: it places items")
+    w(f"  itself until {OP.SAFE_OPENING} locations are free, drawn only from items")
+    w("  that actually open something, the requested weapon first when it does.")
     w("")
     w("**Everything else is the ordinary fill**")
     w("")

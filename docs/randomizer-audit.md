@@ -212,6 +212,14 @@ Every one of these produced a confidently wrong number first.
 | 2026-09-16 | working tree | `tools/span-off-parity.sh` vs `0fe2bef`, span OFF, 5 seeds | same 236 location ids, **every one of 236 placements identical**, slot_data gains exactly 3 keys; the only rows that moved are Archon's three, which is the deliberate logic fix |
 | 2026-09-16 | working tree | Negative control for the above: two DIFFERENT seeds | 230 of 236 placements differ, so the comparison can see a change |
 | 2026-09-16 | working tree | `tools/span-data-check.sh` - all 26 maps BOOTED FRESH and re-measured | **26/26** totems, nullify, caches and objective slots still match the frozen table |
+| 2026-10-06 | `8f0a63a` | `early_weapon` and the early unlock, where they LAND, `tools/audit/earlysweep.py`, solo, 10,000 seeds | weapon early **3,271 of 8,598 (38 percent)**, unlock **910 of 8,598 (11 percent)** - our own fill placed both before Archipelago's early step looked for them |
+| 2026-10-06 | `8f0a63a` | Same, two and four CW4 players (stopped at 8,470 and 3,480 seeds) | weapon early 38 and 38 percent, unlock 12 and 11 percent |
+| 2026-10-06 | `8f0a63a` | Same, CW4 with ChecksFinder / VVVVVV / Meritous / Timespinner, four shapes | 100 percent early when requested, but **13 to 48 percent of CW4 players never requested** - a narrow opening deferred to a bootstrap that does not run beside another game |
+| 2026-10-06 | working tree | The fix, 7 shapes x 10,000 seeds (solo, 2 and 4 CW4, CW4 + 1 or 4 partners, 2 CW4 + 2 partners, narrow) | **0 failures, 0 unreachable, 0 unbeatable in 70,000**; weapon and unlock early in **100 percent** of every request; the three definitions of "early" agree on every player; swap control detected 689 of 689; Timespinner's own early item 100 percent |
+| 2026-10-06 | working tree | Own-fill retry depth, same run | solo 9998 / 2 (was 9953 / 45 / 2); four CW4 39973 / 25 / 2; deepest 3 of cap 8 |
+| 2026-10-06 | working tree | The new tests against the OLD code | 64 failures across the five new classes - they cannot pass by luck |
+| 2026-10-06 | working tree | `logic_difficulty: easy`, all four from mission 6 (first version), `earlysweep.py --logic easy`, 3,000 seeds each in solo, two CW4, CW4 + 1, narrow | 0 failures in 12,000; own-fill retries 1 in 3,000 solo, 10 in 6,000 player-worlds at two CW4; bootstrapped openings put the chosen weapon first 98.9 to 99.2 percent |
+| 2026-10-06 | working tree | `easy` as shipped - casual until mission 13, all four from there - 3,000 seeds in each of all seven shapes | **0 failures, 0 unreachable, 0 unbeatable in 21,000**; early weapon and unlock 100 percent when requested; own-fill retries 0 in 3,000 solo, 5 in 6,000 player-worlds at two CW4, 2 in 12,000 at four; bootstrapped openings put the chosen weapon first 99.3 to 99.7 percent (casual 99.9); Timespinner's own early item 100 percent |
 
 ## Open, from the numbers above
 

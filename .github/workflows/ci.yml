@@ -133,6 +133,20 @@ jobs:
           printf 'name: CITester\ngame: Creeper World 4\nCreeper World 4: {}\n' > Players/cw4.yaml
           python Generate.py --player_files_path Players --outputpath out --seed 1
 
+      # FROM apworld/cw4/player.yaml, the file a release ships. The test above
+      # pins its keys and defaults; this proves Archipelago's own reader accepts
+      # it end to end. Two copies, because {number} in its name is what keeps two
+      # slots generated from one file apart, and that is worth exercising.
+      - name: Generate a seed from the shipped player yaml
+        working-directory: Archipelago
+        env:
+          SKIP_REQUIREMENTS_UPDATE: '1'
+        run: |
+          mkdir -p ShippedPlayers
+          cp ../apworld/cw4/player.yaml ShippedPlayers/p1.yaml
+          cp ../apworld/cw4/player.yaml ShippedPlayers/p2.yaml
+          python Generate.py --player_files_path ShippedPlayers --outputpath shippedout --seed 1
+
       # The SPAN Experiments change the location SET and the mission count, and
       # they are drawn per seed, so the default run above never touches that
       # path. Three seeds rather than one because the roster is random: a single

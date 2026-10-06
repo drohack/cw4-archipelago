@@ -1,0 +1,122 @@
+# Creeper World 4 - Archipelago player settings
+#
+# Edit `name`, save, and hand this file to whoever generates the multiworld.
+# Every setting is at its default, so it works untouched. This is the short
+# version: the options page on the Archipelago website explains each one in
+# full. Each setting ends with the values it accepts.
+
+# Your name in the multiworld, at most 16 characters. {player} becomes your
+# slot number and {number} a counter: keep one if you generate several slots
+# from this file, since two slots with the same name will not generate.
+name: Player{number}
+
+# Describes this file, not the game - handy once you have several.
+description: Default Creeper World 4 Template
+
+game: Creeper World 4
+
+requires:
+  version: 0.6.7
+
+Creeper World 4:
+
+  # ---- Archipelago options ----------------------------------------------
+
+  # How hard the multiworld tries to move your progression earlier, so you
+  # spend less time stuck waiting on other players. 0 to 99.
+  progression_balancing: 50
+
+  # full: every check can be reached. minimal: only what you need to win is
+  # guaranteed. full or minimal.
+  accessibility: full
+
+  # ---- Goal and logic ---------------------------------------------------
+
+  # Missions you must be able to beat before the finale, Founders, can be
+  # won. Spreads a seed across the campaign; 0 turns it off. 0 to 19.
+  missions_for_finale: 12
+
+  # What the logic assumes you have before it expects a mission:
+  #
+  #   standard  only what you need to win it
+  #   casual    also anti-air (a Sniper or Missile Launcher) from We Were
+  #             Never Alone (mission 6) onward, so it arrives earlier
+  #   easy      as casual, then from The Experiment (mission 13) on, a
+  #             Sniper AND a Missile Launcher, and both a Cannon and a Mortar
+  logic_difficulty: standard
+
+  # Missions that start unlocked, drawn from those whose first cache needs no
+  # weapon. More means a wider opening and fewer unlock items. 2 to 6.
+  starter_missions: 2
+
+  # The weapon you get first, in a check you can reach at the very start.
+  # Either does what the logic needs; mortar is the slower start, cannon the
+  # brisker one. mortar, cannon or random.
+  early_weapon: random
+
+  # Experimental: mix the 26 SPAN Experiment maps in with the campaign. Not
+  # yet played through; their logic is cautious, so expect a seed harder than
+  # it needs to be rather than one that cannot be finished. true or false.
+  span_missions: false
+
+  # ---- Traps ------------------------------------------------------------
+
+  # Percent of the filler slots that hold a trap. Every trap is temporary,
+  # but 50 is a lot in a solo game. 0 to 100.
+  trap_percentage: 50
+
+  # How often each trap is picked, relative to the others; 0 means never.
+  # 0 to 100 each.
+  #
+  #   trap_weight_spore_strike    spores on one of your buildings
+  #   trap_weight_spore_scatter   spores at random
+  #   trap_weight_creeper_surge   Rift Breach: creeper lands near the rift lab
+  #   trap_weight_energy_drain    empties your energy store
+  #   trap_weight_unit_stun       briefly disables your units
+  #   trap_weight_ammo_drain      empties your weapons' ammo
+  trap_weight_spore_strike: 100
+  trap_weight_spore_scatter: 100
+  trap_weight_creeper_surge: 100
+  trap_weight_energy_drain: 100
+  trap_weight_unit_stun: 100
+  trap_weight_ammo_drain: 100
+
+  # ---- Energy upgrades --------------------------------------------------
+
+  # What all the Progressive Energy Storage items add up to: extra energy the
+  # rift lab can bank (it holds about 100 on its own). 0 to 900.
+  energy_storage_max: 200
+
+  # How many of them are in the pool; the maximum is split evenly between
+  # them. 0 to 36.
+  energy_storage_copies: 20
+
+  # What all the Progressive Base Generation items add up to: extra energy
+  # per second (the game makes about 3 to 4 on its own). 0 to 100.
+  base_generation_max: 10
+
+  # How many of them are in the pool, splitting the maximum evenly. 0 to 36.
+  base_generation_copies: 20
+
+  # ---- ERNs -------------------------------------------------------------
+
+  # Progressive ERN items in the pool. ERNs help but are never required.
+  # 0 to 40.
+  progressive_erns: 4
+
+  # Copies of each of the 12 ERN port upgrades. More copies means smaller
+  # steps to the same maximum; 0 leaves them out. They work only with an ERN
+  # Portal built and an ERN docked in the matching slot. 0 to 4.
+  ern_upgrade_copies: 2
+
+  # How fast upgrades fill once you hold every Efficiency Rate copy, as a
+  # percent of the game's own speed. 100 makes them do nothing. 100 to 800.
+  ern_rate_max: 400
+
+  # How strong an upgrade can get once you hold every Efficiency Cap copy, as
+  # a percent of the game's own ceiling. At 200 Fire Rate doubles. 100 to 400.
+  ern_cap_max: 200
+
+  # The same ceiling for Build Speed only, whose curve is far steeper: 150
+  # already builds almost twice as fast. 100 to 400.
+  ern_cap_max_build_speed: 150

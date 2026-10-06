@@ -85,6 +85,9 @@ class CW4World(World):
     mission_roster: list
     early_weapon: str
     bootstrapped: list = []
+    # What place_own_progression placed, as (location, item) names. Empty when
+    # it stood down (another game present) or was switched off.
+    own_placements: list = []
 
     def generate_early(self) -> None:
         # Chosen before regions are built, because which missions start unlocked
@@ -111,9 +114,16 @@ class CW4World(World):
 
         Two conditions, and BOTH have to hold.
 
-        The opening has to be narrower than the fill can safely handle, which only
-        happens at `starter_missions: 1` - every starter-eligible mission has
-        exactly one cache collectable with no items.
+        The opening has to be narrower than the fill can safely handle. Since
+        `starter_missions: 1` was retired that means casual logic at two starters
+        (its threshold is one above the width) or a SPAN roster whose opening is
+        one location wide - every starter-eligible campaign mission has exactly
+        one cache collectable with no items, and some SPAN maps have none.
+
+        force_early_mission and force_early_weapon ask this too, and stand their
+        requests down only when it is true. Testing the width alone there, as
+        they once did, left a narrow opening in a mixed multiworld with neither
+        a request nor a bootstrap.
 
         And this world has to be the only place its own progression can live. Put
         another game in the multiworld and the funnel stops being a funnel: the
@@ -136,8 +146,7 @@ class CW4World(World):
         """
         if opening.opening_width(self) >= opening.bootstrap_threshold(self):
             return False
-        return all(self.multiworld.worlds[p].game == self.game
-                   for p in self.multiworld.player_ids)
+        return opening.every_player_is_cw4(self)
 
     def pre_fill(self) -> None:
         if self.needs_bootstrap():

@@ -10,6 +10,8 @@ approach - and prose drifts from the code that actually decides.
 Requirements are what the STANDARD logic tier assumes; the `casual` column
 shows where that tier asks for more.
 
+The `easy` tier is casual until The Experiment (mission 13). From there it asks for Sniper + Missile Launcher + Cannon + Mortar where casual asks for Sniper or Missile Launcher: on every check the `casual` column changes, and also on Sequence, The Compound, Wallis, where standard already asks for one anti-air unit so casual adds nothing.
+
 ## What each mission requires
 
 To COMPLETE the mission, which is what gates its Mission Complete check
@@ -877,12 +879,17 @@ a cannon also works.
   (default `random`, resolved per seed). LOCAL rather than `early_items`,
   because Archipelago may satisfy `early_items` in another player's world,
   which does nothing for an opening that has to chain through ours.
-- One extra mission unlock, but ONLY when the starters cannot carry the
-  opening themselves. If a starter already opens up under a weapon the
-  choice stays uniform, so openings stay varied.
-- A bootstrap places items itself while the opening is narrower than
-  6 free locations, drawn only from items that actually
-  open something.
+- One extra mission unlock. When no starter opens up under a weapon it
+  is drawn from missions that do; otherwise the choice stays uniform, so
+  openings stay varied.
+- Both land in the locations reachable holding nothing. When every player
+  is Creeper World 4 our own fill places them, because it runs before
+  Archipelago's early-items step; with another game present Archipelago
+  does. An opening one location wide requests only the unlock.
+- When every player is Creeper World 4 and the opening is narrower than
+  the fill can risk, a bootstrap replaces both requests: it places items
+  itself until 6 locations are free, drawn only from items
+  that actually open something, the requested weapon first when it does.
 
 **Everything else is the ordinary fill**
 

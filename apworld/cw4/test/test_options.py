@@ -1,3 +1,5 @@
+import unittest
+
 from . import bases
 
 
@@ -174,7 +176,9 @@ class TestEarlyWeaponWithOneStarter(bases.CW4TestBase):
     # Identical for a solo seed, correct for a multiworld.
     def test_no_early_items_are_requested_at_this_width(self) -> None:
         # Two requests into one slot is what broke 12 percent of these seeds.
-        # At this width the bootstrap places instead, so nothing is requested.
+        # At this width, on a solo seed, the bootstrap places instead, so nothing
+        # is requested. With another game present the bootstrap does not run and
+        # the requests are made - see TestEarlyItemsInAMixedMultiworld.
         self.assertEqual({}, dict(self.multiworld.local_early_items[self.player]))
 
     def test_the_bootstrap_widens_the_opening(self) -> None:
@@ -465,6 +469,86 @@ class TestCasualLogic(bases.CW4TestBase):
                 self.assertNotIn("Sniper", group)
 
 
+class TestEasyLogic(bases.CW4TestBase):
+    """Easy: casual's either-or from the first spores, then BOTH anti-air units
+    and BOTH weapons from The Experiment.
+
+    droha, 2026-10-06, asked first for all four from mission 6, then: "level 6
+    is a bit early for the 2nd weapon ... wherever i said in level order where
+    it starts to get harder". That is mission 13 - see rules.EASY_FULL_FROM.
+    Same reach as casual otherwise: by story number, every check but the free
+    caches.
+    """
+    options = {"logic_difficulty": "easy"}
+
+    FOUR = ("Sniper", "Missile Launcher", "Cannon", "Mortar")
+
+    def _everything_but(self, *missing: str):
+        # An explicit state, for the reason TestCasualLogic gives: the pool
+        # plus whatever pre_fill placed, minus the named items, sweeping off.
+        from BaseClasses import CollectionState
+        state = CollectionState(self.multiworld)
+        for item in self.multiworld.itempool:
+            if item.name not in missing:
+                state.collect(item, prevent_sweep=True)
+        for _loc, name in (getattr(self.world, "bootstrapped", None) or []):
+            if name not in missing:
+                state.collect(self.world.create_item(name), prevent_sweep=True)
+        return state
+
+    def _reach(self, location: str, state) -> bool:
+        return self.multiworld.get_location(location, self.player).can_reach(state)
+
+    def test_from_the_experiment_each_of_the_four_is_required(self) -> None:
+        for missing in self.FOUR:
+            with self.subTest(missing=missing):
+                self.assertFalse(self._reach("Founders - Cache 1", self._everything_but(missing)),
+                                 f"Founders - Cache 1 was reachable without {missing}")
+
+    def test_before_it_one_anti_air_unit_is_enough(self) -> None:
+        # The point of the change: mission 6 asks what casual asks, so either
+        # anti-air unit opens it and neither second weapon is needed...
+        loc = "We Were Never Alone - Nullify 1"
+        for missing in ("Sniper", "Missile Launcher", "Mortar", "Cannon"):
+            with self.subTest(missing=missing):
+                self.assertTrue(self._reach(loc, self._everything_but(missing)),
+                                f"{loc} needed {missing}")
+        # ...but one of them still is.
+        self.assertFalse(self._reach(loc, self._everything_but("Sniper", "Missile Launcher")))
+
+    def test_the_tiers_by_mission(self) -> None:
+        from ..rules import EASY_FULL_FROM, LOGIC_CASUAL, LOGIC_EASY, mission_requirements
+        self.assertEqual(13, EASY_FULL_FROM)
+        for n in range(1, 21):
+            easy = mission_requirements(n, casual=LOGIC_EASY)
+            with self.subTest(mission=n):
+                if n < EASY_FULL_FROM:
+                    self.assertEqual(mission_requirements(n, casual=LOGIC_CASUAL), easy)
+                else:
+                    for item in self.FOUR:
+                        self.assertIn([item], easy)
+                    # The either-or forms are implied by the singles, and gone.
+                    self.assertNotIn(["Sniper", "Missile Launcher"], easy)
+                    self.assertNotIn(["Cannon", "Mortar"], easy)
+
+    def test_free_caches_stay_free(self) -> None:
+        # The opening is the free caches, and easy must not narrow it.
+        from ..opening import opening_width
+        self.assertEqual(self.options.get("starter_missions", 2), opening_width(self.world))
+
+    def test_the_tracker_sees_the_easy_tier(self) -> None:
+        # slot_data's location requirements are what the mod's tracker paints
+        # green from, so a check past The Experiment must carry all four there.
+        data = self.world.fill_slot_data()
+        reqs = data["location_requirements"]["Founders - Cache 1"]
+        for item in self.FOUR:
+            self.assertIn([item], reqs)
+        # And the PHYSICAL layer is unchanged by the tier: red still means
+        # "cannot be done", which no logic tier changes.
+        strict = data["strict_location_requirements"]["Founders - Cache 1"]
+        self.assertNotIn(["Missile Launcher"], strict)
+
+
 class TestStandardLogic(bases.CW4TestBase):
     options = {"logic_difficulty": "standard"}
 
@@ -649,9 +733,14 @@ class TestArchipelagoConventions(bases.CW4TestBase):
         # Every Option subclass DEFINED in our options module - which is exactly
         # the set of game-specific options, and needs no guessing about which of
         # Archipelago's common options are inherited.
+        # Less the HIDDEN ones (Visibility.none): an option with no effect is
+        # kept only so an old yaml naming it is not an error, and Archipelago
+        # shows it nowhere, so there is no heading for it to be lost under.
+        from Options import Visibility
         ours = {
             name for name, obj in vars(opt).items()
             if inspect.isclass(obj) and issubclass(obj, Option) and obj.__module__ == opt.__name__
+            and obj.visibility != Visibility.none
         }
         # Subset, not equality: Archipelago APPENDS its own "Item & Location
         # Options" group (LocalItems, StartInventory, ExcludeLocations and the
@@ -895,10 +984,11 @@ class TestOwnProgressionFill(bases.CW4TestBase):
     29 needed 3, 1 needed 4, and none reached 5. Zero seeds failed, zero had
     unreachable locations, zero were unbeatable.
 
-    The cap of 5 is justified by the SHAPE of that tail rather than by the zero:
-    each level is about 3.7 percent of the one above it, matching the per-attempt
-    failure rate, so attempts are near-independent and 5 buys roughly 1 seed in
-    14.6 million. See the OWN_FILL_ATTEMPTS comment in opening.py for the full
+    The cap (5 then, 8 since the SPAN sweep of 2026-09-16) is justified by the
+    SHAPE of that tail rather than by the zero: each level is about 3.7 percent
+    of the one above it, matching the per-attempt failure rate, so attempts are
+    near-independent and 5 alone buys roughly 1 seed in 14.6 million. See the
+    OWN_FILL_ATTEMPTS comment in opening.py for the full
     distribution and
     docs/design/2026-09-14-fill-reliability.md for the method.
     """
@@ -979,6 +1069,233 @@ class TestFillRunsTheShippedPath(bases.CW4TestBase):
             "configuration that never ships and fails on roughly 1 seed in "
             "1000; see CW4TestBase.FILL_TESTS.")
         super().test_fill()
+
+
+def _early_locations(multiworld, player) -> set:
+    """Where an early item may sit, exactly as distribute_early_items decides it:
+    reachable from the starting state swept through EVENT locations only."""
+    from BaseClasses import CollectionState
+    state = CollectionState(multiworld)
+    state.sweep_for_advancements(
+        locations=(loc for loc in multiworld.get_filled_locations() if loc.address is None))
+    return {loc for loc in multiworld.get_locations(player)
+            if loc.address is not None and loc.can_reach(state)}
+
+
+def _holders(multiworld, player, name) -> list:
+    return [loc for loc in multiworld.get_filled_locations()
+            if loc.item is not None and loc.item.player == player and loc.item.name == name]
+
+
+def _requested(multiworld, player) -> list:
+    """The early requests this world made, weapon and mission unlock."""
+    return [name for name in multiworld.local_early_items[player]
+            if name in ("Cannon", "Mortar") or name.startswith("Mission Unlock:")]
+
+
+class TestOwnFillHonoursEarlyItems(bases.CW4TestBase):
+    """The early weapon and the early unlock LAND early when our own fill runs.
+
+    THE BUG THIS PINS (2026-10-06). On a seed where every player is CW4,
+    place_own_progression places all of our progression in pre_fill, before
+    Archipelago's distribute_early_items looks for the requested items - so from
+    v0.1.3 on the requests were dropped without a warning. Measured
+    over 2,000 solo seeds: the weapon reached sphere 0 on 27 percent of them,
+    the unlock on 11. Every test above checked that the request was RECORDED,
+    and passed throughout, because none looked at where the item LANDED.
+
+    Two starters on standard logic is a two-location opening, so the weapon and
+    the unlock between them fill it exactly.
+    """
+    own_fill = True
+    options = {"early_weapon": "mortar"}
+
+    def test_both_requests_are_still_recorded(self) -> None:
+        # The fill honours them; it must not consume them. A non-progression
+        # request would still need distribute_early_items to read this dict.
+        requested = _requested(self.multiworld, self.player)
+        self.assertIn("Mortar", requested)
+        self.assertTrue([n for n in requested if n.startswith("Mission Unlock:")])
+
+    def test_every_requested_item_is_early_in_this_world(self) -> None:
+        early = _early_locations(self.multiworld, self.player)
+        for name in _requested(self.multiworld, self.player):
+            held = _holders(self.multiworld, self.player, name)
+            self.assertEqual(1, len(held), f"{name} is held {len(held)} times")
+            self.assertEqual(self.player, held[0].player, f"{name} left this world")
+            self.assertIn(held[0], early, f"{name} was placed at {held[0].name}, "
+                          f"which is not reachable from the start")
+
+    def test_the_other_weapon_is_not_early(self) -> None:
+        # The opening is two slots and both are spoken for, so the weapon that
+        # was NOT asked for cannot be in one. This is what makes the option a
+        # choice rather than a coin flip.
+        early = _early_locations(self.multiworld, self.player)
+        self.assertEqual(2, len(early))
+        for loc in _holders(self.multiworld, self.player, "Cannon"):
+            self.assertNotIn(loc, early)
+
+    def test_every_placement_is_consistent(self) -> None:
+        # Each placed item sits where it says it sits, once, and is out of the
+        # pool. The early phase and the main phase both write into one list,
+        # and a swap can record a location twice; this is what would show it.
+        seen = set()
+        for loc_name, item_name in self.world.own_placements:
+            loc = self.multiworld.get_location(loc_name, self.player)
+            self.assertEqual(item_name, loc.item.name)
+            self.assertIs(loc, loc.item.location)
+            self.assertNotIn(id(loc.item), seen, f"{item_name} placed twice")
+            seen.add(id(loc.item))
+        self.assertFalse([i for i in self.multiworld.itempool if id(i) in seen])
+
+    def test_the_seed_is_still_complete(self) -> None:
+        from Fill import distribute_items_restrictive
+        distribute_items_restrictive(self.multiworld)
+        self.assertTrue(self.multiworld.can_beat_game())
+        self.assertTrue(self.multiworld.fulfills_accessibility())
+
+
+class TestEarlyItemsOverManySeeds(unittest.TestCase):
+    """The same promise over thirty fixed seeds rather than one random one.
+
+    The old code honoured the weapon on 27 percent of seeds, so it would pass a
+    single-seed test now and then; its chance of passing every one of these is
+    far below one in a billion. A plain TestCase, not CW4TestBase, so our own
+    fill runs exactly as it ships.
+    """
+
+    CONFIGS = ({}, {"span_missions": 1}, {"starter_missions": 3})
+
+    def test_requested_items_are_early_on_every_seed(self) -> None:
+        from test.general import gen_steps, setup_multiworld
+        from .. import CW4World
+        checked = 0
+        for options in self.CONFIGS:
+            for seed in range(1, 11):
+                mw = setup_multiworld([CW4World], gen_steps, seed=seed, options=[options])
+                early = _early_locations(mw, 1)
+                for name in _requested(mw, 1):
+                    held = _holders(mw, 1, name)
+                    with self.subTest(options=options, seed=seed, item=name):
+                        self.assertEqual(1, len(held))
+                        self.assertIn(held[0], early)
+                    checked += 1
+        # A SPAN roster can bootstrap instead of requesting; most seeds must
+        # still have asked, or this test is checking nothing.
+        self.assertGreater(checked, 40)
+
+
+class TestEarlyItemsAcrossCW4Players(unittest.TestCase):
+    """Several CW4 players: each world runs its own fill in turn, and each
+    player's weapon must be early in THAT player's world."""
+
+    def test_each_player_gets_their_own_weapon_early(self) -> None:
+        from test.general import gen_steps, setup_multiworld
+        from .. import CW4World
+        for seed in range(1, 6):
+            mw = setup_multiworld([CW4World, CW4World], gen_steps, seed=seed,
+                                  options=[{"early_weapon": "mortar"},
+                                           {"early_weapon": "cannon"}])
+            for player, weapon in ((1, "Mortar"), (2, "Cannon")):
+                self.assertIn(weapon, _requested(mw, player))
+                held = _holders(mw, player, weapon)
+                with self.subTest(seed=seed, player=player):
+                    self.assertEqual(1, len(held))
+                    self.assertEqual(player, held[0].player)
+                    self.assertIn(held[0], _early_locations(mw, player))
+
+
+class TestEarlyPlacementIsUndoneOnRetry(unittest.TestCase):
+    """A failed attempt must take its early placements with it.
+
+    Forces the first main-phase fill to fail AFTER it has placed everything,
+    so the retry has to start from a clean world. Leftovers would show up as an
+    item held twice, or as a location whose item does not point back at it.
+    """
+
+    def test_a_retry_starts_clean_and_still_honours_the_requests(self) -> None:
+        from unittest import mock
+        import Fill
+        from test.general import gen_steps, setup_multiworld
+        from .. import CW4World
+
+        real = Fill.fill_restrictive
+        calls = {"main": 0}
+
+        def failing_once(*args, **kwargs):
+            real(*args, **kwargs)
+            if kwargs.get("name") == "CW4 own progression":
+                calls["main"] += 1
+                if calls["main"] == 1:
+                    raise Fill.FillError("forced, to exercise the undo")
+
+        # place_own_progression imports fill_restrictive inside its body, so
+        # patching the module attribute reaches it.
+        with mock.patch.object(Fill, "fill_restrictive", failing_once):
+            mw = setup_multiworld([CW4World], gen_steps, seed=7,
+                                  options=[{"early_weapon": "cannon"}])
+        world = mw.worlds[1]
+        self.assertEqual(2, world.own_fill_attempts)
+        early = _early_locations(mw, 1)
+        for name in _requested(mw, 1):
+            held = _holders(mw, 1, name)
+            self.assertEqual(1, len(held), f"{name} is held {len(held)} times")
+            self.assertIn(held[0], early)
+        for loc in mw.get_filled_locations(1):
+            if loc.item is not None and loc.address is not None:
+                self.assertIs(loc, loc.item.location, f"{loc.name} is stale")
+
+
+class TestEarlyItemsInAMixedMultiworld(unittest.TestCase):
+    """With another game present, a narrow opening must still REQUEST early.
+
+    THE HOLE THIS PINS (2026-10-06). force_early_mission and force_early_weapon
+    stood down whenever the opening was narrower than bootstrap_threshold - but
+    bootstrap_opening only runs when every player is CW4. So casual logic at two
+    starters, in a multiworld with any other game, got neither a request nor a
+    bootstrap, and early_weapon did nothing at all. They now ask needs_bootstrap.
+    """
+
+    def _world(self, players):
+        from test.general import TestWorld, setup_multiworld
+        from .. import CW4World
+        worlds = [CW4World] + ([TestWorld] if players > 1 else [])
+        options = [{"logic_difficulty": "casual", "early_weapon": "mortar"}] + (
+            [{}] if players > 1 else [])
+        mw = setup_multiworld(worlds, ("generate_early",), seed=1, options=options)
+        return mw, mw.worlds[1]
+
+    def test_casual_at_two_starters_requests_both(self) -> None:
+        from ..opening import bootstrap_threshold, opening_width
+        mw, world = self._world(players=2)
+        self.assertLess(opening_width(world), bootstrap_threshold(world),
+                        "the premise failed: this opening is not narrow")
+        self.assertFalse(world.needs_bootstrap())
+        requested = _requested(mw, 1)
+        self.assertIn("Mortar", requested)
+        self.assertTrue([n for n in requested if n.startswith("Mission Unlock:")])
+
+    def test_a_one_wide_opening_requests_only_the_unlock(self) -> None:
+        # Mission 38, a SPAN map, has no location free at the start, so these
+        # starters open exactly one. The unlock gets the slot, as measured at
+        # one starter, and the weapon is still recorded for the bootstrap rule.
+        from ..opening import force_early_mission, force_early_weapon, opening_width
+        mw, world = self._world(players=2)
+        world.starter_missions = [2, 38]
+        self.assertEqual(1, opening_width(world), "the premise failed")
+        mw.local_early_items[1].clear()
+        force_early_mission(world)
+        force_early_weapon(world)
+        requested = _requested(mw, 1)
+        self.assertNotIn("Mortar", requested)
+        self.assertTrue([n for n in requested if n.startswith("Mission Unlock:")])
+        self.assertEqual("Mortar", world.early_weapon)
+
+    def test_solo_at_the_same_width_still_leaves_it_to_the_bootstrap(self) -> None:
+        mw, world = self._world(players=1)
+        self.assertTrue(world.needs_bootstrap())
+        self.assertEqual([], _requested(mw, 1))
+        self.assertEqual("Mortar", world.early_weapon)
 
 
 class TestLocationIdsNeverMove(bases.CW4TestBase):
