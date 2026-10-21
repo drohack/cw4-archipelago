@@ -99,7 +99,7 @@ since() {
 # So the helpers live here rather than in two harnesses out of three. Pick a
 # free port from your own range, remember the PID you started, and kill only
 # that. Ranges in use: apbattery 38301-38380, offline-test 38401-38500,
-# msgfilter 38551-38600.
+# msgfilter 38551-38600, trapboon-test 38601-38650.
 listening() { netstat -ano 2>/dev/null | grep "LISTENING" | grep -q ":$1 "; }
 find_free_port() {
   local p

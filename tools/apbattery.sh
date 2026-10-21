@@ -110,8 +110,8 @@ send "tracker:dump"; sleep 3
 since | grep "TRACKER:" | sed 's/^.*TRACKER:/[apbattery]   TRACKER:/'
 since | grep -q "TRACKER: story1 'Farsite' status=InLogic"; verdict $? "story1 in logic (green)"
 # story2 has a Nullify objective needing Nullifier (not held), other objectives
-# doable with Cannon -> Partial (orange). Correct nuanced tracker behavior.
-since | grep -q "TRACKER: story2 'Home' status=Partial"; verdict $? "story2 partial (orange, Nullify needs Nullifier)"
+# doable with Cannon -> Partial, which the map draws green. Correct nuanced tracker behavior.
+since | grep -q "TRACKER: story2 'Home' status=Partial"; verdict $? "story2 partial (drawn green; Nullify needs Nullifier)"
 since | grep -q "TRACKER: story3 .* status=Locked"; verdict $? "story3 locked (red)"
 
 # A location checked by anything OTHER than this client - an admin
