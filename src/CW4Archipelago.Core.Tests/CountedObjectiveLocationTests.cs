@@ -88,6 +88,54 @@ public class CountedObjectiveLocationTests
                 Assert.True(MissionRules.IsLocation(state, loc), loc);
     }
 
+    // The map's own completion query (FakeCompletePatch) built the type-shaped
+    // name too, so for every counted objective it fell back to the local save
+    // and the multiworld's checks never reached it.
+
+    [Fact]
+    public void ACountedObjectiveIsCompleteOnlyWhenEveryInstanceIsChecked()
+    {
+        var state = HomeState();
+        state.MarkChecked("Home - Totem 1", connected: true);
+        Assert.True(MissionRules.TryObjectiveComplete(state, 2, 1, out var complete));
+        Assert.False(complete);
+
+        state.MarkChecked("Home - Totem 2", connected: true);
+        Assert.True(MissionRules.TryObjectiveComplete(state, 2, 1, out complete));
+        Assert.True(complete);
+    }
+
+    [Fact]
+    public void ACheckedCacheCompletesCollect()
+    {
+        var state = HomeState();
+        state.MarkChecked("Home - Cache 1", connected: true);
+        Assert.True(MissionRules.TryObjectiveComplete(state, 2, 4, out var complete));
+        Assert.True(complete);
+        Assert.True(MissionRules.TryObjectiveComplete(state, 2, 0, out complete));
+        Assert.False(complete);   // Nullify untouched
+    }
+
+    [Fact]
+    public void SingleCheckObjectivesAnswerFromTheirOneLocation()
+    {
+        var state = new SlotState();
+        state.SetAllLocations(new List<string> { "Home - Reclaim", "Home - Custom" });
+        state.MarkChecked("Home - Reclaim", connected: true);
+        Assert.True(MissionRules.TryObjectiveComplete(state, 2, 2, out var complete));
+        Assert.True(complete);
+        Assert.True(MissionRules.TryObjectiveComplete(state, 2, 5, out complete));
+        Assert.False(complete);
+    }
+
+    [Fact]
+    public void AnObjectiveWithNoLocationLetsTheGameAnswer()
+    {
+        // Reclaim is not a location in HomeState, so there is nothing to answer
+        // from and the caller must fall back to the game.
+        Assert.False(MissionRules.TryObjectiveComplete(HomeState(), 2, 2, out _));
+    }
+
     [Fact]
     public void TheMarkerGoesGreyOnlyWhenEveryInstanceIsChecked()
     {

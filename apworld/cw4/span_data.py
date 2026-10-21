@@ -142,11 +142,12 @@ SPAN_TOTEMS_NEED_FACTORY = {
 
 # mission -> a mover is needed for some of its objectives.
 #
-# Objective-WIDE, not per instance. The analysis says which objectives
-# share a component; turning that into "this one needs a mover" needs
-# the landing site, and no rift lab exists at mission load to read it
-# from. Requiring it of the whole objective over-constrains rather than
-# under-constrains, which is the safe direction.
+# MISSION-wide (rules.py puts it in MISSION_EXTRA), not per objective or
+# per instance. The analysis says which objectives share a component;
+# turning that into "this one needs a mover" needs the landing site, and
+# no rift lab exists at mission load to read it from. Requiring it of the
+# whole mission over-constrains rather than under-constrains, which is the
+# safe direction.
 SPAN_NEEDS_MOVER = {
     31,  # Creepers Pieces
     33,  # Highway to helheim

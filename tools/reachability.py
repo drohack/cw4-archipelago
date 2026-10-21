@@ -74,7 +74,7 @@ MAPS = os.path.join(REPO, '.aptest', 'maps')
 # false positive, so they are excluded - this analysis is only asked about
 # bridging a gap.
 #
-# EXPECT_SINGLE IS THE IMPORTANT HALF. Fifteen missions require no bridging at
+# EXPECT_SINGLE IS THE IMPORTANT HALF. Sixteen missions require no bridging at
 # all, so every objective on them must fall in ONE component. That is the test
 # an over-eager analysis fails: a map it wrongly splits shows up here, instead
 # of quietly hardening the logic months later.
@@ -199,12 +199,11 @@ def terrain_height(ter, x, y):
 def components(land, w, h, reach):
     """Label land cells; two are joined when within `reach` cells of each other.
 
-    Chebyshev distance, i.e. a square neighbourhood - a tower's placement range
-    in game is a radius, so this is slightly GENEROUS at the diagonals. Erring
-    generous is the safe direction here: it merges components that a stricter
-    metric would split, so it under-reports mover requirements rather than
-    inventing them, and an under-report shows up as a control failure instead of
-    silently hardening the logic.
+    Euclidean distance, a round neighbourhood like a tower's placement radius.
+    This used to be Chebyshev (a square), on the theory that erring generous at
+    the diagonals was safe - but it merged components that are really apart and
+    under-reported mover requirements, which is the false-green direction. See
+    the comment in the loop below.
     """
     comp = [[-1] * w for _ in range(h)]
     sizes = []
@@ -316,7 +315,7 @@ def nullify_control():
     95 totems - so this is the bigger half of the question.
 
     Two campaign missions require a mover for EVERY nullify target:
-        m11 Shattered  (11, "Nullify") = [["Porter", "Platform"]]
+        m11 Shattered  (11, "Nullify") includes ["Porter", "Platform"]
         m19 Founders   (19, "Nullify") = [["Platform", "Terp"]]
     On both, the free component is the one holding the totems that need no
     mover. So the test is: no nullify target may sit in that component.
@@ -368,8 +367,8 @@ def objectives(units):
     """Totems and caches, in the (cellY, cellX) order the mod numbers by.
 
     Only these two kinds: they are unambiguously identifiable by name. Nullify
-    targets would need a nullifiable flag the dump does not carry, and guessing
-    which unit types count would put an assumption inside the control.
+    targets are identified by the dump's nullifiable flag instead, and are
+    checked separately by nullify_control().
     """
     tot = sorted([u for u in units if u['name'] == 'Totem'],
                  key=lambda u: (u['y'], u['x']))
@@ -391,9 +390,10 @@ SPAN_GUIDS = [
 def span_report():
     """Run the validated analysis over SPAN and report what it finds.
 
-    ADDITIVE ONLY. The campaign control passes 25 of 26, and the one failure
-    (Archon) is a map that is 100 percent land - so a mover requirement that is
-    not about a gap is invisible to this. Combined with creep advance, a map
+    ADDITIVE ONLY. The campaign control once failed on Archon, a map that is
+    100 percent land, until the table was corrected (see "ARCHON MOVED" above) -
+    and that case shows a mover requirement that is not about a gap is invisible
+    to this. Combined with creep advance, a map
     reported as one component may STILL need a mover. A split is evidence; a
     non-split is not evidence of absence.
     """

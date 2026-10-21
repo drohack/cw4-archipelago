@@ -95,7 +95,7 @@ public static class ErnUpgradeRules
     ///
     ///     eff 1.0 -> 186 ticks      the 100 percent reference
     ///     eff 1.4 ->  99
-    ///     eff 1.5 ->  99            <- chosen
+    ///     eff 1.5 ->  99            &lt;- chosen
     ///     eff 1.6 ->  78
     ///     eff 1.7 ->  54
     ///     eff 1.8 ->  33

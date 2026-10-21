@@ -6,8 +6,9 @@ problem was never the id, it was that a COLLECTED cache is destroyed, so the
 live scene can only list what is LEFT.
 
 The first fix recorded the intact set the first time the mod saw a mission
-(SlotState.CacheCells). That works but is weaker than it needs to be: it cannot
-help a save whose caches were taken before the mod was ever installed, because
+(SlotState.CacheCells, since removed). That works but is weaker than it needs
+to be: it cannot help a save whose caches were taken before the mod was ever
+installed, because
 by then the full set has never been observed. Since the set is fixed map data,
 the mod can just KNOW it. This generates that table from a dump.
 
@@ -150,7 +151,7 @@ namespace CW4Archipelago.Core;
 ///
 /// If a game update ever moves a cache this table goes stale, which is why the
 /// caller checks that what is still on the map is a SUBSET of the row before
-/// trusting it, and falls back to the observed set otherwise.
+/// trusting it, and falls back to counting otherwise (LocationWatcher.SendCaches).
 /// </summary>
 public static class MapCells
 {

@@ -72,7 +72,7 @@ public sealed class TrapApplier
             // traps use for their amounts.
             case BoonRules.EnergyCache: BoonEffects.EnergyCache(0f); return;
             case BoonRules.FieldShield: BoonEffects.Shield(); return;
-            // "all" grants every ware the factory has a channel for; see
+            // Grants every ware the factory has a channel for; see
             // BoonRules.ResourceCache for why this is one item, not three.
             case BoonRules.ResourceCache: BoonEffects.ResourceCache(); return;
         }

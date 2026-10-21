@@ -1,4 +1,5 @@
-# Bump the version in the three places it is written, after a release.
+# Bump the version in the three places it is written, after a release, and open
+# its CHANGELOG section.
 #
 #   .\tools\bump-version.ps1                 # next patch: 0.1.3 -> 0.1.4
 #   .\tools\bump-version.ps1 -To 0.2.0       # an explicit version

@@ -14,8 +14,8 @@ namespace CW4Archipelago.Appliers;
 /// ramping from nothing to full over EFFICIENCY_TIME, tracked in dockedTimes[].
 /// GetEff(i) reports where it is.
 ///
-///     Progressive ERN Efficiency Rate: <upgrade>   fills faster   -> retreat dockedTimes[i]
-///     Progressive ERN Efficiency Cap:  <upgrade>   higher ceiling -> cap UNCLAMPED elapsed time
+///     Progressive ERN Efficiency Rate: &lt;upgrade&gt;   fills faster   -> retreat dockedTimes[i]
+///     Progressive ERN Efficiency Cap:  &lt;upgrade&gt;   higher ceiling -> cap UNCLAMPED elapsed time
 ///
 /// HOW THE FILL RATE WORKS, and the correction that measurement forced. The
 /// first version treated dockedTimes[i] as an accumulating counter and added to
@@ -41,15 +41,15 @@ namespace CW4Archipelago.Appliers;
 ///
 /// It is an OVERRIDE and no longer a multiply. Multiplying the clamped 0..1
 /// ramp steepened it, so a boosted slot reached every level twice as fast and
-/// did Charge's job as well as its own. The value now comes from unclamped
+/// did the Rate items' job as well as its own. The value now comes from unclamped
 /// elapsed time capped at the ceiling, which lengthens the ramp instead - see
 /// ErnUpgrades.Effective. The two items are separate again, which is the whole
 /// reason there are two.
 /// </summary>
 public sealed class ErnUpgrades
 {
-    /// <summary>Per port, the last dockedTimes we saw, and the fractional part of
-    /// the extra progress we owe it. Keyed by the port's pointer.</summary>
+    /// <summary>Per port, the fractional part of the dockedTimes retreat still
+    /// owed to each slot. Keyed by the port's pointer.</summary>
     private sealed class PortState
     {
         public float[] Carry = new float[ErnUpgradeRules.UpgradeNames.Length];
@@ -70,12 +70,12 @@ public sealed class ErnUpgrades
     /// so a boosted slot crossed 100 percent at 1800 ticks instead of 3600 and
     /// topped out at 200 percent at 3600. It reached EVERY level twice as fast,
     /// which is ERN Efficiency Rate's entire job - so the two items were not separate at
-    /// all, and Charge had nothing left to sell.
+    /// all, and the Rate items had nothing left to sell.
     ///
     /// The fix EXTENDS the ramp instead of steepening it: take elapsed time
     /// UNCLAMPED and cap it at the ceiling. The first 100 percent then arrives
     /// on exactly the game's own schedule and the extra accrues over a further
-    /// 3600 ticks per 100 percent. Charge still speeds it up, because Charge
+    /// 3600 ticks per 100 percent. Rate still speeds it up, because Rate
     /// works by retreating dockedTimes and that makes elapsed grow faster - so
     /// the two compose and holding both is what reaches the ceiling quickly.
     ///
@@ -98,9 +98,10 @@ public sealed class ErnUpgrades
     /// version of the permanent cap: it needs no infrastructure, and it never
     /// exceeds 100 percent, so the permanent items stay strictly better.
     ///
-    /// Applied AFTER ComputeEffective, because Tick clears the whole override
-    /// array every tick - a surge written before the clear would last exactly
-    /// one frame.</summary>
+    /// Applied AFTER Tick's per-tick ClearEffective, because that clears the
+    /// whole override array every tick - a surge written before the clear would
+    /// last exactly one frame - and BEFORE ComputeEffective, whose MAX can then
+    /// raise it further.</summary>
     private static readonly int[] SurgeUntil = new int[ErnUpgradeRules.UpgradeNames.Length];
 
     /// <summary>Sim ticks a surge lasts. 3600 is one full EFFICIENCY_TIME, so a
@@ -237,7 +238,7 @@ public sealed class ErnUpgrades
     /// <summary>Work out what each boosted slot's efficiency should be, from
     /// UNCLAMPED elapsed time capped at the ceiling.
     ///
-    /// Only touches slots that actually hold a Boost item: with no items the
+    /// Only touches slots that actually hold a Cap item: with no items the
     /// override stays -1 and the game's own value passes through untouched,
     /// which keeps vanilla behaviour byte-identical.</summary>
     private static void ComputeEffective(ERNInterface port, SlotState state, int tick)
@@ -317,10 +318,10 @@ internal static class ErnCeiling
             if (!ErnUpgradeRules.IsValidIndex(index)) return;
 
             // NOT a multiply any more - see ErnUpgrades.Effective for why.
-            // A multiply steepened the ramp and made Boost do Charge's job;
+            // A multiply steepened the ramp and made Cap do Rate's job;
             // this takes the value computed from unclamped elapsed time.
             float over = ErnUpgrades.Effective[index];
-            if (over < 0f) return;                  // no boost held for this upgrade
+            if (over < 0f) return;                  // no Cap item or surge for this upgrade
 
             // MAX, never a replacement: our value must not be able to drag the
             // game's own efficiency DOWN, whatever the arithmetic does.

@@ -30,7 +30,7 @@ namespace CW4Archipelago.Appliers;
 ///
 /// All cosmetic - a transform write and one line object on a menu screen. It
 /// changes no unlock, no objective and no mission content; clicking the planet
-/// boots story20 exactly as before.
+/// launches the mission on that slot exactly as before.
 ///
 /// See docs/research-findings.md, "Ever After (story20) is parked off the galaxy
 /// map", for the measurements this is based on and how to re-derive them
@@ -44,9 +44,9 @@ public sealed class FinalePlacement
     /// any mission at all and it is still the position that is stranded.</summary>
     private const int Stranded = 20;
 
-    /// <summary>The slot it hangs off - the nineteenth position, Wallis in
-    /// vanilla. Not the twentieth-from-last: Founders is the goal mission, and
-    /// the stranded planet is a side branch rather than what follows it.</summary>
+    /// <summary>The slot it hangs off - the eighteenth position, Wallis in
+    /// vanilla. Not the nineteenth: Founders is the goal mission, and the
+    /// stranded planet is a side branch rather than what follows it.</summary>
     private const int Anchor = 18;
 
     /// <summary>How far off the cluster a planet must be before we treat it as
@@ -130,7 +130,7 @@ public sealed class FinalePlacement
     /// <summary>Hide the tutorial planet.
     ///
     /// story0 ("09 Leo, 266") is not part of the randomizer - the missions are
-    /// story1..story20 - so leaving it on the map only invites a player to spend
+    /// the twenty spiral slots - so leaving it on the map only invites a player to spend
     /// time on a level that unlocks nothing and sends no check.</summary>
     private static void HideTutorial(List<SpanNetworkPlanet> planets)
     {
@@ -160,8 +160,8 @@ public sealed class FinalePlacement
     /// story20 would need. (SpanNetworkPlanet.lines is also empty on every
     /// planet - the real line objects live as children of each planet's
     /// lineContainer, drawn in LOCAL space from the origin to the neighbour's
-    /// offset.) So the line has to be created, not just re-pointed, or Founders
-    /// ends up as the only planet in the chain with no successor drawn.
+    /// offset.) So the line has to be created, not just re-pointed, or the moved
+    /// planet would sit on the map with no link drawn to it.
     /// </summary>
     private static void LinkAnchorTo(SpanNetworkPlanet anchor, SpanNetworkPlanet finale)
     {
@@ -179,7 +179,7 @@ public sealed class FinalePlacement
             // Wallis already has a line to Founders, and an earlier version of
             // this method moved that line's far end instead of adding a second -
             // which silently disconnected Founders from the chain. Wallis has to
-            // point at BOTH. _placed keeps this from running twice per mission,
+            // point at BOTH. _placed keeps this from running twice per visit to the map,
             // so there is no risk of stacking duplicates.
             GameObject prefab;
             try { prefab = anchor.linePrefab; } catch { return; }

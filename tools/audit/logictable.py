@@ -184,7 +184,10 @@ def main() -> int:
     # UNIT_ITEMS alone misses BONUS_UNIT_ITEMS - Airship, Bertha and Sweeper,
     # the three the campaign never grants - and those are exactly the ones most
     # likely to be unrequired, so leaving them out would hide the answer.
-    all_units = list(I.UNIT_ITEMS) + list(I.BONUS_UNIT_ITEMS)
+    # RETIRED_ITEMS are left out: they are never generated, so "can land
+    # anywhere" is not true of them.
+    all_units = [n for n in list(I.UNIT_ITEMS) + list(I.BONUS_UNIT_ITEMS)
+                 if n not in I.RETIRED_ITEMS]
     never = sorted(
         name for name in all_units
         if not any(

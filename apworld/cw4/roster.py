@@ -1,6 +1,6 @@
 """Which twenty missions this seed contains, and how wide they open it.
 
-SPLIT OUT OF items.py on 2026-09-17, and not for line count - items.py is 352
+SPLIT OUT OF items.py on 2026-09-17, and not for line count - items.py was 352
 lines of code carrying 834 of measurement, and fragmenting that would lose the
 only thing it has. This moved because it was in the wrong place in the import
 graph.

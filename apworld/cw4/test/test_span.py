@@ -57,8 +57,9 @@ class TestSpanOn(bases.CW4TestBase):
         self.assertIn(FINAL_MISSION, self.world.mission_roster)
 
     def test_the_seed_actually_drew_some_span(self) -> None:
-        # 26 of the 45 candidates are SPAN, so drawing 19 and getting none is
-        # about 1 in 10^6. A test that passed with zero would be testing nothing.
+        # With two campaign starters and Founders fixed, 17 are drawn from the
+        # 43 left, 26 of them SPAN, so getting none is 1 in C(43,17), about
+        # 4 x 10^11. A test that passed with zero would be testing nothing.
         spanned = [n for n in self.world.mission_roster if n >= 21]
         self.assertTrue(spanned, "no SPAN mission was drawn - the option did nothing")
 

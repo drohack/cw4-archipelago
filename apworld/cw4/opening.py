@@ -301,7 +301,7 @@ def force_early_weapon(world) -> None:
 
 
 def bootstrap_opening(world) -> list:
-    """Widen a one-location opening before the general fill runs.
+    """Widen a too-narrow opening before the general fill runs.
 
     WHY THIS EXISTS. At `starter_missions: 1` exactly one check is reachable
     holding nothing, because every starter-eligible mission has exactly one cache
@@ -336,9 +336,9 @@ def bootstrap_opening(world) -> list:
 
     The chosen early weapon gets first refusal, so `early_weapon` still means
     something at this width whenever the weapon is one of the productive choices.
-    On eight of the ten possible starters a weapon opens between one and five
-    checks; on We Know Nothing and The Experiment it opens none, and there it will
-    not be picked, because picking it would end the seed.
+    Of the ten possible starters a weapon opens checks only on Farsite (three)
+    and Home (two); on the other eight it opens none, and there it will not be
+    picked, because picking it would end the seed.
     """
     from BaseClasses import CollectionState
 
@@ -395,7 +395,7 @@ def bootstrap_opening(world) -> list:
 # The reason is the one the designer gave: an opening CHAINS. Ten missions have
 # a cache reachable with a rift lab and one tower, so a thin starter's free
 # cache can hold a mission unlock that opens another free cache, and since the
-# greenar merge a Factory plus a weapon opens totems on fourteen missions. There
+# greenar merge the Factory alone is the totem requirement on fourteen missions. There
 # was never a two-slot cliff; weapon_breadth measures what a weapon opens on ONE
 # mission and says nothing about whether a seed can get going.
 #

@@ -277,8 +277,9 @@ FAIL: test_itempool_not_modified (game='Creeper World 4')
 Creeper World 4 modified the itempool during pre_fill
 ```
 
-`items.place_own_progression` removes items from `multiworld.itempool` in
-`pre_fill` and places them itself. That is the behaviour `docs/adding games.md`
+`opening.place_own_progression` (in `items.py` when this was written) removes
+items from `multiworld.itempool` in `pre_fill` and places them itself. That is
+the behaviour `docs/adding games.md`
 lists under "Discouraged or Prohibited":
 
 > All items submitted to the multiworld itempool must not be manually placed by

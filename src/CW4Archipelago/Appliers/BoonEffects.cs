@@ -11,8 +11,8 @@ namespace CW4Archipelago.Appliers;
 ///
 /// These exist because the filler pool was 95 of two permanent upgrades - about
 /// 40 percent of every seed spent on "your numbers are slightly bigger", with
-/// nothing that lands as a moment. Each effect here is deliberately the mirror of
-/// a trap that already works, so it reuses a proven path into the game rather
+/// nothing that lands as a moment. Two of them are deliberately the mirror of a
+/// trap that already works, so they reuse a proven path into the game rather
 /// than a new guess:
 ///
 ///     Ammo Drain      -> Resupply
@@ -195,7 +195,7 @@ public static class BoonEffects
     /// reason the player cannot see or act on, which is much worse than "you
     /// have no factory".
     ///
-    /// The debug plugin's "boon:cache <ware>" grants a single ware with full
+    /// The debug plugin's "boon:cache &lt;ware&gt;" grants a single ware with full
     /// per-factory logging, for measuring; that lives there, not here.</summary>
     public static void ResourceCache()
     {
@@ -375,8 +375,8 @@ public static class BoonEffects
         if (gs == null || gs.Pointer != _shieldGameSpace)
         {
             // Mission torn down mid-shield: DROP the snapshot rather than
-            // writing through stale IL2CPP pointers. The emitter burst makes
-            // the same call for the same reason.
+            // writing through stale IL2CPP pointers. The debug plugin's emitter
+            // burst (DebugTraps) makes the same call for the same reason.
             ModCore.Log.LogInfo(
                 $"BOON shield: mission changed, dropping {Shielded.Count} snapshot(s)");
             Shielded.Clear();

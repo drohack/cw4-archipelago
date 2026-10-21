@@ -1,4 +1,7 @@
-"""Find a starter_missions: 1 seed that fails to fill, then ask WHY.
+"""Find a narrow-opening seed that fails to fill, then ask WHY.
+
+Written for starter_missions: 1; it now defaults to 2, the option's floor (see
+STARTERS below).
 
 The funnel itself is fine and intended - the first mission has one free check, it
 can hand you an unlock to another mission with one free check, and so on until a

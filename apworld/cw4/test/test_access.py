@@ -587,11 +587,14 @@ class TestAccess(CW4TestBase):
         #
         # Where Miner IS in logic, and why:
         #
-        #   3  Not My Mars       SOFT - islands, towers cannot carry the energy
+        #   3  Not My Mars       HARD, mission-wide since 2026-09-13 - islands,
+        #                        towers cannot carry the energy
         #   4  Ruins Repurposed  SOFT - same energy problem, one notch easier
         #   8  Serious           one of three OR alternatives past its wall
-        #   17 Sequence          instances 3+; the RESO is the only way to push
-        #   18 Wallis            all nullifies; ~20 gen without it
+        #   17 Sequence          HARD on the Reclaim, SOFT on the twelve
+        #                        nullifies away from the top-left pair
+        #   18 Wallis            SOFT, mission-wide - beaten with Miners,
+        #                        yellow without
         #   20 Ever After        HARD, mission-wide - "you need Miners, morters
         #                        and cannons. hard requirement."
         MISSIONS = {3, 4, 8, 17, 18, 20}
@@ -626,13 +629,15 @@ class TestAccess(CW4TestBase):
                 self.assertEqual([], location_requirements(cache, mission, casual))
 
     def test_miner_is_physical_only_where_it_was_played(self) -> None:
-        # The soft layer's whole point: on Not My Mars and Ruins Repurposed
-        # logic asks for a Miner and PHYSICS DOES NOT, so those checks paint
-        # yellow rather than red. If a Miner requirement leaks into the physical
-        # layer there, the tracker starts calling a reachable check unreachable.
+        # The soft layer's whole point: on Ruins Repurposed logic asks for a
+        # Miner and PHYSICS DOES NOT, so those checks paint yellow rather than
+        # red. If a Miner requirement leaks into the physical layer there, the
+        # tracker starts calling a reachable check unreachable.
         #
-        # Ever After, Sequence and Wallis are different: the designer stated
+        # Ever After and Sequence's Reclaim are different: the designer stated
         # those as hard requirements, so a Miner there is physical on purpose.
+        # Wallis is in PHYSICAL_OK but its Miner is soft (MISSION_SOFT), which
+        # test_wallis_miner_is_yellow_not_red pins.
         # Mission 3 moved OUT of the soft set on 2026-09-13: "weapon only is
         # red" makes the Miner physical on Not My Mars. Ruins Repurposed keeps
         # the soft treatment - that one is still "doable, but it's hard
@@ -828,9 +833,10 @@ class TestLifticPrerequisites(CW4TestBase):
         )
 
     def test_shattered_nullify_platform_still_needs_the_factory(self) -> None:
-        # Same shape on a different mission, and one where the totems require a
-        # Factory outright while the nullifies did not - so this would have
-        # slipped through a test that only looked at Not My Mars.
+        # Written when this class's fixture was Not My Mars, and one where the
+        # totems require a Factory outright while the nullifies did not. LOC is
+        # Shattered - Nullify 1 now too, so this repeats
+        # test_a_lone_platform_is_not_enough_without_the_factory.
         self.collect_all_but(["Porter", "Factory"])
         self.assertFalse(
             self.can_reach_location("Shattered - Nullify 1"),

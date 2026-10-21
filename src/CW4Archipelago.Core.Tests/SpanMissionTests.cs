@@ -82,7 +82,7 @@ public class SpanMissionTests
     public void SpanMapsNeverDrawAHoldObjective()
     {
         // There is no location for Hold on either side of the wire. Four SPAN
-        // maps do have one; they are recorded in span_data.SPAN_NOTES and given
+        // maps do have one; they are recorded in tools/span_notes.py and given
         // no objective here, so the icon and the checks stay in agreement.
         foreach (var entry in SpanMissionTable.Objectives)
             Assert.DoesNotContain(3, entry.Value);

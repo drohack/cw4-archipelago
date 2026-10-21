@@ -166,9 +166,9 @@ if [ "$(field wareTotal)" -gt 0 ] 2>/dev/null; then
 else
   skipped "infinite resources: wares filled"           "lab and sprayer now build for real and still fill nothing - AMMO_WARES looks empty here, not a network problem"
 fi
-# Assert on energyStore, not energyProduction: the sim recomputes production
-# from the network every tick, so a dump taken later reads its value, not ours -
-# even though the HUD does show the lifted GEN. The store is what persists.
+# Assert on energyStore, not energyProduction: the cheat never writes
+# production (the sim recomputes it from the network every tick, and inflating
+# it was the old bug - DevTools.TopUpEnergy). The store is what the cheat pins.
 [ "$(field energyStore)" -gt 1000 ] 2>/dev/null; check "infinite resources: energy store pinned" $?
 # Indestructible. Health is only half of it: CW4 destroys some units without
 # ever reducing health (DESTROY_ON_UNEVEN_TERRAIN removes a platform outright),
@@ -203,7 +203,8 @@ grep -q "creeper flow restored" "$GAME_LOG"; check "freeze creeper RESTORES on r
 send "set:instantbuild=off" 2
 send "set:instantbuild=on" 2
 
-# GameSpeed forces GAME_SPEED; releasing it must put the game's own speed back.
+# GameSpeed's restore on release is NOT asserted here (there is no set: key
+# for it). This block repeats the AllBuildings on/off restore with raw writes.
 send "sim:run 1" 3
 printf 'set:allbuildings=on
 ' > "$CMD"; sleep 3

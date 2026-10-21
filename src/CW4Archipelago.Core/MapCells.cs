@@ -24,7 +24,7 @@ namespace CW4Archipelago.Core;
 ///
 /// If a game update ever moves a cache this table goes stale, which is why the
 /// caller checks that what is still on the map is a SUBSET of the row before
-/// trusting it, and falls back to the observed set otherwise.
+/// trusting it, and falls back to counting otherwise (LocationWatcher.SendCaches).
 /// </summary>
 public static class MapCells
 {

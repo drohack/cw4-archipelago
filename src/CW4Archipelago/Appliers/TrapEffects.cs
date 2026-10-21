@@ -132,13 +132,13 @@ public static class TrapEffects
 
     // --- 1. spore strike --------------------------------------------------
 
-    /// <summary>Trap variant 1 - "spore strike": a scatter at random map
+    /// <summary>Trap variant 1 - "Spore Scatter Trap": a scatter at random map
     /// points. Exactly what the game's own launchers do, so it is the fair,
     /// authentic version - it may land somewhere harmless.</summary>
     public static void SporeStrikeScatter(int count, int payload)
         => SporeStrike(count, payload, SporeAim.Scatter);
 
-    /// <summary>Trap variant 2 - "targeted spore strike": every spore aims at a
+    /// <summary>Trap variant 2 - "Spore Strike Trap", the targeted one: every spore aims at a
     /// RANDOM BUILDING OF THE PLAYER'S, picked independently. Scales with how
     /// built-up the player is, which is the good kind of scaling - it bites
     /// hardest late when there is something to lose. Spreading across buildings

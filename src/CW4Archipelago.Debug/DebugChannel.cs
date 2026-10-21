@@ -10,7 +10,7 @@ namespace CW4Archipelago.Appliers;
 /// <summary>
 /// File-command channel for hands-free testing (the batteries write to
 /// BepInEx/cw4ap-commands.txt). Runs on the main thread, called from
-/// ModCore.Tick.
+/// DebugTick.SafeTick (Plugin.cs), this plugin's own Update.
 ///
 /// INSTALLING THIS PLUGIN IS ENABLING IT. There is no config gate, and this
 /// summary claimed there was one for as long as the flag has been gone - see
@@ -217,6 +217,7 @@ public sealed class DebugChannel
         if (lower == "ada:close") { CloseAda(); return; }
         if (lower == "tracker:dump") { TrackerDump(); return; }
         if (lower.StartsWith("glyphs:dump")) { GlyphDump(line.Substring(11).Trim()); return; }
+        if (lower.StartsWith("fake:dump")) { FakeDump(line.Substring(9).Trim()); return; }
         if (lower == "diag:span") { SpanDiag(); return; }
         if (lower.StartsWith("diag:refresh")) { DiagRefresh(line.Substring(12).Trim()); return; }
         if (lower.StartsWith("diag:watch"))
@@ -624,6 +625,41 @@ public sealed class DebugChannel
         }
     }
 
+    /// <summary>"fake:dump [title]" - the map's own per-objective completion
+    /// answer, one line per planet: "DEBUG FAKE: Home obj0=False ... obj5=False".
+    ///
+    /// Calls SpanNetworkPlanet.FakeIsMissionObjectiveComplete itself, so the
+    /// answer is whatever the mod's FakeCompletePatch returns - or the game's
+    /// own save data where the patch lets it through. That fallback is what
+    /// hid the bug this exists for: every counted objective (Nullify, Totems,
+    /// Collect) was answered from the local save, because the patch looked up a
+    /// type-shaped location name that per-instance locations no longer have.
+    /// tools/objective-complete-test.sh reads these lines.</summary>
+    private static void FakeDump(string filter)
+    {
+        var planets = UnityEngine.Object.FindObjectsOfType<SpanNetworkPlanet>();
+        if (planets == null) { ModCore.Log.LogInfo("DEBUG FAKE: no planets"); return; }
+        foreach (var p in planets)
+        {
+            if (!GameUtil.IsAlive(p)) continue;
+            var title = TrackerView.TitleOf(p);
+            if (filter.Length > 0 && !title.Equals(filter, StringComparison.OrdinalIgnoreCase))
+                continue;
+            if (TrackerView.MissionByTitle(title) == 0) continue;
+            string guid;
+            try { guid = p.planetGUID; } catch { continue; }
+            var sb = new System.Text.StringBuilder($"DEBUG FAKE: {title}");
+            for (int i = 0; i < CW4Archipelago.Core.MissionRules.ObjectiveTypes.Length; i++)
+            {
+                string answer;
+                try { answer = p.FakeIsMissionObjectiveComplete(guid, i).ToString(); }
+                catch (Exception e) { answer = $"error({e.GetType().Name})"; }
+                sb.Append($" obj{i}={answer}");
+            }
+            ModCore.Log.LogInfo(sb.ToString());
+        }
+    }
+
     /// <summary>Name the tracker colours so the log is assertable, rather than
     /// printing floats a test would have to compare with a tolerance.</summary>
     private static string NameColor(UnityEngine.Color c)
@@ -718,11 +754,13 @@ public sealed class DebugChannel
 
     /// <summary>
     /// Why can a player not type into the login panel? A TMP_InputField needs
-    /// three things the panel does not currently verify: an active EventSystem,
-    /// an input module driving it, and a GraphicRaycaster on the canvas it was
-    /// parented to. BuildPanel takes the FIRST root canvas FindObjectsOfType
-    /// returns, which is not a documented order - so the panel can land on a
-    /// canvas that renders but cannot be clicked.
+    /// three things: an active EventSystem, an input module driving it, and a
+    /// GraphicRaycaster on the canvas it was parented to. BuildPanel used to
+    /// take the FIRST root canvas FindObjectsOfType returned, which is not a
+    /// documented order - so the panel could land on a canvas that renders but
+    /// cannot be clicked. MenuUi now picks the topmost clickable canvas and
+    /// creates an EventSystem if there is none; this dump checks all three in
+    /// the live scene.
     /// </summary>
     private static void InputDump()
     {
@@ -1053,8 +1091,6 @@ public sealed class DebugChannel
         else ModCore.Log.LogWarning("story:open: no farsite button");
     }
 
-    // Invoke a planet's click handler to test the locked-click block. Reports
-    // whether a mission popup is showing afterwards.
     /// <summary>Per-unit state for every nullify target.
     ///
     /// Nullifying does not remove the unit from GameSpace.nullifiableUnits and
@@ -1088,8 +1124,8 @@ public sealed class DebugChannel
     /// <summary>Every counted-objective INSTANCE with its map cell and
     /// done-state, for all three kinds at once.
     ///
-    /// Checks are moving from "the Nth one you did" to "this specific
-    /// structure", which needs two things measured rather than assumed: a
+    /// Checks moved from "the Nth one you did" to "this specific
+    /// structure", which needed two things measured rather than assumed: a
     /// position key that is stable across a save/load, and - for caches -
     /// whether a COLLECTED one can still be identified at all.
     ///
@@ -1103,9 +1139,9 @@ public sealed class DebugChannel
     ///   totems   Totem is a component and carries no cell of its own, so the
     ///            unit on the same object is tried first and the world position
     ///            through the game's OWN scalar converter,
-    ///            UnitManager.GetCellX(float), second. There is no GetCellY: it
-    ///            is one world-axis-to-cell conversion, so the map's second axis
-    ///            is position.z through the same call.
+    ///            UnitManager.GetCellX(float), second. This dump passes
+    ///            position.z through GetCellX as well for the second axis;
+    ///            UnitManager.GetCellY exists too (TrapEffects uses it).
     ///
     /// NOTE the sets are HashSets, so iteration order is not defined and the
     /// "raw" index below is NOT an identity - it is printed only to show how
@@ -1271,8 +1307,8 @@ public sealed class DebugChannel
     {
         // FindObjectsOfTypeAll, not FindObjectsOfType: the load rows exist but
         // are inactive until their panel is shown, and the active-only search
-        // found nothing even with the popup open. Same reason GlyphDump and
-        // CloseAda use it.
+        // found nothing even with the popup open. Same reason CloseAda uses
+        // it.
         var rows = UnityEngine.Resources.FindObjectsOfTypeAll<MissionPanelLoadBoxRow>();
         if (rows == null || rows.Length == 0)
         {
@@ -1303,6 +1339,8 @@ public sealed class DebugChannel
         ModCore.Log.LogWarning($"loadsave: no load row matching '{arg}' among {rows.Length}");
     }
 
+    // Invoke a planet's click handler to test the locked-click block. Reports
+    // whether a mission popup is showing afterwards.
     private static void ClickPlanet(string arg)
     {
         if (!CW4Archipelago.Core.MissionRules.TryParseSpecifier(arg, out var mission))
@@ -1708,8 +1746,9 @@ public sealed class DebugChannel
     ///                      "Nullify" objective completes on these.
     ///   InfoCache        - message/lore caches, each with a `retrieved` flag.
     ///   Totem            - totems, fed wares to activate.
-    /// The current design gives ONE location per objective type per mission, so
-    /// these counts are the ceiling if each individual one became a check.</summary>
+    /// Written when the design gave ONE location per objective type per
+    /// mission, to size the alternative. Nullify, Totems and Collect are now one
+    /// location per instance (LocationWatcher).</summary>
     private static void CountsDump()
     {
         var gs = GameSpace.instance;

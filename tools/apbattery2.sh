@@ -1,6 +1,7 @@
 #!/bin/bash
 # Extended integration battery: goal/victory, save-load gate decision, live
-# tracker update while the page is open, build-limit items, ERN items, plus the
+# tracker update while the page is open, retired build-limit items left
+# unapplied, ERN items, plus the
 # new mechanics (save archiving, reconnect-on-menu, server-message toasts).
 set -u
 
@@ -138,7 +139,9 @@ mark
 srv "/send $SLOT Terp"
 wait_since "AP MESSAGE:" 20; verdict $? "server message received for toast"
 
-# --- (D) build-limit item: unlimited stays unlimited; limited unit increases ---
+# --- (D) build-limit item: a retired item, now applied by nothing --------------
+# The mod no longer has a build-limit applier, so a received Build Limit item
+# changes no limit at all - unlimited or capped, the limit must not move.
 echo "[ab2] step 6: build-limit item"
 mark
 # Boot a mission this run has definitely unlocked - step 3 sent The Compound's
@@ -158,7 +161,7 @@ send "limit:cannon"; sleep 2
 CN=$(since | grep -oE "DEBUG LIMIT: cannon=-?[0-9]+" | tail -1 | grep -oE "\-?[0-9]+$")
 echo "[ab2]   cannon limit $CB -> $CN (unlimited must be unchanged)"
 [ "${CN:-0}" -eq "${CB:--1}" ]; verdict $? "unlimited unit unchanged by +1 (no cap-to-zero bug)"
-# tower: report its base and, if it has a real cap, verify +1 raises it.
+# tower: the same, whatever its base.
 mark
 send "limit:tower"; sleep 2
 TB=$(since | grep -oE "DEBUG LIMIT: tower=-?[0-9]+" | tail -1 | grep -oE "\-?[0-9]+$")
@@ -169,20 +172,12 @@ mark
 send "limit:tower"; sleep 2
 TN=$(since | grep -oE "DEBUG LIMIT: tower=-?[0-9]+" | tail -1 | grep -oE "\-?[0-9]+$")
 echo "[ab2]   tower limit $TB -> $TN"
-if [ "${TB:--1}" -ge 0 ]; then
-  [ "${TN:-0}" -eq "$(( ${TB:-0} + 1 ))" ]; verdict $? "limited unit (tower) +1 applied ($TB -> $TN)"
-else
-  # Tower is unlimited too, and so is every other building - which is the whole
-  # reason Build Limit items are no longer generated (2026-09-01). This branch used
-  # to print a NOTE saying the filler "should be reconsidered". It has been, so the
-  # note is now an assertion rather than a dangling to-do: output that prints on
-  # every run is a bad place to keep an open question, because it stops being read.
-  #
-  # The names still have ids, so /send still delivers the item, and the applier is
-  # still expected to leave an unlimited unit alone. That is what is checked here.
-  [ "${TN:-0}" -eq "${TB:--1}" ]
-  verdict $? "unlimited tower also left alone (why the item is not generated)"
-fi
+# The names still have ids, so /send still delivers the item; the mod applies
+# no retired item, so the limit must not move whether or not the tower has a
+# real cap. (This used to assert +1 on a capped tower, from when the item was
+# applied.)
+[ "${TN:-0}" -eq "${TB:--1}" ]
+verdict $? "tower limit unchanged by a retired item ($TB -> $TN)"
 
 # --- (E) ERN item drives the granter (spawn-beside-rift-lab proven live;
 #         the automated boot has no rift lab placed, so it correctly waits) ---

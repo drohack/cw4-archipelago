@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # Tower of Darkness, set up as the WORST CASE a Miner-less seed can hand you.
 #
-# The one gap in the randomizer's logic that points the dangerous way: Miner
-# appears in no logic table at all. Tower energy carries most maps, and story15
+# The one gap in the randomizer's logic that pointed the dangerous way: when
+# this was written Miner appeared in no logic table at all. It has since entered
+# several (rules.py MISSION_EXTRA among them), but still none for story15.
+# Tower energy carries most maps, and story15
 # is the mission the worksheet flagged - "RESO at start for mining, but you might
 # need it for energy at the start since there's not a lot of land for towers."
 # Too-loose logic strands a player; too-tight only makes seeds duller. So this
@@ -14,7 +16,9 @@
 #   Chronat       (15, "Nullify") - this is the "beacon of light" that lifts the
 #                 darkness; the worksheet left "which unit?" open and the rules
 #                 table answers it
-#   Greenar Refinery + Factory    (15, "Totems"), and Chronat's prerequisites
+#   Factory       (15, "Totems"), and Chronat's prerequisites. Factory also
+#                 unlocks the refinery; the "Greenar Refinery" item sent below
+#                 is retired and unlocks nothing on its own
 #
 # NOT granted, deliberately: Miner, Pylon, Platform, Terp, Sniper, Missile
 # Launcher, and NO energy or storage filler items. Logic has to hold in the worst

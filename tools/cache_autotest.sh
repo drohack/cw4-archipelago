@@ -28,12 +28,15 @@
 #   "eleven cells is the range"   Horizontally. Tower range is 3D and height
 #                                 counts, so nine-cell hops that measure fine on
 #                                 a flat map dump are over range wherever the
-#                                 ground steps. build:chain hops three.
+#                                 ground steps. build:chain now hops six by
+#                                 default and halves a hop that does not close
+#                                 the gap (DevCommands.Chain).
 #
-# The creeper is frozen and units indestructible on purpose. Home's cache sits
-# in a basin that floods early, and an unfrozen run lost towers faster than the
-# poll loop ran - mine went 4, 2, 1, 0. This measures whether a network reaches
-# a cache, not whether it survives; survival is a different test.
+# An earlier version froze the creeper and made units indestructible: Home's
+# cache sits in a basin that floods early, and an unfrozen run lost towers
+# faster than the poll loop ran - mine went 4, 2, 1, 0. Both cheats are now OFF
+# (see "THE CHEATS ARE THE WHOLE DIFFICULTY" below), so a cache in creep is
+# expected NOT to be collected.
 #
 # Usage: tools/cache_autotest.sh [--instant] [storyN ...]   (game must be CLOSED)
 #
@@ -51,9 +54,9 @@ require_game
 
 # WHAT THIS HARNESS CAN AND CANNOT TELL YOU. Read this before believing a PASS.
 #
-# It freezes the creeper, makes units indestructible and force-places a lab on
-# whatever cell the game will accept - which are exactly the constraints a real
-# playthrough has to satisfy. So a PASS means "a network that reaches this cache
+# It force-places a lab on whatever cell the game will accept (and with
+# --instant skips build time) - which skips part of what a real playthrough has
+# to do to get there. So a PASS means "a network that reaches this cache
 # collects it". It does NOT mean "a player can reach this cache", and randomizer
 # logic must never be derived from it.
 #
@@ -72,8 +75,9 @@ require_game
 # earlier version froze the creeper and made units indestructible, and collected
 # Tower of Darkness' cache - which sits in creep - with nothing but a rift lab
 # and towers. That is not possible in play, and a harness that reports it as a
-# pickup is worse than no harness. Instant build stays on: it skips the wait,
-# not the reachability.
+# pickup is worse than no harness. Instant build is off by default as well
+# (--instant turns it on): it skips the wait, not the reachability, but see
+# --instant above for the one-frame pickup it allows.
 #
 # WHAT THE QUESTION ACTUALLY IS, once the cheats are off: "is this cache
 # trivially reachable at tick zero, with nothing but a rift lab and towers?"
@@ -90,8 +94,8 @@ require_game
 # creep AND land, and no lab site near either. Both must fail.
 #
 # Every campaign mission whose REQUIRED objectives include Collect, from
-# apworld/cw4/locations.py REQUIRED_OBJECTIVES. story1 and story6 have no
-# Collect requirement and are not here.
+# apworld/cw4/locations.py REQUIRED_OBJECTIVES. story1, story6, story8 and
+# story20 have no Collect requirement and are not here.
 DEFAULT_MISSIONS="story2 story3 story4 story5 story7 story9 story10 story11 \
 story12 story13 story14 story15 story16 story17 story18 story19"
 INSTANT=off

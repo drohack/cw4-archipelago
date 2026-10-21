@@ -13,10 +13,11 @@ Archipelago's `fill_restrictive` is greedy and its backtracking is hard-capped:
 each item may be swapped at most twice, behind a three-entry state cache. So it
 can give up on an arrangement that genuinely exists. A world cannot catch or
 retry the MAIN fill, but it can place its own progression and retry, which is
-what `items.place_own_progression` does, and what oot does for songs and
-pokemon_emerald for badges and HMs.
+what `opening.place_own_progression` (then in `items.py`) does, and what oot
+does for songs and pokemon_emerald for badges and HMs.
 
-It retries `OWN_FILL_ATTEMPTS = 5` times. A seed therefore only dies if all five
+It retries `OWN_FILL_ATTEMPTS = 5` times (8 since 2026-09-16 - see "After"
+below). A seed therefore only dies if all five
 attempts fail, which is rare - and that rarity is exactly what makes it hard to
 measure. A blind sweep reports "no failure in N seeds", which at a rate near one
 in a million is almost no information: it cannot distinguish a safe margin from
@@ -123,7 +124,7 @@ cannot tell a comfortable margin from a seed one step from disaster.
 | 4 | 1 | 5.0 | 2.00 | 3.00 |
 
 Opening width does not move at all. **Weapon breadth** - how many of the whole
-roster's checks the first weapon opens, `items.weapon_breadth` summed over the
+roster's checks the first weapon opens, `roster.weapon_breadth` summed over the
 seed - falls monotonically. Six of the 4,000 seeds had breadth ZERO: the first
 weapon opened nothing anywhere in the seed.
 
@@ -191,8 +192,8 @@ that did not chain - and all three were recovered on the FIRST attempt when the
 same seed was re-run with our fill on. Nothing was unfillable. See
 `CW4TestBase.FILL_TESTS` and `TestFillRunsTheShippedPath`.
 
-A mixed multiworld gets neither defence (`OWN_FILL_SOLO_ONLY`, and
-`needs_bootstrap` requires every world to be ours) and was clean over 1,000
+A mixed multiworld gets neither defence (`opening.every_player_is_cw4` gates
+both `place_own_progression` and `needs_bootstrap`) and was clean over 1,000
 seeds against a deliberately tiny partner: our progression can live in the other
 world's locations, which is slack a solo seed does not have.
 
@@ -230,8 +231,9 @@ OWN_FILL=0 python ../tools/audit/realfillrate.py      # the no-retry path
 ```
 
 The depth measurement is the one this document is about: set
-`items.OWN_FILL_ATTEMPTS` to 25, generate N seeds, and histogram
-`world.own_fill_attempts`, checking `fulfills_accessibility()` and
+`opening.OWN_FILL_ATTEMPTS` to 25, generate N seeds, and histogram
+`recorder.of(world).own_fill_attempts` (`apworld/cw4/test/recorder.py`; this is
+what `tools/seed_battery.py --cap 25` does), checking `fulfills_accessibility()` and
 `can_beat_game()` per seed as well - our fill skips the priority pass and
 `accessibility_corrections` that `distribute_items_restrictive` would otherwise
 run, so "did we strand anything" is a real question rather than a formality.

@@ -37,6 +37,10 @@ in `research-findings.md`; the item/location/logic content comes from
   appliers, each applier one proven probe recipe.
 - **Config-gated debug command channel** kept in the real mod so the test
   batteries can drive it hands-free. Off by default; players never see it.
+  **CORRECTION (2026-10-21): since 2026-09-03 it is not in the real mod.** It is
+  the separate plugin `src/CW4Archipelago.Debug`, which no release contains, and
+  since 2026-10-20 it reaches the mod from outside (Harmony and AccessTools, in
+  its `ModHooks.cs`).
 
 ## Architecture
 
@@ -45,9 +49,9 @@ apworld/cw4 (Python)          slot_data: requirement groups, starter missions
         |  (AP server)
         v
 src/CW4Archipelago.Core (net6.0 class lib, NO Unity/interop refs, unit-tested)
-   SlotState      received items (name->count), checked + pending locations,
-                  hints; raises ItemsChanged / LocationsChanged
-   UnitRules      item name -> game unit key / limit increment; AllowedUnits, Limits
+   SlotState      received items (server order, counted by name), checked +
+                  pending locations, hints; raises ItemsChanged / LocationsChanged
+   UnitRules      item name -> build-pane unit key; AllowedUnits
    MissionRules   storyN <-> title <-> unlock item; starter set
    ErnRules       Progressive ERN count -> ERNs to grant per mission
    TrackerRules   per-location + per-mission status (Red/Yellow/Green/Grey)
@@ -63,7 +67,7 @@ src/CW4Archipelago (BepInEx plugin)
                   CompleteLocationChecks, SetGoalAchieved, reconnect backoff,
                   marshals every callback onto the main thread via the queue
    Appliers (one per proven probe recipe, each subscribes to SlotState):
-     UnitGate         whitelist + limits + no-flash reveal state machine
+     UnitGate         whitelist + no-flash reveal state machine
      MissionGate      Harmony prefixes: GalaxyMissionPanel.OnLaunch,
                       MissionPanelLoadBoxRow.OnLoad
      LocationWatcher  objective/mission-complete transitions -> SlotState.MarkChecked
@@ -91,21 +95,37 @@ touches game state from a callback; every callback enqueues an action that
 
 ## Slot data contract (apworld -> client)
 
+**CORRECTION (2026-10-21):** the block below is the current key set
+(`CW4World.fill_slot_data` in `apworld/cw4/__init__.py`, read by
+`Core.SlotData`). `mission_requirements` and `ern_per_item` were dropped on
+2026-10-20, with `mission_titles` and `span_missions`. Requirement groups and
+mission entries are examples; the numbers are the yaml defaults.
+
 ```json
 {
-  "starter_missions": ["story1"],
-  "mission_requirements": { "story2": [["Cannon", "Mortar"]] },
   "location_requirements": {
-    "Not My Mars - Objective 1": [["Cannon", "Mortar"], ["Nullifier"]]
+    "Not My Mars - Totem 1": [["Cannon", "Mortar"], ["Factory"]]
   },
-  "ern_per_item": 1
+  "strict_location_requirements": { "...": "same shape, physical tier" },
+  "required_objectives": { "story3": [1, 4] },
+  "starter_missions": ["story1", "story7"],
+  "mission_roster": ["story1", "story2", "...", "story20"],
+  "world_version": "x.y.z",
+  "missions_for_finale": 12,
+  "energy_storage_max": 200, "energy_storage_copies": 20,
+  "base_generation_max": 10, "base_generation_copies": 20,
+  "ern_upgrade_copies": 2, "ern_rate_max_percent": 400,
+  "ern_cap_max_percent": 200, "ern_cap_max_build_speed_percent": 150
 }
 ```
 
 A requirement is a list of any-of groups of item names; it is satisfied iff
 every group has at least one held item. Mission reachability = its unlock item
-is held (starter missions are free). A location is in logic when its mission's
-requirements and its own requirements are both satisfied. `rules.py` builds its
+is held (starter missions are free). Each location entry is complete - the
+apworld folds its mission's requirements into it - so a location is in logic
+when its own entry is satisfied; one that fails its
+`strict_location_requirements` entry is not reachable at all
+(`Core.TrackerRules.LocationStatus`). `rules.py` builds its
 access rules from the same table it exports to slot_data, so logic and hints
 cannot drift.
 
@@ -130,6 +150,12 @@ Always available: riftlab, tower. **CORRECTION 2026-08-31: pylon is NOT always
 available** - it is an unlockable AP item, and it is load-bearing progression for
 Archon's buried caches. "Build Limit +1 (X)" adds one to the
 game's default limit for unit x. There are no limit-0 items.
+**CORRECTION (2026-10-21): Greenar Refinery and the Build Limit items are
+retired.** Factory unlocks `greenarrefinery` as well
+(`UnitRules.ItemAlsoUnlocks`), and `Greenar Refinery` is no longer in
+`ItemToUnit`. Build Limit items have not been generated since 2026-09-01, because
+every building's default limit is already unlimited, and since 2026-10-20 the mod
+applies neither item if one arrives anyway.
 
 ## Persistence and offline
 
@@ -139,9 +165,14 @@ game's default limit for unit x. There are no limit-0 items.
   its own plugin now and its presence is the switch.**
   AutoConnect connects at Galaxy scene entry and reconnects with backoff.
   **CORRECTION: 3 attempts at 5s, 10s, 15s** - no 20s step and no 60s cap.
+  **CORRECTION (2026-10-21): that was true until 2026-09-04. The retry is now
+  unbounded - 5s, 10s, 20s, 40s, then every 60s until a deliberate disconnect
+  (`ApClient.ScheduleReconnect`; see
+  [2026-09-04-offline-and-disconnects.md](2026-09-04-offline-and-disconnects.md)).**
 - Slot cache: `<Documents>/My Games/creeperworld4/archipelago/slots/<seed>-<slot>.json`
   holding received item names in server index order, checked locations, pending
-  checks, and a slot_data snapshot. Loaded on connect attempt and at launch when
+  checks, and a slot_data snapshot. Loaded for that (seed, slot) on login, and at
+  launch for the last slot played (`last-session.json`) whether or not
   AutoConnect is set, so offline play uses last-known state.
 - Pending checks flush on (re)connect via CompleteLocationChecks; the server's
   AllLocationsChecked reconciles the cache.
@@ -174,9 +205,10 @@ Display ownership handles the visual; save isolation handles the actual files.
 ## Server-message + connection box (in-mission)
 
 `ApClient` subscribes to `session.MessageLog.OnMessageReceived`. On the main
-thread it raises `MessageReceived` (plain text) and `LineReceived` (per-part
-colored spans, hex pulled from each `MessagePart.Color`). `ModCore` keeps a
-rolling history (cap 200) and feeds `ApMessageBox`, a scrollable,
+thread it raises `LineReceived` (per-part colored spans, hex pulled from each
+`MessagePart.Color`, plus the relevance flag). A plain-text `MessageReceived`
+event existed too and was removed on 2026-10-20, since nothing subscribed to
+it. `ModCore` keeps a rolling history (cap 200) and feeds `ApMessageBox`, a scrollable,
 semi-transparent message box shown DURING A MISSION only (Game scene). It sits
 in the bottom-left resting on top of the terrain/creeper/emit-mode readout
 cluster, matches that cluster's width, colors each part with the Archipelago
@@ -209,6 +241,11 @@ retry budget re-arms on a successful connect and on any manual/menu connect, so
 returning to the menu (auto-connect fires on every Galaxy entry) is the
 guaranteed fallback. On reconnect, queued checks flush and received items are
 pulled.
+
+**CORRECTION (2026-10-21): the 3-try limit was removed on 2026-09-04.** The
+client now retries without limit at 5s, 10s, 20s, 40s and then every 60s, and
+stops only on a deliberate disconnect; a refused login is not retried. See
+[2026-09-04-offline-and-disconnects.md](2026-09-04-offline-and-disconnects.md).
 
 Drop DETECTION: a graceful close fires `SocketClosed`; an ungraceful server
 death is caught by a periodic `Socket.Connected` poll and by send failures

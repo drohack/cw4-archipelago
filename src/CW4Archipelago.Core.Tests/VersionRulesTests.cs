@@ -18,8 +18,8 @@ public class VersionRulesTests
     [Fact]
     public void AnOlderSeedWithNoVersionIsNotAMismatch()
     {
-        // Every seed in flight predates the key. If this warned, it would warn
-        // for all of them, which would teach people to ignore the warning -
+        // Every seed generated before the key existed lacks it. If this warned,
+        // it would warn for all of them, which would teach people to ignore the warning -
         // the failure mode that makes a check worthless.
         Assert.Null(VersionRules.Describe("0.2.0", ""));
         Assert.Null(VersionRules.Describe("0.2.0", "   "));

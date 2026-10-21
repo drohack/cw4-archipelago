@@ -32,7 +32,7 @@ that will otherwise sit on top of the progress lines:
 
 | script | measures |
 |---|---|
-| `audit.py` | Static tables, cross-language agreement with the mod, in-process reachability, a 13-configuration generation matrix, pool quantities, and a weapon-timing sweep |
+| `audit.py` | Static tables, cross-language agreement with the mod, in-process reachability, a 15-configuration generation matrix, pool quantities, and a weapon-timing sweep |
 | `derive.py` | The pool computed in CLOSED FORM from `create_all_items`, checked against what really generated. This is the important one - see below |
 | `depth.py` | True placement depth of named items, via `MultiWorld.get_spheres()`. Reports by item and by ROLE (opening weapon vs second weapon) |
 | `funnel.py` | Hunts fill failures at a given `starter_missions`, then diagnoses the shape of the opening: what is reachable with nothing, with everything, and whether the goal is satisfiable |
@@ -59,18 +59,22 @@ many and one filler too few.
 The ERN upgrade and energy blocks come off the top like the real items, not out
 of the filler remainder, because both are generated as FIXED counts before the
 trap split.
-It has to be fixed: a fifth copy of a capped item does nothing, and the weighted
-filler draw picks with replacement, so it could hand out nine copies of one name
+It has to be fixed: a fifth copy of a capped item does nothing, and the padding
+fills however many slots are left, so it could hand out nine copies of one name
 and none of another.
 
-`derive.py` runs that against all 16 single-player configurations in its `CASES`
-list and compares it with real generated seeds. Currently 16 of 16 match exactly. Generation is the
-CHECK on the arithmetic, not the source of it.
+`derive.py` runs that against all 15 single-player configurations in its `CASES`
+list and compares it with real generated seeds. Currently 15 of 15 match exactly.
+(`filler weights all zero` left both lists when the filler weight options were
+removed on 2026-10-20; for a day `derive.py` still listed it and reported a
+false STALE CACHE.) Generation is the CHECK on the arithmetic, not the source of
+it.
 
 What genuinely has to be sampled:
 
-- the split of filler between the two energy upgrades, and of traps between the
-  six kinds - weighted draws, so expectation is computable but the draw is not
+- the split of traps between the six kinds - a weighted draw, so expectation is
+  computable but the draw is not. (The filler is not sampled any more: the
+  energy upgrades are fixed counts and the boons alternate deterministically.)
 - the sphere any item lands in, which is the output of a randomized fill
 - whether the fill SUCCEEDS
 
@@ -150,7 +154,8 @@ Every one of these produced a confidently wrong number first.
 6. **Look at the screen.** An hour went into an ERN measurement that was running
    behind a full-screen A.D.A. Log modal - no map, no units, nothing visible -
    while the logs read like a slow ramp. One `shot:` screenshot showed it
-   instantly. The mod has had a screenshot command the whole time. Reading a log
+   instantly. The mod has had a screenshot command the whole time (`shot:`, now in
+   the debug plugin, `src/CW4Archipelago.Debug`). Reading a log
    is not observing the game.
 
 7. **Start from a harness that already works.** `tools/cmod-traptest.sh` sets up
@@ -226,13 +231,17 @@ Every one of these produced a confidently wrong number first.
 - The two energy upgrades are now 30 percent of the pool rather than 40, since
   the ERN block took 48 slots. Both curves are still wrong - storage saturates
   at copy 21 of 41, generation ramps to the wrong shape - so the rework still
-  stands.
+  stands. **CHANGED 2026-10-21: done.** Both are fixed counts now (20 + 20 of 236
+  at the defaults), and each copy is worth the maximum divided by the count
+  (`EnergyRules`), so no copy is dead; the leftover slots go to the boons.
 - ERN upgrade items are classified FILLER, not useful, because they do nothing
   until the ERN Portal unlock arrives and a portal is built with an ERN docked.
   Held loosely: Mine Production triples production once live, which is a large
   effect for something the fill treats as padding.
 - Missile Launcher is the latest-arriving item in the game, because it appears in
-  one rule that only applies under casual logic and is an OR with Sniper. Sprayer
+  one rule that only applies under casual logic and is an OR with Sniper. (Since
+  2026-10-06 `easy` also requires it on its own from mission 13; the measurement
+  above predates that tier.) Sprayer
   is second-latest for the same reason: it appears in no rule at all.
 - No full playthrough of a generated seed has been done. Everything here is
   structural; none of it says whether the result is fun.

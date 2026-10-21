@@ -117,13 +117,13 @@ public sealed class LocationWatcher
             // is right when a set cannot be counted.
             //
             // Measured on a resumed save (We Were Never Alone, 2026-09-05):
-            // every one of the nine nullify targets was destroyed and the game
+            // every one of the nine nullify targets was nullified and the game
             // reported the objective complete, while all nine were still sitting
-            // in GameSpace.nullifiableUnits. The set does NOT shrink on a
-            // reload, so a rule that counts what is left can never notice - the
-            // player got none of the nine checks. research-findings.md said
-            // progress "is measured by that set shrinking"; that holds during
-            // live play and not across a load.
+            // in GameSpace.nullifiableUnits. The set does NOT shrink, so a rule
+            // that counts what is left can never notice - the player got none of
+            // the nine checks. research-findings.md said progress "is measured
+            // by that set shrinking"; it is not - see NullifyRules, which counts
+            // IsSuppressed() instead.
             //
             // Each of the three sends BY IDENTITY where it can, and falls back to
             // counting where it cannot. Identity is the point: the apworld puts

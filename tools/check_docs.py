@@ -51,6 +51,11 @@ WHAT IT CHECKS, and why each rule earned its place rather than being a tidy idea
 6. Option defaults quoted in prose match options.py. This is the one that
    reaches players.
 
+7. Every repo path named in backticks in a .md resolves (fenced code blocks and
+   CHANGELOG.md excepted).
+
+8. Every repo path named in a source comment or docstring resolves.
+
 Exit 0 when everything agrees. Every failure names the file, the line, what was
 found and what was expected.
 """

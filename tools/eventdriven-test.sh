@@ -128,11 +128,7 @@ after=$(perf_field recolours)
 if [ -n "${after:-}" ] && [ -n "${before:-}" ] && [ "$after" -gt "$before" ]; then r=0; else r=1; fi
 verdict $r "recolours advanced on the state change ($before -> ${after:-none})"
 
-# 6. In a real mission: each instance must send exactly ONE check, and the
-#    event patch and the once-a-second safety poll must not both send it.
-#    "Home" has one cache, two totems and one nullifiable target, so it
-#    exercises all three counted paths in the smallest mission that has them.
-# The icon SET, not just its colour. The map draws one icon per objective in the
+# 6. The icon SET, not just its colour. The map draws one icon per objective in the
 # map file's authored list, and on Farsite that list is wrong: a totems icon on a
 # mission with no totems, and nothing for its two caches or its custom objective.
 # The reconcile makes the set follow the locations, so this planet must end up
@@ -147,7 +143,7 @@ send "glyphs:dump Farsite"
 sleep 3
 # Farsite draws its Custom check as the TOTEMS icon, so the marker's objective
 # field reads 1 where the location is still "Farsite - Custom" - see
-# MissionRules.IconAlias. Both assertions below asserted the pre-alias drawing
+# ObjectiveIcons.IconAlias. Both assertions below asserted the pre-alias drawing
 # and had to move with it: the alias is the feature, not a regression. Sorted,
 # because the order is whatever order the glyph children come back in.
 active=$(since | grep "DEBUG GLYPHS: story1 " | grep "active=ON" | grep -o "obj=[0-9]*" | cut -d= -f2 | sort -n | tr '\n' ',')
@@ -157,6 +153,10 @@ verdict $([ "$n" = 1 ] && echo 0 || echo 1) "the aliased Custom icon uses the to
 n=$(since | grep -c "DEBUG GLYPHS: story1 .*active=ON.*pos=(0,0,0)")
 verdict $([ "$n" = 1 ] && echo 0 || echo 1) "exactly one icon at the row origin (got $n)"
 
+# 7. In a real mission: each instance must send exactly ONE check, and the
+#    event patch and the once-a-second safety poll must not both send it.
+#    "Home" has one cache, two totems and one nullifiable target, so it
+#    exercises all three counted paths in the smallest mission that has them.
 echo "step 7/8: per-instance checks, no double sends"
 send "item:Mission Unlock: Home"
 for loc in "Home - Totem 1" "Home - Totem 2" "Home - Cache 1" "Home - Nullify 1"; do

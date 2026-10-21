@@ -219,11 +219,12 @@ def main():
     out.append('')
     out.append('# mission -> a mover is needed for some of its objectives.')
     out.append('#')
-    out.append('# Objective-WIDE, not per instance. The analysis says which objectives')
-    out.append('# share a component; turning that into "this one needs a mover" needs')
-    out.append('# the landing site, and no rift lab exists at mission load to read it')
-    out.append('# from. Requiring it of the whole objective over-constrains rather than')
-    out.append('# under-constrains, which is the safe direction.')
+    out.append('# MISSION-wide (rules.py puts it in MISSION_EXTRA), not per objective or')
+    out.append('# per instance. The analysis says which objectives share a component;')
+    out.append('# turning that into "this one needs a mover" needs the landing site, and')
+    out.append('# no rift lab exists at mission load to read it from. Requiring it of the')
+    out.append('# whole mission over-constrains rather than under-constrains, which is the')
+    out.append('# safe direction.')
     out.append('SPAN_NEEDS_MOVER = {')
     for i, (guid, title) in enumerate(SPAN_ORDER):
         if guid in SPLIT_MAPS:

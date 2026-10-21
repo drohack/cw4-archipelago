@@ -902,7 +902,7 @@ a cannon also works.
 
 **Never required by any rule**
 
-- AC Bomber Pad, Airship, Bertha, Bomber Pad, ERN Portal, Greenar Refinery, Microrift, Rocket Pad, Runway, Sprayer, Sweeper
+- AC Bomber Pad, Airship, Bertha, Bomber Pad, ERN Portal, Microrift, Rocket Pad, Runway, Sprayer, Sweeper
 
   Nothing in logic asks for these, so they can land anywhere, including
   the final sphere.

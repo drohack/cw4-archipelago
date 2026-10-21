@@ -159,7 +159,7 @@ public sealed class ApClient
     {
         _lastHost = host; _lastPort = port; _lastSlot = slot; _lastPass = password;
         _manualDisconnect = false;
-        _retryCount = 0;   // a manual/menu connect re-arms the retry budget
+        _retryCount = 0;   // a manual/menu connect restarts the backoff at 5s
         // ...and re-arms the SCHEDULER, which is a separate flag and was the
         // bug. Bumping the generation below makes any pending retry a no-op, so
         // leaving _reconnecting set meant nothing was pending and nothing could
@@ -389,7 +389,7 @@ public sealed class ApClient
         // select map icons don't get updated".
         session.Locations.CheckedLocationsUpdated += OnServerChecked;
 
-        _retryCount = 0;   // healthy connection re-arms the retry budget
+        _retryCount = 0;   // healthy connection restarts the backoff at 5s
         SetStatus(ConnectionStatus.Connected, $"connected as {slot} (seed {seed})");
         _log.LogInfo($"AP CONNECTED slot='{slot}' seed='{seed}' locations={allLocations.Count} received={received.Count}");
 
@@ -685,7 +685,7 @@ public sealed class ApClient
             catch (Exception e)
             {
                 // Send failed on a dead socket - re-queue everything and treat
-                // as a drop so the bounded auto-reconnect kicks in.
+                // as a drop so the auto-reconnect kicks in.
                 foreach (var n in names)
                     if (!State.PendingChecks.Contains(n))
                         State.PendingChecks.Add(n);
@@ -741,7 +741,7 @@ public sealed class ApClient
         // Detect a drop the SocketClosed event did not surface (an ungraceful
         // server death can leave the websocket without firing a close). If the
         // socket reports not-connected while we still think we are, handle it
-        // as a drop (which schedules the bounded auto-reconnect).
+        // as a drop (which schedules the auto-reconnect).
         bool socketUp = true;
         try { socketUp = _session.Socket.Connected; } catch { socketUp = false; }
         if (!socketUp)

@@ -86,6 +86,12 @@ spawned cannons) against 21 correctly excluded (BlobNest, Totem, SporeLauncher,
 SkimmerFactory, GreenarMother, Denier, ActivationAntenna, ResourceRed,
 InfoCache).
 
+**CHANGED 2026-10-21:** the filter is `GameUtil.IsPlayerUnit` now, which
+`TrapEffects` calls. It also takes `UnitRules.ItemAlsoUnlocks`, an alias list
+(`ExtraPlayerKeys`) and a CMOD branch, because `ItemToUnit.Values` holds
+build-pane keys that `GetDataName()` never returns for several units - see
+"The player-unit filter" below and research-findings.md, "Unit naming".
+
 Any future effect that touches "the player's units" must use this filter.
 
 ### `isFogTerrain` is derived state, not the fog definition
@@ -227,6 +233,10 @@ therefore excluding the player's own base, so stun and drain silently spared it.
 Checked against the rest of the set - `cannon`, `tower`, `mortar`, `sniper`,
 `sprayer`, `terp` all match their `UnitRules` keys exactly - so `CommandBase` is
 the lone alias, now in `ExtraPlayerKeys` alongside `ern`.
+**CORRECTION (2026-10-21): not the lone alias.** `pylon`, `miner`, `ernportal`
+and `porter` have no registry name either (`TowerBridge`, `Collector`,
+`ERNInterface`, the Delivery family), and airship, bertha and sweeper are CMODs
+whose data name is a GUID. `ExtraPlayerKeys` in `GameUtil.cs` carries all of them.
 
 Separately, **`UnitManager.enemy` is not a player/enemy discriminator**: story3
 reports `Pod`, `Ultrac` and `SuperTower` (all hostile) with `enemy = false`, and
@@ -306,7 +316,8 @@ kept their names: Spore Strike, Spore Scatter, Creeper Surge, Energy Drain,
 Rift Breach Trap - see randomizer-design.md. The spike names are left as written
 here, being what they were called at the time.)
 Unit Stun. All seven are in `TRAP_ITEMS` (`apworld/cw4/items.py`), each with its
-own `trap_weight_*` yaml option, and `trap_percentage` defaults to 50.
+own `trap_weight_*` yaml option (six since 2026-10-20, see below), and
+`trap_percentage` defaults to 50.
 
 **The emitter caveat is smaller than the sample above suggests, but it is real
 and unresolved.** The four missions measured here happened to include three with

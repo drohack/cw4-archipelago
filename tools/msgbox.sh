@@ -7,8 +7,9 @@
 # This harness was the last one still carrying three defects the others had
 # already been fixed for, and all three were found by finally running it:
 #
-#   1. It called `mark` in four places without ever DEFINING it. Every other
-#      harness in tools/ defines it. `MARK` therefore stayed 0 and `since`
+#   1. It called `mark` in four places without ever DEFINING it, when every
+#      other harness in tools/ defined its own (mark and since now live in
+#      tools/lib.sh, for all of them). `MARK` therefore stayed 0 and `since`
 #      returned the whole log every time, so each assertion could be satisfied
 #      by a line printed in an earlier step. It failed loose, not tight, which
 #      is why nothing looked wrong until the stderr was read.
@@ -214,7 +215,7 @@ awk -v s="${SCROLL:--1}" 'BEGIN { exit !(s >= 0 && s <= 0.02) }'
 verdict $? "the log opens at the bottom, not part-way up (scroll=$SCROLL)"
 
 echo "[msgbox] step 7: zero plugin errors"
-ERR=$(grep -cE "\[Error :CW4 Archipelago\]|tick failed" "$GAME_LOG" 2>/dev/null); ERR=${ERR:-0}
+ERR=$(grep -cE "$MOD_ERROR_RE" "$GAME_LOG" 2>/dev/null); ERR=${ERR:-0}
 [ "$ERR" -eq 0 ]; verdict $? "no plugin errors ($ERR)"
 
 echo "[msgbox] DONE: $PASS passed, $FAIL failed"

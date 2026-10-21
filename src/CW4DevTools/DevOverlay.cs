@@ -216,11 +216,12 @@ public static class DevOverlay
         bg.raycastTarget = false;
         var prt = _panel.GetComponent<RectTransform>();
         prt.anchorMin = prt.anchorMax = prt.pivot = new Vector2(0.5f, 0f);
-        // Offset right of centre and sized for three rows. Measured against the
-        // 1920-wide HUD: the creeper/emit readout ends near x=670 and the minimap
-        // starts near x=1480, so a 780-wide panel centred at x=1060 sits in the
-        // gap. A centred 900-wide panel overlapped the creeper readout, and 62px
-        // of height clipped the third row off the bottom.
+        // It used to be offset right of centre at a fixed size for three rows.
+        // Measured against the 1920-wide HUD: the creeper/emit readout ends near
+        // x=670 and the minimap starts near x=1480, so a 780-wide panel centred
+        // at x=1060 sat in the gap. A centred 900-wide panel overlapped the
+        // creeper readout, and 62px of height clipped the third row off the
+        // bottom. FitPanel now sizes it to its text instead.
         // Position comes from config (see Reposition) - the terp's terrain-height
         // bar occupies the bottom centre while that tool is selected, so the
         // strip sits above it by default rather than on the bottom edge.

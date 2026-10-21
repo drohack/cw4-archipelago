@@ -308,7 +308,7 @@ public static class MeasureProbe
         catch (Exception e) { ModCore.Log.LogWarning($"MEASURE energy failed: {e.Message}"); }
     }
 
-    /// <summary>Called every tick from ModCore.</summary>
+    /// <summary>Called every frame from DebugTick.SafeTick (Plugin.cs).</summary>
     public static void Tick()
     {
         var gs = GameSpace.instance;
@@ -452,7 +452,8 @@ public static class MeasureProbe
         return n;
     }
 
-    /// <summary>Drop everything when a mission tears down.</summary>
+    /// <summary>Drop every running measurement. Meant for mission teardown, but
+    /// nothing calls it at present.</summary>
     public static void Reset()
     {
         _watch = null;

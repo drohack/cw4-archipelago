@@ -14,9 +14,10 @@
 #
 # __pycache__ was already excluded, but by GLOBAL.apignore rather than by any
 # decision made here - so the exclusion of test/ had simply never been
-# considered. Note that the CI job builds the apworld with `zip -r ... -x
-# '*/__pycache__/*'`, which hand-reimplements one line of the global file and
-# honours none of this; that artifact is uploaded and never shipped.
+# considered. The CI job used to build the apworld with `zip -r ... -x
+# '*/__pycache__/*'`, which hand-reimplemented one line of the global file and
+# honoured none of this; it now runs the same "Build APWorlds" the release
+# does, so this file applies there too.
 /test/
 
 # The player yaml ships as its own release asset, not inside the apworld. It

@@ -26,6 +26,9 @@ Run from inside the Archipelago clone:
 import os
 import sys
 
+# Read the seed BEFORE clearing argv. Clearing it first (so Archipelago's own
+# argument parsing sees nothing) meant the documented [seed] was always dropped.
+ARGS = sys.argv[1:]
 sys.argv = ["repro_casual"]
 os.environ.setdefault("SKIP_REQUIREMENTS_UPDATE", "1")
 sys.path.insert(0, os.getcwd())
@@ -34,7 +37,7 @@ from test.general import setup_solo_multiworld  # noqa: E402
 from worlds.cw4 import CW4World  # noqa: E402
 from Fill import distribute_items_restrictive, FillError  # noqa: E402
 
-SEED = int(sys.argv[1]) if len(sys.argv) > 1 else 47184655139301313347
+SEED = int(ARGS[0]) if ARGS else 47184655139301313347
 
 STEPS = ("generate_early", "create_regions", "create_items", "set_rules",
          "connect_entrances", "generate_basic", "pre_fill")
@@ -50,9 +53,9 @@ print("", flush=True)
 
 # NOTE: setup_solo_multiworld applies DEFAULT options, so this reproduces the
 # default configuration at that seed. TestCasualLogic sets
-# logic_difficulty: casual, which is applied below the same way the test base
-# does it - after generate_early would be too late, so it is set before the
-# steps run by constructing in two stages.
+# logic_difficulty: casual; here it is forced in two stages instead - after
+# generate_early, before every later step - which is NOT how the test base
+# applies it and moves the RNG stream (see repro.py's docstring).
 mw = setup_solo_multiworld(CW4World, ("generate_early",), SEED)
 world = mw.worlds[1]
 opt = world.options.logic_difficulty

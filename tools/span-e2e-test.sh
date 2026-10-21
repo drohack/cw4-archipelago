@@ -18,6 +18,8 @@
 #   5. CHECK     finishing an objective on it sends the right location
 #   6. SAVE      its autosave lands under saves/farsite, where SaveArchiver
 #                already isolates per slot
+#   7. SWEEP     up to six OTHER SPAN maps in the roster: gate, resolve, check
+#   8. RESUME    the step 6 save loads back through the gate without re-sending
 #
 # SCREENSHOTS ARE TAKEN AND KEPT. Every icon bug found in this area was
 # invisible in the log and obvious in a picture: map_objectives was written

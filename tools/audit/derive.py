@@ -96,7 +96,6 @@ CASES = [
     ("five starters", {"starter_missions": 5}),
     ("finale open", {}),
     ("finale maxed", {}),
-    ("filler weights all zero", {}),
     ("trap weights all zero", {"traps_off": True}),
 ]
 
@@ -156,9 +155,7 @@ print(f"Derived vs generated: {len(CASES) - bad}/{len(CASES)} match, {bad} misma
 # What the arithmetic CANNOT tell you, stated explicitly so the split is honest.
 print("", flush=True)
 print("Not derivable, genuinely sampled:", flush=True)
-print("  - the split of filler between the two energy upgrades (a weighted draw;", flush=True)
-print("    expectation 50/50 at default weights, observed 41/54 in one seed)", flush=True)
-print("  - which trap kinds fill the trap slots (same reason)", flush=True)
+print("  - which trap kinds fill the trap slots (a weighted draw by the trap weights)", flush=True)
 print("  - the SPHERE any item lands in: that is the output of Archipelago's", flush=True)
 print("    randomized fill, and has no closed form", flush=True)
 print("  - that fill SUCCEEDS: reachability is provable, fill terminating is not", flush=True)

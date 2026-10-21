@@ -111,7 +111,7 @@ public class ErnUpgradeRulesTests
     public void BuildSpeedHasALowerCeilingThanTheRest()
     {
         // Not a style preference - a measured balance fix. The game shortens
-        // build time roughly linearly in efficiency (363 / 186 / 33 ticks at
+        // build time steeply and non-linearly in efficiency (363 / 186 / 33 ticks at
         // 0 / 100 / 200 percent), so a 2.0 ceiling makes construction about 11x
         // base and dwarfs every other upgrade. The designer's target is double
         // the 100 percent rate.

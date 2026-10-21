@@ -143,7 +143,8 @@ class TestEarlyWeaponDefaultIsRandom(bases.CW4TestBase):
 
 
 class TestEarlyWeaponWithOneStarter(bases.CW4TestBase):
-    """One starter is a one-location opening, and the bootstrap owns it.
+    """Named for one starter, which was a one-location opening the bootstrap
+    owned. It now runs casual at two starters, the bootstrap's live path.
 
     Archipelago's default battery is off here because `test_fill` generates, and
     what this class is for - that the opening gets widened before the general fill
@@ -189,8 +190,8 @@ class TestEarlyWeaponWithOneStarter(bases.CW4TestBase):
 
     def test_every_bootstrapped_item_opened_something(self) -> None:
         # The whole point: never spend a scarce slot on an item that unlocks
-        # nothing. A lone Factory is half of the Greenar pair and was the item
-        # that stranded seed 20100.
+        # nothing. A lone Factory was half of the Greenar pair (since merged)
+        # and was the item that stranded seed 20100.
         from BaseClasses import CollectionState
         state = CollectionState(self.multiworld)
         before = len([l for l in self.multiworld.get_locations(self.player)
@@ -292,15 +293,16 @@ class TestTraps(bases.CW4TestBase):
         pool = [i.name for i in self.multiworld.itempool]
         traps = [n for n in pool if n in TRAP_ITEMS]
         self.assertTrue(traps, "traps should appear at the default 50 percent")
-        # Real items are ~46, and the ERN port upgrades take a further fixed
-        # block (12 names x 4 copies at the default). Only what is left after
-        # BOTH splits half traps, half useful - the ERN block is generated
-        # before the trap split, so counting it as a leftover understated the
-        # denominator and made this expect 95 traps where 71 is correct.
-        # Real items are ~46, and three FIXED blocks come off the top before
-        # the trap split: the ERN upgrades, and the two energy upgrades now that
-        # their counts are capped. Only what remains after all of those splits
-        # half traps, half padding.
+        # The ERN port upgrades take a fixed block (12 names x
+        # ern_upgrade_copies, 2 at the default). Only what is left after BOTH
+        # splits half traps, half useful - the ERN block is generated before the
+        # trap split, so counting it as a leftover once understated the
+        # denominator (at 4 copies it expected 95 traps where 71 was correct).
+        # Real items are 45 at the defaults (46 below, from before the refinery
+        # was retired; the delta absorbs it), and three FIXED blocks come off
+        # the top before the trap split: the ERN upgrades, and the two energy
+        # upgrades now that their counts are capped. Only what remains after all
+        # of those splits half traps, half padding.
         from ..items import (ERN_UPGRADE_ITEMS, ENERGY_STORAGE_ITEM,
                              BASE_GENERATION_ITEM)
         erns = len([n for n in pool if n in ERN_UPGRADE_ITEMS])
@@ -662,12 +664,14 @@ class TestArchipelagoConventions(bases.CW4TestBase):
         from ..groups import ITEM_NAME_GROUPS
         from ..items import (BASE_GENERATION_ITEM, BONUS_UNIT_ITEMS, ENERGY_STORAGE_ITEM,
                              MISSION_UNLOCK_ITEMS, POOL_TRAP_ITEMS, PROGRESSIVE_ERN,
-                             UNIT_ITEMS)
+                             RETIRED_ITEMS, UNIT_ITEMS)
         # The two energy upgrades are the only FILLER_ITEMS create_all_items
-        # generates; the build limits keep their ids and nothing else.
-        poolable = (set(MISSION_UNLOCK_ITEMS) | set(UNIT_ITEMS) | set(BONUS_UNIT_ITEMS)
-                    | {PROGRESSIVE_ERN, ENERGY_STORAGE_ITEM, BASE_GENERATION_ITEM}
-                    | set(POOL_TRAP_ITEMS))
+        # generates; the build limits keep their ids and nothing else. A retired
+        # unit is in UNIT_ITEMS only to hold its id, so it is not poolable either.
+        poolable = ((set(MISSION_UNLOCK_ITEMS) | set(UNIT_ITEMS) | set(BONUS_UNIT_ITEMS)
+                     | {PROGRESSIVE_ERN, ENERGY_STORAGE_ITEM, BASE_GENERATION_ITEM}
+                     | set(POOL_TRAP_ITEMS))
+                    - RETIRED_ITEMS)
         for group, names in ITEM_NAME_GROUPS.items():
             for name in names:
                 self.assertIn(name, poolable,
@@ -913,8 +917,8 @@ class TestCasualBootstrap(bases.CW4TestBase):
     Casual is the HARSHER setting despite the name: rules._casual_defense adds a
     defensive requirement from CASUAL_DEFENSE_FROM onward, so more items are
     needed before the same locations open. At the default two starters the
-    opening is two wide - which cleared the old SAFE_OPENING_MIN of 2 while
-    sitting far below the SAFE_OPENING of 4 that items treats as slack.
+    opening is two wide - which clears SAFE_OPENING_MIN (2) while sitting far
+    below the SAFE_OPENING (4 then, 6 now) that opening.py treats as slack.
     """
     options = {"logic_difficulty": "casual"}
 

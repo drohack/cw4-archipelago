@@ -373,3 +373,15 @@ jobs:
           done
           [ "$missing" = 0 ] || exit 1
           echo "lib.sh resolved REPO=$REPO; all harnesses source it and none hard-codes a path"
+          # MOD_ERROR_RE against real BepInEx lines, which pad the level to
+          # seven characters. Three harnesses once wrote "[Error :" with one
+          # space and could never see an error.
+          printf '%s\n' '[Error  :CW4 Archipelago] boom' | grep -qE "$MOD_ERROR_RE"
+          printf '%s\n' 'late tick failed: x' | grep -qE "$MOD_ERROR_RE"
+          ! printf '%s\n' '[Info   :CW4 Archipelago] fine' | grep -qE "$MOD_ERROR_RE"
+          ! printf '%s\n' '[Warning:CW4 Archipelago] fine' | grep -qE "$MOD_ERROR_RE"
+          if grep -nE 'Error +:CW4 Archipelago' tools/*.sh | grep -v '^tools/lib.sh:'; then
+            echo "a harness spells out the mod-error pattern; use \$MOD_ERROR_RE from lib.sh" >&2
+            exit 1
+          fi
+          echo "MOD_ERROR_RE matches real error lines only, and is the only copy"

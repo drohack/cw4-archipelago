@@ -152,6 +152,21 @@ public static class MissionRules
     public static string InstanceLocation(int mission, int objectiveIndex, int instance)
         => $"{Titles[mission]} - {InstanceKind(objectiveIndex)} {instance}";
 
+    /// <summary>Whether an objective is complete in the multiworld: every one of
+    /// its locations in this slot is checked. Returns false when the objective
+    /// has no location here, so the caller can let the game answer instead.
+    ///
+    /// Built on LocationsForObjective for the same reason it exists: the map's
+    /// completion query (FakeCompletePatch) asked for the type-shaped name, and
+    /// for every counted objective that matched nothing, so the game answered
+    /// from the local save instead.</summary>
+    public static bool TryObjectiveComplete(SlotState state, int mission, int objectiveIndex, out bool complete)
+    {
+        var locations = LocationsForObjective(state, mission, objectiveIndex);
+        complete = locations.Count > 0 && locations.All(state.CheckedLocations.Contains);
+        return locations.Count > 0;
+    }
+
     /// <summary>Objectives that are a single check rather than a count: Reclaim
     /// is a percentage of the map, Custom is mission-scripted.</summary>
     public static bool IsCounted(int objectiveIndex) => InstanceKind(objectiveIndex).Length > 0;

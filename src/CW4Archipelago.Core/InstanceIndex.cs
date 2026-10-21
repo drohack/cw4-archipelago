@@ -113,7 +113,8 @@ public static class InstanceIndex
     /// Hence a known list. `remembered` is the full cell list in instance order,
     /// from MapCells, and anything in it that is no longer present has been
     /// taken. Only Farsite, Archon and Sequence
-    /// have two caches at all; the other 17 missions have one, where this
+    /// have two caches at all; the other 14 campaign missions with a cache have
+    /// one, where this
     /// degenerates to "the single cache, taken or not".</summary>
     public static List<int> DoneFromRemembered(
         IReadOnlyList<string> remembered,

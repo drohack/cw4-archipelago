@@ -196,7 +196,7 @@ grep -q "Home - Totem 1" "$SRV_LOG"; verdict $? "disconnected check reached the 
 
 echo "[apbattery] step 10/10: zero plugin errors"
 mark; send "dump"; sleep 1
-ERR=$(grep -cE "\[Error :CW4 Archipelago\]|tick failed|late tick failed" "$GAME_LOG" 2>/dev/null); ERR=${ERR:-0}
+ERR=$(grep -cE "$MOD_ERROR_RE" "$GAME_LOG" 2>/dev/null); ERR=${ERR:-0}
 [ "$ERR" -eq 0 ]; verdict $? "no plugin errors ($ERR)"
 
 echo "[apbattery] DONE: $PASS passed, $FAIL failed"

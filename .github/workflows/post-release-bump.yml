@@ -91,7 +91,8 @@ jobs:
           fi
 
           # And never onto a tag that already exists, for the same reason
-          # bump-version.ps1:62-64 refuses to.
+          # bump-version.ps1 refuses to ("Refuse to bump ONTO a version that
+          # has shipped").
           if git rev-parse "v$next" >/dev/null 2>&1; then
             echo "::error::v$next is already tagged - refusing to bump onto a shipped version"
             exit 1

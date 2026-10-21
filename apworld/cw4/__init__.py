@@ -72,7 +72,7 @@ class CW4World(World):
 
     # A group name is usable anywhere an item or location name is - in !hint and
     # in yaml lists - so these turn "keep my units local" into one line instead
-    # of twenty-four. See groups.py.
+    # of twenty-three. See groups.py.
     item_name_groups = groups.ITEM_NAME_GROUPS
     location_name_groups = groups.LOCATION_NAME_GROUPS
 
@@ -171,9 +171,9 @@ class CW4World(World):
         # without, as opposed to what logic is willing to assume. It lets the
         # in-game tracker paint red only where a check cannot be reached at all,
         # and yellow where it is reachable but out of logic - a hard-mode run
-        # the generator must never count on. The two differ wherever a
-        # MISSION_SOFT entry applies (energy on Not My Mars and Ruins
-        # Repurposed) or casual logic has added anti-air.
+        # the generator must never count on. The two differ wherever a soft
+        # entry applies (MISSION_SOFT, OBJECTIVE_SOFT, OBJECTIVE_INSTANCE_SOFT
+        # in rules.py) or the casual or easy tier has added requirements.
         data["strict_location_requirements"] = (
             rules.requirement_groups(
                 physical=True,

@@ -8,17 +8,19 @@
 # GetDataName() silently skips those buildings - that is how trap stun, weapon
 # drain and spore targeting passed over pylons, miners and ERN portals.
 #
-# "porter" is the one still unresolved, and the docs disagree with themselves
-# about it: research-findings.md:626 says 'Reactor' and 'DeliveryPad' are the
-# INTERNAL names of the MINER and PORTER buttons, while :107 maps
-# miner -> Collector and :163 lists Reactor and DeliveryPad as separate
-# buildables. One of those is wrong.
+# "porter" was the one left unresolved when this was written, and the docs then
+# disagreed with themselves about it: one entry said 'Reactor' and 'DeliveryPad'
+# are the INTERNAL names of the MINER and PORTER buttons, while the mapping
+# table said miner -> Collector. This probe settled it (2026-08-31): both were
+# right about different name spaces, and porter is DeliveryPad + DeliveryDrone -
+# see docs/research-findings.md, "A fourth name space" and "The 88-name
+# registry, dumped".
 #
 # The oracle is already in the dev tools: every build button owns a
 # UnitBuildGhost which owns the PREFAB it places, so ghost -> prefab data name is
 # the mapping with no guessing. It uses FindObjectsOfTypeAll, so nothing has to
-# be built or even unlocked. Also captured: the full 88-name registry, which is
-# recorded nowhere in the repo.
+# be built or even unlocked. Also captured: the full 88-name registry, which
+# this probe first recorded (now in docs/research-findings.md).
 #
 # Usage: tools/names-probe.sh          (game must be CLOSED)
 set -u

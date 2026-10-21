@@ -95,8 +95,9 @@ def main():
     ap.add_argument("--seeds", type=int, default=2000)
     ap.add_argument("--start", type=int, default=1)
     # RAISE THE CAP TO SEE THE TAIL. At the shipped cap the depth histogram is
-    # censored: a seed that would have needed 7 attempts is recorded as a failure
-    # at 5, and a run with no failures says only "at most 5", which cannot tell a
+    # censored: with a cap of 5 (its value when this was written), a seed that
+    # would have needed 7 attempts is recorded as a failure at 5, and a run with
+    # no failures says only "at most 5", which cannot tell a
     # comfortable margin from a seed away from disaster. Raising the cap turns
     # P(fail at cap 5) into the directly observable P(needed more than 5).
     # See docs/design/2026-09-14-fill-reliability.md.

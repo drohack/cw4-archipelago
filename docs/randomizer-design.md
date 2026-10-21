@@ -43,12 +43,14 @@ See also: [AP feature comparison + recommendations](design/2026-08-26-ap-feature
 | Category | Count | Notes |
 |---|---|---|
 | `Mission Unlock: <Title>` | 20 minus `starter_missions` | An item exists for ALL 20 missions; the starters are simply not put in the pool. Default 2 starters, so 18 |
-| Unit unlocks | 21 | Every key in `UnitRules.ItemToUnit` except the three bonus units. **Pylon is an item** - only `riftlab` and `tower` are always available |
+| Unit unlocks | 20 | Every key in `UnitRules.ItemToUnit` except the three bonus units. **Pylon is an item** - only `riftlab` and `tower` are always available. `Greenar Refinery` keeps its item id only (`items.RETIRED_ITEMS`): the Factory item unlocks the refinery too (`UnitRules.ItemAlsoUnlocks`) |
 | Bonus units | 3 | Airship, Bertha, Sweeper. These are CMOD units: `GetDataName()` returns a GUID, never a name |
 | `Progressive ERN` | `progressive_erns`, default 4 | Range 0-40. Never required to finish a mission, so this is purely pool budget |
 | `Build Limit +1 (<Unit>)` | **not generated** | Every building starts at the "unlimited" sentinel of -1, so there is no limit to raise and the item does nothing. Ids kept, pool entry removed - see the build-limits note below |
-| Energy storage / base generation | filler | Two items, applied to the rift lab. See "Energy items" below |
-| Traps | 6 | Share of the non-progression slots set by `trap_percentage`, default 50. Six are generated; a seventh, Emitter Overdrive, keeps its item id only - see the traps section |
+| Energy storage / base generation | `energy_storage_copies` + `base_generation_copies`, default 20 + 20 | Useful, not filler. Two items, applied to the rift lab, generated as fixed counts. See "Energy items" below |
+| `Progressive ERN Efficiency Rate/Cap: <upgrade>` | 12 names x `ern_upgrade_copies`, default 2 | Filler. Fixed counts, because a fifth copy would do nothing; see [ern-upgrade-measurements.md](ern-upgrade-measurements.md) |
+| Traps | 6 | Share of the slots left after every fixed count, set by `trap_percentage`, default 50. Six are generated; a seventh, Emitter Overdrive, keeps its item id only - see the traps section |
+| Boons | the rest | Ammo Resupply, Energy Cache, Field Shield, Resource Cache and six `ERN Surge: <upgrade>`. One-shot filler that pads the pool to the location count, alternating through `items.PAD_ITEMS` |
 
 There is no "ERN Spawning" item. An earlier draft proposed one; it was never
 built, and the deny-sweep idea it depended on was explicitly ruled out - see
@@ -127,11 +129,16 @@ mistakes most likely to be re-introduced:
 
 - **Offense is Cannon OR Mortar. Sprayer is NOT offense** - it burns bluite, and
   every bluite map was judged short of the resource for a sprayer-only run.
-- **Economy is not in logic at all.** No Miner, no ERN, no Factory-for-storage
-  general rule. Tower energy carries every map, tested on the one mission that
-  looked like an exception - see "Cross-mission questions, answered".
-- **Anti-air is not required in the standard tier.** Sniper and Missile Launcher
-  gate nothing except The Compound. Under `logic_difficulty: casual` one of
+- **Economy is not in logic as a general rule.** No ERN, no Factory-for-storage
+  general rule, and no blanket Miner. The Miner is in logic only where a played
+  map showed it was needed - six missions, pinned by
+  `test_miner_appears_only_where_verified` - and Tower of Darkness, the mission
+  first suspected, needs none; see "Cross-mission questions, answered".
+- **Anti-air is not required in the standard tier, with three exceptions.**
+  Missile Launcher gates nothing in standard. Sniper gates The Compound and
+  Wallis mission-wide and Sequence's twelve harder nullify targets, and is one
+  option of three for Somewhere in Spacetime's nullify and reclaim. Under
+  `logic_difficulty: casual` one of
   them - either - is required from mission 6 onward; under `easy` the same,
   and then from mission 13 both are, and both weapons too.
 - **Logic is NOT bounded by the vanilla unlock schedule.** The draft claimed logic
@@ -156,8 +163,8 @@ mistakes most likely to be re-introduced:
   restores it. The mod owns the display from AP state and leaves the file alone.
   Save isolation moves `saves/farsite` per slot instead.
 - Palette: FOUR colours - red not accessible, yellow reachable but not in logic,
-  green reachable and in logic, grey finished. A mission with some checks
-  reachable and some not (`TrackerStatus.Partial`) is drawn green.
+  green reachable and in logic, grey finished. A mission with some remaining
+  checks in logic and some not (`TrackerStatus.Partial`) is drawn green.
 - Menu: chronom/markV/colonies/editor hidden; AP login panel functional.
 
 ## Survey data (probe v0.54, automated, 2026-08-25)
@@ -270,12 +277,18 @@ Addendum (user, 2026-08-26) - objective requirements:
   CORRECTED: **14** of the twenty carry the chain - 5, 7, 8, 9, 10, 11, 12, 13,
   14, 15, 16, 18, 19, 20. Missions 2, 3 and 4 require NOTHING for their totems:
   they run off loose liftic caches, so there is deliberately no type-wide Totems
-  rule.
+  rule. The chain is now the Factory alone (`rules.GREENAR_CHAIN`): the Factory
+  item unlocks the refinery too, since 2026-09-03.
 - **Nullify objective requires the Nullifier.** CORRECTED: this is now
   **type-wide on all 20 missions**, not four. Encoding it only on the missions
   that require nullifying left every OPTIONAL nullify target reachable
   bare-handed once those targets became checks - roughly 120 locations. The
   missions themselves still never require it, only their nullify locations do.
+  **CHANGED 2026-10-21:** no longer quite true. Every Reclaim check needs it too
+  (type-wide since 2026-09-03), Archon requires it mission-wide
+  (`MISSION_EXTRA[12]`, hedged), and the Mission Complete checks of 2, 6, 11,
+  12, 15 and 20, and Founders' Victory event, carry it because a required
+  objective there needs it.
 Caveat: Totem.ammoWares is authored PER MAP (ware type -> amount), so a map
 could in principle demand a different ware. GetAmmoWareWanted reads 0 for all
 wares at mission start, so the live requirement was not readable - the blanket
@@ -302,17 +315,25 @@ Hedged calls are marked HEDGED in the code with the note they came from.
 ### Completing a mission
 
 Offense (Cannon OR Mortar) on all 20. Sprayers are excluded: they burn bluite and
-every bluite map was judged short of the resource for a sprayer-only run. Two
-missions add to it:
+every bluite map was judged short of the resource for a sprayer-only run. Five
+missions add to it (`MISSION_EXTRA`):
 
 | Mission | Extra | Source |
 |---|---|---|
+| 3 Not My Mars | Miner | "weapon only is red" (2026-09-13): towers cannot carry energy across to the objectives' islands |
 | 12 Archon | Nullifier | HEDGED: an enemy shuts off energy production, "super hard to do anything without a nullifier" |
 | 12 Archon | Shield | HEDGED: the map rains creeper, "doable/not super hard mode if you get SHIELDS as it creates a safe space" |
 | 16 The Compound | Sniper | saw blades die only to snipers, "no way to do any objectives without" |
+| 18 Wallis | Sniper, and Cannon specifically | "You need snipers to actually do this level as a hard requirement"; "Mortars and Snipers only is not possible (red)" (2026-09-08) |
+| 20 Ever After | Miner, Cannon AND Mortar | "you need Miners, morters and cannons. hard requirement" - the only mission needing both weapons |
 
-The Compound is the only mission where a sniper is in logic **in the standard
-tier**. Under `logic_difficulty: casual`, a Sniper OR Missile Launcher is
+Three more add a requirement that logic assumes and the tracker paints yellow
+rather than red when it is missing (`MISSION_SOFT`): Pylon or Porter on 3 Not My
+Mars, Miner on 4 Ruins Repurposed, Miner on 18 Wallis.
+
+The Compound and Wallis are the only missions where a sniper is required
+mission-wide **in the standard tier**; Sequence's harder nullify targets need
+one per instance. Under `logic_difficulty: casual`, a Sniper OR Missile Launcher is
 required from mission 6 onward. Under `easy` (added 2026-10-06) that holds
 until The Experiment, mission 13, and from there every one of Sniper, Missile
 Launcher, Cannon and Mortar is required - by story number, so every SPAN map
@@ -337,16 +358,18 @@ generation failures.
 
 ### Caches that need no weapon
 
-Ten Collect checks need NOTHING - not a weapon, not the mission's extras. Nine are
+Ten Collect checks need NOTHING - not a weapon, not the mission's extras. Each is
 the cache a player takes with the rift lab and a single tower before the creeper
 arrives, stated mission by mission in the worksheet ("You can get the item
 immediately with rift lab and single tower"): missions 2, 3, 4, 5, 7, 10, 11, 13,
-14. Archon is the tenth for a different reason - its caches are buried, but "If
-you have a pylon and a terp you can get the 2nd item (no weapons needed)", so a
-terp stands in for the weapon. The PYLON half of that quote is deliberately not
-encoded: the terrain analysis found Archon is one tower-connected land component
-end to end, so nothing there can need a Pylon for reach. See the comment above
-WAIVES_INSTANCE's neighbours in rules.py, which records the rule this replaced.
+14, and Farsite's first cache (`WAIVES_INSTANCE`). Archon also waives the weapon,
+for a different reason - its caches are buried - and so needs only a Terp for
+its near-centre cache: "you can get with just a terp" (designer, 2026-09-16). Its
+far cache re-states a weapon, plus Pylon or Shield to get there, and logic wants
+Shield and Factory, because it sits outside the starting shield in the rain. The
+older quote "If you have a pylon and a terp you can get the 2nd item (no weapons
+needed)" was withdrawn by the designer. See the comment on
+WAIVES_MISSION_REQUIREMENTS in rules.py.
 
 This is what makes a starting weapon unnecessary, and it is why cannon, mortar and
 sprayer can all stay real checks rather than one being handed over up front.
@@ -371,11 +394,11 @@ no room for.
 | Nullify on 15 Tower of Darkness | A Chronat beacon is the only way to reach the centre. |
 | Totems on 2, 3, 4 | The exception to the type-wide Totems rule: these three run off loose liftic caches and need nothing. |
 | Totems, the other fourteen | Greenar feeds the totems, and the chain is ONE item (Refinery and Factory were merged), so the rule names the Factory alone. |
-| Reclaim on 6 The Compound | HEDGED. The requirement is the designer's "probably nessesary", not a measurement, and is flagged so it can be revisited. |
-| Collect on 12 Archon | Buried, so a Terp - but see above: the Pylon in the source quote is deliberately NOT required. |
-| Collect on 16, 17, 18 | Buried - Terp. |
-| Collect on 19 Founders | Buried AND behind the land bridge Founders grows as it plays, so a Chronat as well. |
-| Custom on 19 Founders | The obelisk reactors and then the neutron reactor, which is why it needs a mover on top of the Nullifier. |
+| Reclaim on 6 We Were Never Alone | HEDGED. The requirement is the designer's "probably nessesary", not a measurement, and is flagged so it can be revisited. |
+| Collect on 12 Archon | Buried, so a Terp. The far cache also needs a weapon and a Pylon or Shield, and logic wants Shield and Factory - see above. |
+| Collect on 16, 18, and cache 1 on 17 | Buried - Terp. Sequence's cache 2 needs only a weapon. |
+| Collect on 19 Founders | Buried (Terp) AND in darkness, so a Chronat as well. |
+| Custom on 19 Founders | The obelisk reactors and then the neutron reactor, behind enemy lines, which is why it needs a Platform or Terp to leave the starting island on top of the Nullifier. |
 
 ### Structural rules
 
@@ -385,10 +408,12 @@ requirements plus the mission's own. A waived cache waives the weapon for ITS
 check only.
 
 **Prerequisite expansion.** Platform, Chronat and Rocket Pad need the greenar
-chain to build, so any rule requiring one also requires Greenar Refinery and
-Factory. Done in one place (`rules._expand`) so it cannot be forgotten, and
-deliberately NOT applied to an any-of group like "Porter or Platform", where only
-one branch needs it.
+chain to build, so any rule requiring one also requires the Factory (the chain is
+one item now). Done in one place (`rules._expand`) so it cannot be forgotten. For
+an any-of group like "Porter or Platform", where only one branch needs it, it
+adds a clause rather than the bare prerequisite - "Porter or Factory" beside the
+original group - so the Porter route never pays for a factory and a lone
+Platform still does.
 
 **slot_data contract.** Each `location_requirements` entry is COMPLETE. A
 consumer must not AND it with the mission's entry - a mission's cache is often
@@ -504,7 +529,7 @@ an empty inventory, or the generator has nowhere to place a first item. That
 means a mission whose cache can be taken with the rift lab and a single tower.
 Nothing requires the campaign to start at its beginning - missions are open - so
 the starters are drawn at random from the ten that qualify (1, 2, 3, 4, 5, 7,
-10, 11, 13, 14 - `items.STARTER_ELIGIBLE`) and every seed opens somewhere
+10, 11, 13, 14 - `roster.STARTER_ELIGIBLE`) and every seed opens somewhere
 different. `starter_missions` sets how many, default 2.
 
 Farsite IS eligible, and getting there took a rule change. Its first cache is
@@ -541,11 +566,13 @@ to its right.
 ### Cross-mission questions, answered
 
 - **Greenar for totems**: missions 2, 3, 4 run off loose liftic, no refinery.
-- **Porter**: never the only way; one appearance, as an alternative to Platform.
+- **Porter**: never the only way; every group it appears in also offers a
+  Platform or a Pylon (Not My Mars, Shattered, Sequence).
 - **Terp**: buried caches on 12, 16, 17, 18, 19.
 - **Sprayer / bluite**: never sufficient alone.
 - **Air units**: never the only way to reach anything.
-- **Miner / economy**: ANSWERED 2026-08-31, and it stays out of logic. Tower of
+- **Miner / economy**: ANSWERED 2026-08-31 for Tower of Darkness, where it stays
+  out of logic. Tower of
   Darkness was the one mission where mining "might" be needed, so it was played
   with exactly its logic requirements granted and no Miner, no Pylon, no Platform,
   no Terp and no energy items - the worst case a seed can hand a player.
@@ -570,6 +597,11 @@ unwinnable seeds in the one direction that matters.
 Miner is no longer a guess: it was the one item this could have got wrong, and the
 mission it could have got wrong is now played and reported above.
 
+**CHANGED 2026-10-21:** Miner is no longer on this list. Later play put it in
+logic on six missions (Not My Mars, Ruins Repurposed, Serious, Sequence, Wallis,
+Ever After), pinned by `test_miner_appears_only_where_verified`; it is still not
+a general rule.
+
 ## Traps, energy items and the option set (2026-08-30) - IMPLEMENTED
 
 ### Traps
@@ -578,8 +610,8 @@ The seven effects from the feasibility spike became items:
 `Spore Strike Trap`, `Spore Scatter Trap`, `Rift Breach Trap`,
 `Energy Drain Trap`, `Emitter Overdrive Trap`, `Unit Stun Trap`,
 `Ammo Drain Trap`. Six are generated, each with a weight option, and
-`trap_percentage` (default 50) sets what share of the non-progression slots they
-take. Emitter Overdrive was pulled from the pool on 2026-08-31, and on 2026-10-20
+`trap_percentage` (default 50) sets what share of the slots left after every
+fixed count they take. Emitter Overdrive was pulled from the pool on 2026-08-31, and on 2026-10-20
 its weight option and the mod's effect were removed too; only its item id
 remains, because ids are positional. Every effect is temporary and recoverable - permanent terrain deformation
 was dropped during the spike precisely because it could strand a mission.
@@ -631,7 +663,8 @@ The unit suites do pin the two sides SEPARATELY - `test_options.py` hard-codes
 the Python list, `TrapRulesTests` hard-codes the C# strings - and neither can
 see the other, so a rename applied to one side only passes both. What closes
 that is not a unit test but `tools/audit/audit.py`, which reads `TrapRules.cs`
-as text and compares it against `items.TRAP_ITEMS`. It caught this rename, and
+as text and compares it against `items.POOL_TRAP_ITEMS` (the generated traps;
+`items.TRAP_ITEMS` until Emitter Overdrive's effect left the mod). It caught this rename, and
 in doing so caught itself:
 
     FAIL every apworld trap name exists in the mod's TrapRules: ['Rift Breach Trap']
@@ -667,8 +700,11 @@ in `TrapEffects` and would want its own measurement.
 
 `Progressive Energy Storage` and `Progressive Base Generation`, both applied to the rift
 lab - the only real levers CW4 exposes (see research-findings.md, "Energy: the
-store is the rift lab's ammo"). Storage has diminishing returns, generation
-ramps, per the designer:
+store is the rift lab's ammo"). The designer first asked for storage with
+diminishing returns and generation that ramps; both curves were replaced, and
+each copy is now worth the maximum divided by the copy count
+(`EnergyRules.StorageBonus` / `GenerationBonus`), so the last copy lands exactly
+on the maximum and no copy is dead.
 
 The yaml exposes a CEILING and a COPY COUNT for each, and the per-copy amounts
 are derived from the pair rather than configured directly - so a player tunes
@@ -719,7 +755,8 @@ collapsing at the start. Seed 20100:
     Somewhere in Spacetime - Cache 1  -> Cannon
     Somewhere in Spacetime - Reclaim  -> Factory      <- opens nothing
 
-Totems want Greenar Refinery AND Factory, so a lone Factory is half a pair;
+Totems wanted Greenar Refinery AND Factory, so a lone Factory was half a pair
+(the pair was merged into the Factory on 2026-09-03 - see "Fixing the fill");
 nullify targets want a Nullifier. Twenty-nine items were left with nowhere to go.
 Archipelago's fill places one item at a time without looking ahead and cannot know
 the two are a pair - which is fine when there is slack, and fatal when there is
@@ -753,6 +790,10 @@ than `SAFE_OPENING`, the world places items itself, drawn at RANDOM from those
 that actually open something, into a location drawn at random from those reachable
 and empty. It stops as soon as there is slack, and the general fill takes over.
 Only `starter_missions: 1` reaches it; at 2 or more it is a no-op.
+**CHANGED 2026-10-21:** `starter_missions: 1` is no longer selectable (the
+minimum is 2), and the bootstrap now runs below `opening.bootstrap_threshold` -
+casual or easy logic at two starters, or a SPAN roster one location wide - and
+only when every player is Creeper World 4 (`World.needs_bootstrap`).
 
 It is not a script. The item and the location are both random draws - the only
 thing forbidden is picking something that opens nothing while a dud would be
@@ -862,9 +903,10 @@ worksheet says is false; nudging it early as a non-logic item would be.
 
 ### Degradation over failure
 
-An unfillable preference must not fail generation: zeroing every filler weight
-falls back to energy storage, and zeroing every trap weight turns those slots into
-useful items. Both are tested.
+An unfillable preference must not fail generation: zeroing every trap weight
+turns those slots into boons, tested by `TestAllWeightsZero`. The filler weights
+that once had the same fallback (to energy storage) were removed on 2026-10-20;
+the padding is now the boons, in a fixed alternation with nothing to zero.
 
 The filler fallback used to be build limits, which stopped being a safe default
 the moment build limits left the pool - the degradation would have degraded to an
@@ -879,7 +921,7 @@ tower. What does not work is the item, because of the gap between setting a limi
 and raising one.
 
 Every building starts at -1, the game's "unlimited" sentinel. `UnitGate.ApplyLimits`
-deliberately skips those, and has to: writing base+1 over an unlimited unit would
+(removed 2026-10-20) deliberately skipped those, and had to: writing base+1 over an unlimited unit would
 CAP a unit that had no cap, so a bonus item would arrive as a penalty. With every
 base unlimited, every increment is skipped, and a `Build Limit +1` item does
 nothing on any unit on any mission.
@@ -1066,6 +1108,9 @@ that was too loose, not tuning.
   Encoded per-mission it had covered only We Were Never Alone, leaving nine of
   eleven Reclaim checks asking for a weapon alone.
 
+- **CHANGED 2026-10-21:** on Not My Mars the Miner became HARD on 2026-09-13
+  ("weapon only is red", `MISSION_EXTRA[3]`); the mover is what is soft there
+  now. Ruins Repurposed is unchanged. The original entry:
 - **Miner gates Not My Mars and Ruins Repurposed, SOFT.** Both are energy
   problems caused by map geography, not income appetite. Soft because neither is
   literally impossible - Not My Mars can be done by hovering the rift lab
@@ -1107,6 +1152,11 @@ NOT ENCODED, deliberately, because there is no data yet. Missions 8 and 14 to 20
 currently carry no firepower requirement, so logic still overstates what a lone
 mortar can do there.
 
+**CHANGED 2026-10-21:** the runs below were encoded. Serious' Nullify and Reclaim
+need Cannon, Terp or Miner (`OBJECTIVE_OWN`, hard); Somewhere in Spacetime's need
+Cannon, Sniper or Terp (`OBJECTIVE_SOFT`); Wallis needs a Cannon and Ever After
+both weapons (`MISSION_EXTRA`).
+
 The designer's account of why it is hard to state:
 
   "Miners help get resources, which does help, only on some missions does just
@@ -1134,8 +1184,8 @@ Candidates: Cannon (the designer's prime suspect - "Cannons can do most
 anything" from 2026-08-25 remains untested against this wall), Terp, Miner,
 Miner + Factory, and 2 ERNs / bonus energy.
 
-**Price of the ERN answer:** ERN and energy items are deliberately filler that
-gates nothing. If an ERN count clears the wall it must become progression, which
+**Price of the ERN answer:** ERN and energy items are deliberately
+non-progression items that gate nothing. If an ERN count clears the wall it must become progression, which
 changes item classification, the pool and the sphere structure. That cost is
 worth naming before the test rather than discovering it after.
 
@@ -1256,8 +1306,8 @@ say what +5 does on any other map, and the Progressive Base Generation set's +10
 cap only matches Serious by coincidence.
 
 Testing the energy items at all is therefore only worth it if the designer would
-accept the price: they are deliberately filler that gates nothing, and any of
-them entering logic makes them progression and reshapes the pool.
+accept the price: they are deliberately non-progression items that gate nothing,
+and any of them entering logic makes them progression and reshapes the pool.
 
 The OR-group after four runs: ["Cannon", "Terp", "Miner"]. Every member acts on
 the energy economy - spend less holding ground, or produce more of it. None of
@@ -1313,9 +1363,12 @@ TWO CANDIDATES DELIBERATELY LEFT OUT of m14's group:
   bluite to be a weapon at all. _expand only adds a prerequisite when EVERY
   member of the group shares it, which is correct and means it will not rescue
   a mixed group. Encoding this needs a nested requirement the format does not
-  have.
+  have. **CHANGED 2026-10-21:** `_expand` now does handle a mixed group, by
+  adding a clause (the other members OR the prerequisite), so the Factory half
+  would be expressible; the bluite half is a map resource no item provides, and
+  Sprayer is still in no rule.
 - **ERNs** ("might work. I think 2-3"). Hedged, and it carries the price of
-  turning filler into progression. Left for a deliberate decision rather than
+  turning a useful item into progression. Left for a deliberate decision rather than
   smuggled in on a maybe.
 
 ### The wall is a per-map generation THRESHOLD, and that changes the encoding

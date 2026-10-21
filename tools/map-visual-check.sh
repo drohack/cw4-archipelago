@@ -15,7 +15,7 @@
 #                  the objectives that actually have checks. The second icon is
 #                  Farsite's CUSTOM check drawn as a totem on purpose - lighting
 #                  the two totems is what the mission actually asks, and a skull
-#                  says nothing; see MissionRules.IconAlias. It is still the
+#                  says nothing; see ObjectiveIcons.IconAlias. It is still the
 #                  "Farsite - Custom" location. No stray quad may sit at the
 #                  container origin, and the two must be spaced like every other
 #                  planet's.)

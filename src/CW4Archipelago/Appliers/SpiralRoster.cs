@@ -20,8 +20,9 @@ namespace CW4Archipelago.Appliers;
 ///
 /// WHAT IT WRITES, and why each field:
 ///
-///   planetGUID   what the launch path loads, and what FinalePlacement and the
-///                click patch identify a planet by
+///   planetGUID   what the launch path loads, and what FinalePlacement (before
+///                SlotOfPlanet records it) and FakeCompletePatch identify a
+///                planet by
 ///   map_guid     the same id on the mission record the panel builds
 ///   map_title    the game's own title field (blank on the shipped map, but the
 ///                tracker reads it as a fallback, so it must not disagree)
@@ -34,7 +35,7 @@ namespace CW4Archipelago.Appliers;
 ///
 /// WHAT IT DOES NOT TOUCH: the lock state. forceUnlocked / unlocked / the
 /// lockedPlanet object all belong to TrackerView, which sets them from AP state
-/// every frame. Writing them here would fight it, and the "?" on an unfound
+/// on every repaint. Writing them here would fight it, and the "?" on an unfound
 /// mission is exactly the behaviour being preserved.
 ///
 /// ORDER MATTERS: this runs BEFORE TrackerView.ApplyTints in the late tick. The

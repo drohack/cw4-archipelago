@@ -38,7 +38,8 @@ internal static class ModHooks
     // a route the mod does not hook. These say which route and how often.
 
     /// <summary>Game Refresh calls the mod's refresh patch acted on (nested
-    /// ones, from the mod's own repaint, excluded - as the mod counts them).</summary>
+    /// ones, from the mod's own repaint, excluded - as the mod's own counter
+    /// did before it moved here).</summary>
     internal static int Refreshes;
     /// <summary>Writes to SpanNetworkPlanet.unlocked, the other way a planet's
     /// display changes - counted to find out whether the game drives it per

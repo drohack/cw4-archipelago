@@ -3,7 +3,23 @@
 Versions follow semantic versioning. The plugin and the apworld share one number,
 so a release is a matched pair - if you update one, update the other.
 
-## v0.2.3 - Unreleased
+## v0.2.3 - The map's completion display follows the multiworld
+
+- **The mission map's completion display follows the multiworld for every
+  objective.** Nullify, Totems and Collect were answered from your local save
+  instead, so a mission your save had finished showed those objectives as done
+  even where the multiworld still had checks open. Reclaim and Custom were
+  already right. An objective now reads done only when every one of its checks
+  is.
+
+- **The `Units` and `Economy` item groups no longer list `Greenar Refinery`.**
+  It is never generated (Factory unlocks the refinery), so naming it in a group
+  did nothing. Placements are unchanged.
+
+- **The setup guides name the right save-archive folder.** Switching slots
+  moves your saves into `archipelago/save-archive/<seed>-<slot>/`, not
+  `<slot>/`. The installation guide also lists all 21 options correctly and
+  says how `trap_percentage` and the ERN maximums really count.
 
 ## v0.2.2 - Only what a player uses
 

@@ -114,8 +114,9 @@ four-question form.
 ## The other two plugins (build them yourself)
 
 The repo holds three BepInEx plugins. Only the randomizer is in a release; the
-other two are built locally, and neither shares code with the randomizer - run
-any combination of them, or none.
+other two are built locally. CW4DevTools shares no code with the randomizer and
+runs with it or without it. CW4Archipelago.Debug is built on the randomizer and
+loads only alongside it.
 
 | Plugin | What it does | Ships? |
 |---|---|---|
@@ -176,7 +177,8 @@ happily hand you buildings the randomizer has locked.
 ### Using CW4Archipelago.Debug
 
 Its presence IS the switch - there is no config flag. Installed, it watches
-`BepInEx/cw4ap-commands.txt` and runs one command per write, logging results to
+`BepInEx/cw4ap-commands.txt` and runs every command line in it each time the
+file is written, logging results to
 `BepInEx/LogOutput.log`. That is how the `tools/*.sh` batteries drive the game
 unattended:
 

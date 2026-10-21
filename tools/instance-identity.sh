@@ -253,7 +253,7 @@ done
 [ "$FOUND" = 1 ]; verdict $? "the server recorded the same instance"
 
 echo "step 5/5: zero plugin errors"
-ERR=$(grep -cE "\[Error  :CW4 Archipelago\]|\[Error   :CW4 Archipelago\]|tick failed" "$GAME_LOG" 2>/dev/null); ERR=${ERR:-0}
+ERR=$(grep -cE "$MOD_ERROR_RE" "$GAME_LOG" 2>/dev/null); ERR=${ERR:-0}
 [ "$ERR" -eq 0 ]; verdict $? "no plugin errors ($ERR)"
 
 echo "---"

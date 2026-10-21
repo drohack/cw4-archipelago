@@ -9,8 +9,9 @@
 #     installed buildings:dump reports the AP-allowed set instead of the
 #     mission's own, and every map would look identical
 #
-# The consequence is that the randomizer's richer dumps (inst:dump, counts:dump,
-# totems:dump, resources:dump) are NOT available here. That is fine for this
+# The consequence is that the debug plugin's richer dumps (inst:dump,
+# counts:dump, resources:dump) are NOT available here; CW4DevTools has its own
+# totems:dump, which map-dump.sh uses. That is fine for this
 # phase: obj:dump already gives totem / nullify / cache counts, which is what
 # the roster table needs. Per-instance map cells come later, when MapCells is
 # regenerated for SPAN.

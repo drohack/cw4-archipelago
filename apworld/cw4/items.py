@@ -174,8 +174,8 @@ FILLER_ITEMS = BUILD_LIMIT_ITEMS + [ENERGY_STORAGE_ITEM, BASE_GENERATION_ITEM]
 # Build limits are NOT generated (designer, 2026-09-01).
 #
 # Every building starts at the game's "unlimited" sentinel of -1, so there is no
-# limit to raise. UnitGate.ApplyLimits already refuses to touch those, and
-# correctly: writing base+1 over an unlimited unit would CAP something that had no
+# limit to raise. UnitGate.ApplyLimits, while it existed, refused to touch those,
+# and correctly: writing base+1 over an unlimited unit would CAP something that had no
 # cap, turning a bonus item into a penalty. The consequence is that a build-limit
 # item does nothing, on every unit, on every mission - not "nothing yet", nothing
 # at all.
@@ -216,8 +216,8 @@ TRAP_ITEMS = [
 # item" - the player spends a check, receives a trap, nothing happens, and the
 # whole trap pool starts to feel broken.
 #
-# Emitter Overdrive meets neither half. It no-ops where a mission ships no
-# emitters, logging "no emitters on this map - trap had no effect", and it has no
+# Emitter Overdrive meets neither half. It no-opped where a mission shipped no
+# emitters, logging "no emitters on this map - trap had no effect", and it had no
 # fallback. Emitters are present at mission START on 11 of 20 missions, so it is
 # dead on roughly a quarter to a third of the campaign. Every other trap depends
 # only on things every mission has: the world grid, the energy store, and the
@@ -346,8 +346,8 @@ def create_all_items(world) -> None:
     # generated is a copy that works.
     #
     # Clamped to what is actually left. At the maximum 4 copies this is 48
-    # items, which fits comfortably, but a seed with few locations - a small
-    # missions_for_finale, or heavy starter_missions - must not overflow its
+    # items, which fits comfortably, but a seed with few locations - a SPAN
+    # roster of small maps can hold well under 236 - must not overflow its
     # own location count.
     unfilled = len(world.multiworld.get_unfilled_locations(world.player))
     ern_copies = world.options.ern_upgrade_copies.value

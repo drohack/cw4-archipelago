@@ -22,7 +22,8 @@ class CW4TestBase(WorldTestBase):
     #
     # Access tests are about the RULES, so they run against an untouched pool.
     # The fill itself is covered where it belongs - test_fill generates for real,
-    # and TestOwnProgressionFill exercises the retry directly.
+    # TestOwnProgressionFill exercises it directly, and
+    # TestEarlyPlacementIsUndoneOnRetry forces a retry.
     #
     # Set `own_fill = True` on a subclass to test with it enabled.
     own_fill = False

@@ -16,6 +16,13 @@ public class TrackerRulesTests
     //
     // "Farsite - Cache 1" is that waiver: mission 1 needs a weapon, the first
     // cache does not, so it carries NO entry at all.
+    //
+    // Not faithful in two respects, both inert. mission_requirements and
+    // ern_per_item are an older seed's keys: the apworld no longer sends them
+    // and SlotData no longer reads them, so they change nothing here (which
+    // also shows the mission table is not ANDed in). And "Home - Nullify" /
+    // "Home - Totems" / "Home - Collect" are the pre-per-instance spellings;
+    // TrackerRules treats a location name as an opaque string.
     private const string Hints = @"{
         ""starter_missions"": [""story1""],
         ""mission_requirements"": { ""story1"": [[""Cannon"", ""Mortar""]], ""story2"": [[""Cannon"", ""Mortar""]] },

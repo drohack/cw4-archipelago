@@ -63,7 +63,8 @@ Location name groups:
 - By objective type: "Mission Complete", "Totems", "Nullify", "Collect", etc.
 
 ## Where CW4 already matches or beats the field
-- **Auto-reconnect (3 retries):** most surveyed clients have NO auto-reconnect
+- **Auto-reconnect (3 retries; unbounded with backoff since 2026-09-04):** most
+  surveyed clients have NO auto-reconnect
   (BRC, Hylics 2, Subnautica rely on manual reconnect + replaying stored
   checks). We are ahead. Keep the "replay checks on connect" pattern as the net.
 - **In-mission scrollable colored message box + mission-map tracker:** BRC/OC2
@@ -89,10 +90,11 @@ Location name groups:
 - Hylics 2: party/gesture/medallion shuffle, `StartLocation`, `ExtraLogic`,
   `death_link`. Subnautica: 4-way `goal`, `swim_rule` tiers, `creature_scans`,
   weighted `filler_items_distribution`, `death_link`.
-- Ours: **DONE** - 18 game options now live in `apworld/cw4/options.py`
-  (`missions_for_finale`, `logic_difficulty`, `starter_missions`,
-  `trap_percentage` and seven trap weights, `progressive_erns`, four energy
-  tunables, three filler weights). Was: empty `CW4Options(PerGameCommonOptions)`
+- Ours: **DONE** - 21 game options now live in `apworld/cw4/options.py`
+  (`missions_for_finale`, `logic_difficulty`, `span_missions`,
+  `starter_missions`, `early_weapon`, `progressive_erns`, four ERN upgrade
+  tunables, `trap_percentage` and six trap weights, four energy tunables;
+  `CW4Options`). Was: empty `CW4Options(PerGameCommonOptions)`
   - only the inherited common
   options; no game-specific options yet.
 
@@ -106,23 +108,29 @@ death until a safe game state. Ours: none.
 Only DLC Quest ships real traps (Zombie Sheep, timed spikes, loading-screen,
 name-change). TUNIC's fool_traps are opt-in tiers. BRC, OC2, Subnautica,
 Inscryption, Hylics 2: none. Ours: **DONE** - six trap items in the pool (seven
-exist; Emitter Overdrive is not generated) at
+have item ids; Emitter Overdrive is not generated, and the mod ignores one that
+arrives anyway) at
 `trap_percentage` (default 50), each with its own frequency weight, fired on
 receipt by `TrapApplier`. Note two shipped under different names than this doc
-uses: "emitter burst" is `Emitter Overdrive` and "weapon drain" is `Ammo Drain`.
+uses: "creeper surge" is `Rift Breach Trap` and "weapon drain" is
+`Ammo Drain Trap`. "Emitter burst" would have been `Emitter Overdrive Trap`.
 
 ### Filler
 Subnautica has weighted `filler_items_distribution`; BRC has tiered REP;
 Inscryption/Hylics 2 use fixed multisets. None use per-yaml weight sliders.
 Ours: **DONE** - filler is weighted across three kinds (energy storage, base
 generation, build limits) by three yaml weights, and the energy pair has a
-measured in-game effect. Was: build-limit items that are no-ops (no CW4 unit has a
+measured in-game effect. **CHANGED 2026-10-21:** no longer weighted. The ERN and
+energy upgrades are fixed copy counts set by their own options, traps take
+`trap_percentage` of what is left, and boons pad the rest
+(`items.create_all_items`); build limits are not generated and the three filler
+weights are gone. Was: build-limit items that are no-ops (no CW4 unit has a
 default cap) - flagged in the logic design.
 
 ### Item/location groups, hints
 TUNIC and BRC define rich `item_name_groups` (+ TUNIC location groups and hint
 aliases). BRC does client-side hint scouting. Most others define none. Ours:
-none.
+**DONE** - item and location name groups in `apworld/cw4/groups.py`. Was: none.
 
 ### slot_data + Universal Tracker
 All push their options into slot_data; OC2 is fully data-driven (unlock rules
@@ -146,7 +154,8 @@ requirement groups; no UT.
 - Save isolation via Harmony save-path redirection (Subnautica `ArchipelagoSaves`
   folder; Inscryption per-save folders; Overcooked! 2 per-game save dir).
 - Reconnect: most have NO auto-reconnect and lean on local-check replay; ours
-  auto-retries 3x, which is ahead.
+  auto-retries 3x, which is ahead. (Since 2026-09-04 it retries without limit,
+  backing off to 60s, as CommonClient does.)
 - Player commands: Hylics 2 exposes `/popups /deathlink /checked /respawn
   /airship(unstuck) /help` and `!` chat.
 

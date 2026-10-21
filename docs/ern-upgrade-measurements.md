@@ -70,7 +70,7 @@ the (now retired) `ern-buildcap-test.sh`, every level twice in one session:
 
 The game QUANTIZES build time, so 93 is not attainable - the real choice is 99
 or 78. 1.50 is nearest the target, errs conservative, gives a clean +12.5
-percent per copy, and sits on the 1.4-1.5 plateau so it is not sensitive to
+percent per copy at four copies (+25 at the default `ern_upgrade_copies` of 2), and sits on the 1.4-1.5 plateau so it is not sensitive to
 small changes. Confirmed against the shipped table (override untouched): eff
 1.5, 99 ticks, three times.
 
@@ -79,8 +79,8 @@ ceiling for 93 ticks. The real value at 1.70 is 54. The fit was badly wrong
 near the top and would have shipped an item twice as strong as intended.
 
 So the ceiling is PER UPGRADE, and the per-copy step is derived from it rather
-than fixed at 0.25 - the fourth copy lands exactly on the ceiling and no copy is
-ever a no-op, which is the failure that got build limits removed from the pool.
+than fixed at 0.25 - the last copy (`ern_upgrade_copies`, default 2, at most 4)
+lands exactly on the ceiling and no copy is ever a no-op, which is the failure that got build limits removed from the pool.
 
 ## The ramp shape - FIXED
 
@@ -187,8 +187,9 @@ found:
   story2. `ern-ore-scan.sh` mapped the campaign: nodes appear in story5 (1),
   story6 (4), story7 (1), story8 (1), story10 (1), story12 (6), story15 (3).
 - **`allowed=[riftlab,tower]` was OUR OWN randomizer**, not the mission. Miner,
-  Factory and Greenar Refinery are Archipelago unlock items
-  (`UnitRules.ItemToUnit`), so without granting them the build pane has nothing
+  Factory and Greenar Refinery were Archipelago unlock items
+  (`UnitRules.ItemToUnit`; the refinery now comes with the Factory, via
+  `UnitRules.ItemAlsoUnlocks`), so without granting them the build pane has nothing
   that mines. `set:allbuildings` does not cover this - the mod's gating runs on
   top of the dev tools' cheat.
 - Even with both fixed, placing a miner and factory by script did not wake a
@@ -243,7 +244,7 @@ re-measurement wants a fresh harness against today's build anyway, and
 | `ern-field-diff.sh` | dump every primitive property and diff it |
 | `ern-ore-scan.sh` | which missions have resource nodes |
 | `ern-mine-setup.sh` / `ern-mine-measure.sh` | the by-hand Mine Production economy |
-| `ern-mine-test.sh` | Mine Production, by script - see below, it never worked |
+| `ern-mine-test.sh` | Mine Production, by script - see above, it never worked |
 | `ern-upgrade-test.sh` | the per-upgrade plateau sweep |
 
 | tool | measures |

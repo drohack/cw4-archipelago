@@ -11,8 +11,9 @@
 #
 # It also differs in what it tolerates. span-off-parity runs parity_check.py
 # with its allow-lists live, because the SPAN change deliberately added
-# slot_data keys and deliberately fixed Archon. A restructure is allowed to
-# change NOTHING, so this sets CW4_PARITY_STRICT=1 and both allow-lists empty.
+# slot_data keys and deliberately fixed Archon (and a later cleanup deliberately
+# dropped keys). A restructure is allowed to change NOTHING, so this sets
+# CW4_PARITY_STRICT=1, which empties all three allow-lists.
 # The differences most likely to be introduced by accident while moving code are
 # exactly the ones those allow-lists would wave through.
 #

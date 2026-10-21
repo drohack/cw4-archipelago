@@ -82,7 +82,8 @@ public sealed class TrackerView
             return;
         }
 
-        // Built when Span.Start told us the map opened, not searched for.
+        // Searched for once, after Span.Start tells us the map opened, not
+        // every frame.
         if (_planets == null || _planets.Length == 0 || !GameUtil.IsAlive(_planets[0]))
         {
             _planets = UnityEngine.Object.FindObjectsOfType<SpanNetworkPlanet>();
@@ -380,9 +381,10 @@ public sealed class TrackerView
                 // the promise that a shown planet always reads as one of the four
                 // tracker colours.
                 //
-                // The icon's SHAPE is still vanilla's mistake, not something this
-                // can fix from here; correcting that means building the marker set
-                // ourselves instead of colouring the game's.
+                // The icon's SHAPE is corrected separately, by ReconcileGlyphs.
+                // This only decides the colour of a marker that stands for no
+                // location in this slot - which, with no server yet, is every
+                // marker.
                 status = TrackerRules.MissionStatus(state, mission);
             }
             else
@@ -531,6 +533,13 @@ public static class PlanetClickPatch
 /// <summary>
 /// Answers the map's display-time completion query from AP checked-state so the
 /// native completion indicators reflect the multiworld, not local save data.
+///
+/// An objective is complete when every one of its locations is checked
+/// (MissionRules.TryObjectiveComplete). This used to look up the type-shaped
+/// name ("Home - Nullify"), which per-instance locations do not have, so every
+/// counted objective fell through to the game's own save - and the local save
+/// can say a mission is done when the multiworld does not. The debug plugin's
+/// "fake:dump" and tools/objective-complete-test.sh read this back.
 /// </summary>
 [HarmonyPatch(typeof(SpanNetworkPlanet), nameof(SpanNetworkPlanet.FakeIsMissionObjectiveComplete))]
 public static class FakeCompletePatch
@@ -542,11 +551,9 @@ public static class FakeCompletePatch
             return true;   // unknown planet -> let the game answer
         if (obj < 0 || obj >= MissionRules.ObjectiveTypes.Length)
             return true;
-        var location = MissionRules.ObjectiveLocation(mission, obj);
-        var state = ModCore.Client.State;
-        if (!MissionRules.IsLocation(state, location))
+        if (!MissionRules.TryObjectiveComplete(ModCore.Client.State, mission, obj, out var complete))
             return true;   // non-tracked objective -> native behavior
-        __result = state.CheckedLocations.Contains(location);
+        __result = complete;
         return false;
     }
 }

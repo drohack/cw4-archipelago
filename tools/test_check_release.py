@@ -1,4 +1,4 @@
-"""Tests for tools/check_release.py's artifact rules.
+"""Tests for tools/check_release.py's artifact rules and its changelog rule.
 
     py -3.13 -m unittest discover -s tools -p "test_check_release.py"
 

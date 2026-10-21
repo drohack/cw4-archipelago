@@ -58,8 +58,8 @@ public sealed class SlotData
     public int MissionsForFinale { get; set; }
 
     // Amounts for the energy upgrades. They travel here rather than in the item
-    // names so that item ids stay identical across every yaml. Fractions are
-    // sent as TENTHS and percentages as whole percents; see EnergyRules.
+    // names so that item ids stay identical across every yaml. Each is a whole
+    // number - a maximum, or the copy count that reaches it; see EnergyRules.
     /// <summary>Where the storage total stops. The rift lab's own store is
     /// about 100, so the 900 ceiling is roughly 1000 total.</summary>
     [JsonPropertyName("energy_storage_max")]
@@ -111,7 +111,7 @@ public sealed class SlotData
     [JsonPropertyName("ern_rate_max_percent")]
     public int ErnRateMaxPercent { get; set; } = 400;
 
-    /// <summary>How high four copies of an ERN Efficiency Cap item let an
+    /// <summary>How high a full set of ERN Efficiency Cap items lets an
     /// upgrade's efficiency reach, as a percent. 200 is double.</summary>
     [JsonPropertyName("ern_cap_max_percent")]
     public int ErnCapMaxPercent { get; set; } = 200;

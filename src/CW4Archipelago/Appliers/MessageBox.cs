@@ -29,10 +29,11 @@ public sealed class MsgLine
 /// bottom-left above the HUD readout cluster (terrain height / creeper coverage
 /// / progression), matching its combined width. Colors each part with the AP
 /// dark palette; scrolls via a scrollbar or the mouse wheel while hovering, and
-/// has an always-on chat/command input row at the bottom. It reads
-/// the cluster's live on-screen rect each frame (world corners through the
-/// UICanvas camera, mapped into the overlay canvas), so it scales with both the
-/// window size and the in-game UI Scale setting. Replaces the old fading toasts.
+/// has an always-on chat/command input row at the bottom. Every ten frames it
+/// reads the live UI scale off the HUD's BOTTOM corner container (through the
+/// UICanvas camera, mapped into the overlay canvas) - see UpdateGeometry - so it
+/// scales with both the window size and the in-game UI Scale setting. Replaces
+/// the old fading toasts.
 /// History lives in ModCore and survives scene changes.
 /// </summary>
 public sealed class ApMessageBox
@@ -144,7 +145,8 @@ public sealed class ApMessageBox
         UpdateInputFocusGuard();
     }
 
-    // Disable the game's InputManager while the box is in use, so it does not
+    // Skip the game's InputManager handling (InputBlock) while the box is in
+    // use, so it does not
     // also read those keys/wheel: (a) chat field focused -> typed keys (WASD,
     // hotkeys) must not drive the game; (b) pointer over the box -> the mouse
     // wheel scrolls the box instead of zooming the map. Re-enabled the instant
@@ -199,8 +201,9 @@ public sealed class ApMessageBox
         ArmScrollSettle();
     }
 
-    // A single-line chat/command input, hidden by default. Built with the
-    // MenuUi caret recipe (SetActive false -> wire -> true) then hidden.
+    // A single-line chat/command input, always visible (hidden only while the
+    // box is collapsed). Built with the MenuUi caret recipe (SetActive false ->
+    // wire -> true).
     private TMP_InputField MakeChatInput()
     {
         var box = new GameObject("ChatInput");
@@ -301,7 +304,8 @@ public sealed class ApMessageBox
 
         // Full-screen stretch container (pivot bottom-left so screen->local maps
         // cleanly), then the box panel as a bottom-left-anchored child. Exact
-        // size/position are set every frame by UpdateGeometry from the live HUD.
+        // size/position are set every ten frames by UpdateGeometry from the live
+        // HUD.
         _canvasGo = new GameObject("CW4ApMessageBoxRoot");
         _canvasGo.transform.SetParent(host.transform, false);
         _canvasGo.transform.SetAsLastSibling();

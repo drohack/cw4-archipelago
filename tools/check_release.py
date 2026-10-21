@@ -80,7 +80,8 @@ MANIFEST = os.path.join(REPO, "apworld", "cw4", "archipelago.json")
 CHANGELOG = os.path.join(REPO, "CHANGELOG.md")
 CI = os.path.join(REPO, ".github", "workflows", "ci.yml")
 
-# Each dev plugin states its version twice and nothing checks the pair.
+# Each dev plugin states its version twice; check_dev_plugins holds the pair
+# together.
 DEV_PLUGINS = [
     ("CW4Archipelago.Debug", os.path.join(REPO, "src", "CW4Archipelago.Debug",
                                           "CW4Archipelago.Debug.csproj"),

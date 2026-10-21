@@ -36,12 +36,16 @@
   directory, because 29 files compute their own path to the repo root from
   their own depth and a subdirectory would silently break every one of them:
   - `check_*.py` - the release and documentation gates, also run by CI.
+    (`check_slotdata.py` is the exception: a harness helper that prints one
+    slot_data key from a multidata, and CI does not run it.)
   - `gen_*.py` - generate a checked-in file. Each one's output declares which
     generator produced it, and `check_docs.py` enforces that.
   - `*.sh` - the in-game harnesses. All of them source `tools/lib.sh`, which
     holds the one copy of the game path (`GAME_DIR`, from `CW4_DIR`), the log
     and command-file paths, and the log helpers.
-  - `*.ps1` - release packaging and version bumping.
+  - `*.ps1` - release packaging and version bumping, plus `ap-sync.ps1`
+    (copies the world into the Archipelago clone) and `game-key.ps1` (sends a
+    keystroke to the game window).
   - `tools/audit/` - offline measurement, run with the working directory set to
     an Archipelago clone. That different execution contract is why it is a
     directory and the rest is not.
@@ -252,8 +256,8 @@ Four tiers, in ascending cost:
      mission with no test failing anywhere. `tools/span_data_compare.py` does
      the comparison and can also be pointed at the original survey dump, which
      answers the weaker question of whether the GENERATOR garbled anything.
-   - `tools/msgbox.sh` - the message box on its own: it builds and anchors to
-     the minimap, ingests server item-receive/send lines and connection lines
+   - `tools/msgbox.sh` - the message box on its own: it builds on a
+     screen-space canvas, ingests server item-receive/send lines and connection lines
      with AP colours, and its history survives a second mission boot.
    - `tools/offline-test.sh` - disconnects and offline play: an unreachable
      server is retried rather than given up on, a refusal is not, a deliberate
@@ -263,7 +267,7 @@ Four tiers, in ascending cost:
      every other test because they only show on the SECOND connection. It picks
      its own free ports (38401-38500) rather than using 38281, and keeps a copy
      of the log per phase under `.aptest/offline-logs/` - BepInEx truncates the
-     log on each of its four launches, and without those copies a late failure
+     log on each of its three launches, and without those copies a late failure
      cannot be diagnosed afterwards. See
      [design/2026-09-04-offline-and-disconnects.md](design/2026-09-04-offline-and-disconnects.md).
 
@@ -351,7 +355,10 @@ and the game writes a file with a tab in its name. Pass it as an argument
 CW4DevTools has its OWN file-command channel at
 `<game>/BepInEx/cw4dev-commands.txt`: `boot:storyN`, `ada:close`,
 `sim:run [speed]` / `sim:pause`, `spawn:<RealUnitName> [n]`, `shot:<path>`,
-`dump`, `story:open`, `planets:dump`, `obj:dump`, `overlay:dump`,
+`build:[unit] <x> <y>` (places through the game's own build ghost, so the
+unit is real; also `build:scan` and `build:chain`), `dump`, `story:open`,
+`planets:dump`, `obj:dump`, `buildings:dump`, `map:dump <path>`,
+`totems:dump`, `wares:names`, `save:auto`, `overlay:dump`,
 `span:goto <guid>`, `set:<cheat>=on|off`, the SPAN family
 (`span:open`, `span:list`, `span:boot <guid>`, `span:play <guid>`,
 `span:swap`, `span:icons`), plus two families worth knowing:
@@ -384,7 +391,7 @@ randomizer just to boot a mission or take a screenshot - doing that repeatedly
 is how the Archipelago layer kept getting left switched on. No AP commands here
 by design.
 
-Both csprojs accept `-p:SkipDeploy=true` to compile without installing into the
+All three plugin csprojs (the mod, the debug plugin and the dev tools) accept `-p:SkipDeploy=true` to compile without installing into the
 game. Without it, every build re-creates the plugin folder, which silently
 re-enabled the randomizer in the middle of a vanilla test session.
 
@@ -704,11 +711,12 @@ Four bugs worth remembering, all found by playtest rather than by reading code:
 
 **Regression battery: `tools/devtools-test.sh`** (game closed; optional mission
 arg, default story7). It pins a KNOWN config before launching, boots, builds a
-fixture and asserts on log output - 23 checks covering plugin load, randomizer
-absence, boot, spawn-by-real-name, the map-content snapshot, instant build,
+fixture and asserts on log output - 25 checks covering plugin load, randomizer
+absence, boot, spawn-by-real-name (a cannon and the rift lab), the map-content
+snapshot, the state line, instant build,
 weapon ammo, energy, health, the impervious and terrain-destroy flags and their
 release, the AllBuildings save/restore pair, freeze creeper, the cheat strip's
-content, and a zero-error log. One check is reported as SKIP rather than failing,
+redraw count and content, and a zero-error log. One check is reported as SKIP rather than failing,
 because the fixture genuinely cannot exercise it.
 
 It exists because ad-hoc checking kept passing while something else broke. In its
@@ -717,9 +725,12 @@ silently off (an earlier `set:instantbuild=off` had persisted into the config),
 an assertion on `energyProduction` that the sim recomputes after our write, and
 the ware/ammo interaction below. Any change to the cheats should re-run it.
 
-One check reports SKIP: ware filling needs a factory wired into the packet
-network, and a factory spawned by `CreateUnitAtPosition` has none, so the fixture
-cannot exercise it. It is verified by hand instead. Reported rather than deleted -
+One check reports SKIP: ware filling. A factory spawned by `CreateUnitAtPosition`
+is never wired into the packet network, so the fixture now builds a real rift
+lab and sprayer through the game's own build ghost (`build:`) - and still
+nothing is filled, which rules the network out and leaves the cheat's own
+condition (the sprayer's `AMMO_WARES` looks empty on story7). The check passes
+if a run ever fills a ware. It is verified by hand instead. Reported rather than deleted -
 a false FAIL trains you to ignore the battery, and a silent deletion hides a gap.
 
 The ware/ammo interaction took four attempts and is worth reading in
@@ -771,25 +782,38 @@ check:<location>, boot:<storyN>, objective:<n>, win, ada:close, tracker:dump,
 story:open, clickplanet:<storyN>, limit:<unit>, ern:status, gatecheck:<storyN>,
 say:<text>, showall:on|off, shot:<path>, msgbox:dump, canvas:dump,
 hud:dump, minimap:dump, menu:dump, toast:<text>, finale:need <n>, finale:beat
-<n>, loc:add <location>, perf, glyphs:dump [planet title], totem:complete,
+<n>, loc:add <location>, perf, glyphs:dump [planet title], fake:dump [planet
+title], totem:complete,
 cache:destroy, counts:dump, totems:dump, pane:dump, resources:dump,
-resources:zonetest, diag:span, diag:watch [seconds], diag:refresh <planet title>.
+resources:zonetest, diag:span, diag:watch [seconds], diag:refresh <planet title>,
+grant:<unit key>, items:clear, loadsave:<storyN|index>, obj:dump, null:dump,
+inst:dump, ui:input, ui:keys [off], msgbox:fill [n], spawnat:<key> <x> <y>,
+measure:ware|move|build|energy, ada:clear, ui:text [filter], ui:hide <text>,
+upgrade:units [filter], the `ern:` family (dump, erns, stats, ui, resources,
+dumpall, free, cap [v|off], assign <i>, release <i>), the `boon:` family (ammo,
+shield, cache <ware|all> [amount] [create], surge <i>, energy [fraction]),
+plus `sim:`, `spawn:` and `trap:` described below.
 
-Four of those exist for the event-driven work and are worth knowing:
+Six of those exist for the event-driven work and are worth knowing:
 `glyphs:dump` reads each objective glyph back off the live object - colour named
 RED/YELLOW/GREEN/GREY, plus name, activeSelf, localPosition, material and
 `_MainTexture` - so both the colouring AND the icon set can be asserted from a
 log instead of eyeballed in a screenshot, and a HIDDEN marker can be told from an
-ABSENT one; `diag:refresh` calls the game's Refresh on one planet and reports its
+ABSENT one; `fake:dump` calls each planet's `FakeIsMissionObjectiveComplete`
+for every objective slot - the map's own completion query, which
+`FakeCompletePatch` answers from the multiworld - so a fall-through to the local
+save shows up as a wrong True or False; `diag:refresh` calls the game's Refresh on one planet and reports its
 objective child count either side, which is how "Refresh appends markers" was
 measured (and it adds markers as a side effect, so it is a measurement, not
 something to leave running); `perf` reports recolour passes plus how
 many times each location patch has fired; `totem:complete` drives
 `Totem.totemComplete` on one live totem, which really completes it and really
 goes through the patched setter; `cache:destroy` destroys one info cache, which is
-the effect a pickup has. A real pickup is still unscriptable - mouse input does
-not reach CW4's UI - so `tools/cache-handtest.sh` sets up both sides of one and
-watches for the check.
+the effect a pickup has. A real pickup is scripted too, by
+`tools/cache_autotest.sh`: mouse input does not reach CW4's UI, but the dev
+tools' `build:` drives the game's own build ghost, so it builds a real network
+to the cache. `tools/cache-handtest.sh` is the hand route, kept as a check that
+the automated one measures the same thing.
 
 The dev tools have `overlay:dump`, which reports the cheat strip's text and how
 many times it has been redrawn - the strip is event-driven now, and a lost
@@ -797,12 +821,15 @@ subscription would otherwise leave it quietly showing stale cheat state.
 
 Test scaffolding and the traps spike (see
 [traps spike](design/2026-08-26-traps-spike.md)):
-`sim:run [speed]` / `sim:pause` clears every `GameSpace.pauseOwner` entry so a
-battery can run the sim without a human pressing play; `spawn:<unitKey> [n]`
+`sim:run [speed]` clears every `GameSpace.pauseOwner` entry so a
+battery can run the sim without a human pressing play (`sim:hold on|off` keeps
+clearing them every frame, `sim:pause` pauses again); `spawn:<unitKey> [n]`
 places units beside the rift lab (or at map centre before it exists) so
-unit-targeting effects have targets (`spawn:CommandBase` works on the DEV-TOOLS channel only - the mod's own
-`spawn:` lowercases its argument, so it takes build-pane keys and a registry
-name like `CommandBase` will not resolve);
+unit-targeting effects have targets (the mod's own `spawn:` lowercases its
+argument and passes it straight through, so it takes the lowercased unit name -
+`spawn:commandbase`, `spawn:erninterface` - and a build-pane key like `riftlab`
+places nothing; `spawnat:` alone maps the four aliases. See
+[in-game-testing.md](in-game-testing.md));
 `trap:<name> [args]` fires one trap effect - `scatter` (spores at random
 points), `building` (spores at random player buildings), `spore` (whichever is
 configured), `creep`, `energy`, `emit`, `stun`, `drain` - plus `status` for a readback (including the
@@ -864,12 +891,15 @@ asked faithfully - `UnitGate` enforces the list, so the tester cannot cheat by
 accident.
 
 Scripts read the game location from `CW4_DIR` (defaults to the maintainer's
-path) and write outputs under `$TEMP`.
+path) and write outputs under the gitignored `.aptest/` in the repo
+(`names-probe.sh` writes under `$TEMP`).
 
 **`tools/lib.sh` holds that resolution, and every harness sources it.** It sets
 `GAME_DIR` from `CW4_DIR`, `GAME_LOG`, the two command-file paths and the two
 config paths, plus `REPO`, `AP`, `PLUGINS`, `PARKED`, the `mark`/`since` log
-helpers and `require_game`. A new harness needs two lines:
+helpers, `MOD_ERROR_RE` (the one pattern for a mod error line - BepInEx pads
+the level, so it is `[Error  :` with two spaces, which three harnesses once got
+wrong), the `listening`/`find_free_port` port helpers and `require_game`. A new harness needs two lines:
 
 ```sh
 set -u
@@ -990,14 +1020,16 @@ playthrough yet", which a player deserves to know before spending an evening.
 ### Releases are built locally, and cannot be built in CI
 
 CI cannot produce the mod zip. `CW4Archipelago.csproj` references
-`$(GameDir)/BepInEx/interop/Assembly-CSharp.dll` and nine more - interop
+`$(GameDir)/BepInEx/interop/Assembly-CSharp.dll` and eight more - interop
 assemblies BepInEx generates from Creeper World 4's own IL2CPP code. They are
 derived from the game, so a public runner cannot legitimately have them and they
 must never be committed here. `.github/workflows/ci.yml` therefore cannot build
-the shipping plugin at all. What it does cover is five jobs: `version` (the three
+the shipping plugin at all. What it does cover is six jobs: `version` (the three
 version files agree, and main is not sitting past a shipped tag), `core`,
-`apworld`, `compliance` (Archipelago's own world suite on a pruned tree) and
-`ascii`. Worth stating precisely, because this sentence used to stop at "the
+`apworld`, `compliance` (Archipelago's own world suite on a pruned tree),
+`ascii` and `docs` (`tools/check_docs.py`, plus every harness parsing and
+sourcing `tools/lib.sh`, and `MOD_ERROR_RE` matching real-format error lines
+and being the only copy). Worth stating precisely, because this sentence used to stop at "the
 Core layer, the apworld and the ASCII rule" - omitting the two jobs that enforce
 the release guarantees the rest of this section describes.
 
@@ -1023,7 +1055,10 @@ automated plugin build is a self-hosted runner on a machine that owns the game.
    skipped one and printed 22 would have read as correct.)
 5. `tools/map-visual-check.sh` and READ the screenshot against the expected
    result in its header. Two map bugs reached a player because every check here
-   read the log instead of looking.
+   read the log instead of looking. `tools/objective-complete-test.sh` covers
+   the half a screenshot cannot: the map's own per-objective completion answer,
+   read back through `fake:dump`, must follow the multiworld rather than the
+   local save.
 6. Manual smoke: launch, main menu shows the AP panel and slimmed buttons,
    boot two missions, verify unit whitelist and mission locks.
 7. **Do not bump here.** The version is bumped in the commit AFTER a release,
@@ -1048,7 +1083,8 @@ automated plugin build is a self-hosted runner on a machine that owns the game.
 12. Create the GitHub release with **all three** assets from `dist/`. (This said
    "both artifacts", from before the yaml existed.)
 13. **Check the version bumped.** `.github/workflows/post-release-bump.yml`
-   rewrites all three files on `release: published` and pushes to main - for a
+   rewrites all three files and opens the next CHANGELOG section on
+   `release: published`, and pushes to main - for a
    pre-release too, since publishing under a `vX.Y.Z` tag consumes that number
    however the release is flagged. It pushes with `GITHUB_TOKEN`, which starts
    no workflow run, so **nothing re-checks that commit**: pull main and look.

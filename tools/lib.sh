@@ -78,6 +78,16 @@ PARKED="$GAME_DIR/BepInEx/plugins-disabled"
 # shorter than MARK, so tail printed NOTHING and every assertion after the first
 # relaunch was reading an empty string. Ten other harnesses already had this
 # guard; those four now do too.
+# A line the mod logged at Error level, or a tick that threw. For
+# `grep -cE "$MOD_ERROR_RE" "$GAME_LOG"`.
+#
+# BepInEx pads the level to seven characters - "[Info   :", "[Warning:", and so
+# "[Error  :CW4 Archipelago]" with TWO spaces. Five harnesses used to write this
+# pattern out by hand, and three of them wrote one space: their zero-errors check
+# could never match an error line, and only ever caught "tick failed". One copy,
+# here, and CI checks it against real-format lines.
+MOD_ERROR_RE='\[Error +:CW4 Archipelago\]|tick failed'
+
 MARK=0
 mark() { MARK=$(wc -l < "$GAME_LOG" 2>/dev/null || echo 0); }
 since() {
@@ -98,8 +108,14 @@ since() {
 #
 # So the helpers live here rather than in two harnesses out of three. Pick a
 # free port from your own range, remember the PID you started, and kill only
-# that. Ranges in use: apbattery 38301-38380, offline-test 38401-38500,
-# msgfilter 38551-38600, trapboon-test 38601-38650.
+# that. Ranges in use: apbattery and apbattery2 38301-38380, msgbox
+# 38301-38350, instance-identity 38351-38400, offline-test 38401-38500 (serves
+# on 38401-38450, and takes an unused 38451-38500 port as its dead one),
+# objective-backfill-test 38401-38450, retry-interval 38451-38500 (a dead port),
+# span-e2e-test 38501-38550, msgfilter 38551-38600, trapboon-test 38601-38650.
+# (msgbox, instance-identity, objective-backfill-test, offline-test,
+# retry-interval and span-e2e-test still define their own copy of
+# find_free_port after sourcing this file, which overrides this one.)
 listening() { netstat -ano 2>/dev/null | grep "LISTENING" | grep -q ":$1 "; }
 find_free_port() {
   local p

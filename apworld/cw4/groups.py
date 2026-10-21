@@ -4,7 +4,7 @@ Archipelago lists these as encouraged features for a world, and they are not
 cosmetic: a group name works anywhere an item or location name does. That means
 `!hint Traps`, and yaml entries like `non_local_items: [Units]` or
 `exclude_locations: [Founders]` - which is the difference between a player being
-able to express "keep my units in my own world" in one line versus twenty-four.
+able to express "keep my units in my own world" in one line versus twenty-three.
 
 Groups are derived from the same tables that build the pool, so they cannot drift
 from the items that actually exist.
@@ -16,6 +16,7 @@ from .items import (
     MISSION_UNLOCK_ITEMS,
     POOL_TRAP_ITEMS,
     PROGRESSIVE_ERN,
+    RETIRED_ITEMS,
     UNIT_ITEMS,
 )
 from .items import ALL_MISSION_TITLES
@@ -37,14 +38,19 @@ from .locations import (
 # even though logic wants it for objectives rather than for fighting.
 _WEAPONS = ["Cannon", "Mortar", "Sprayer", "Sniper", "Missile Launcher", "Nullifier",
             "Bertha", "Bomber Pad", "AC Bomber Pad", "Rocket Pad", "Runway", "Airship"]
-_ECONOMY = ["Miner", "Factory", "Greenar Refinery", "ERN Portal", "Porter", "Platform",
+_ECONOMY = ["Miner", "Factory", "ERN Portal", "Porter", "Platform",
             "Pylon", "Terp", "Microrift", "Chronat", "Shield", "Sweeper"]
+
+# Every unit the pool can hold. A retired unit keeps its name only to hold its id
+# (items.RETIRED_ITEMS), so it is left out for the same reason as the Build
+# Limits note below: a group must not name an item that is never generated.
+_UNITS = (set(UNIT_ITEMS) | set(BONUS_UNIT_ITEMS)) - RETIRED_ITEMS
 
 ITEM_NAME_GROUPS = {
     "Mission Unlocks": set(MISSION_UNLOCK_ITEMS),
-    "Units": set(UNIT_ITEMS) | set(BONUS_UNIT_ITEMS),
-    "Weapons": {n for n in _WEAPONS if n in set(UNIT_ITEMS) | set(BONUS_UNIT_ITEMS)},
-    "Economy": {n for n in _ECONOMY if n in set(UNIT_ITEMS) | set(BONUS_UNIT_ITEMS)},
+    "Units": _UNITS,
+    "Weapons": {n for n in _WEAPONS if n in _UNITS},
+    "Economy": {n for n in _ECONOMY if n in _UNITS},
     "Traps": set(POOL_TRAP_ITEMS),
     # No "Build Limits" group: those items are not generated, so the group would
     # match nothing. Groups exist to be typed into a yaml or a !hint, and one that
@@ -71,7 +77,7 @@ def _by_kind(kind: str) -> set:
 
 
 # One group per mission, named exactly as the mission is - so a player can write
-# `exclude_locations: [Tower of Darkness]` without listing fourteen checks - plus
+# `exclude_locations: [Tower of Darkness]` without listing sixteen checks - plus
 # one per kind, for "I do not want to hunt every cache".
 # SPAN missions get groups too. Without them the per-mission groups stop
 # PARTITIONING the location set, so `exclude_locations: [<mission>]` would

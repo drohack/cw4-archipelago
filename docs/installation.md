@@ -68,11 +68,10 @@ game someone else generated, skip to "Connecting".
 2. Put `cw4.apworld` (from the same release as the mod) into the Archipelago
    installation's `custom_worlds/` folder. Create it if it is not there.
 
-   **Which folder is that?** Archipelago uses its install folder when that is
-   writable, and `%USERPROFILE%/Archipelago` when it is not - so an install
-   under `Program Files` puts your files in the second one while a portable or
-   source copy keeps them alongside the program. Rather than guess: the folder
-   holding `Players/` is the one that also wants `custom_worlds/`.
+   **Which folder is that?** On Windows it is always the Archipelago install
+   folder itself: Archipelago has no per-user data folder there. Rather than
+   guess: the folder holding `Players/` is the one that also wants
+   `custom_worlds/`.
 3. Put `Creeper World 4.yaml` (same release) into `Players/`, and edit `name:`
    to your slot name. Every option has a default, so you can change nothing
    else and it will generate.
@@ -86,9 +85,9 @@ To check the world loaded, the generator prints a line per game; look for
 ## Yaml options
 
 Every option has a default, so a yaml that names none of them generates a
-sensible seed. All 25 are listed below. The yaml shipped with the release
-lists the 21 that do something, each with a one-line description, in the same
-order as the options page on the Archipelago website.
+sensible seed. All 21 are listed below, followed by the four removed in 0.2.2.
+The yaml shipped with the release lists all 21, each with a short description,
+in the same order as the options page on the Archipelago website.
 
 **The ones most worth setting:**
 
@@ -99,7 +98,7 @@ order as the options page on the Archipelago website.
 | `starter_missions` | 2 | 2 to 6 | How many missions start unlocked, drawn from those whose cache needs no weapon. The minimum was 1 until 2026-09-03: one starter is a one-location opening, and about one seed in 400 failed to generate from it, so the floor is now 2 |
 | `span_missions` | off | on, off | **Experimental.** Mixes the game's 26 SPAN Experiment maps in with the campaign, so the 19 missions behind the goal are drawn from all 45. The level select still holds 20 planets and the goal is still Founders. Their requirements were derived from the game data rather than played, so the logic over-requires: expect a seed harder than it needs to be rather than one that cannot be finished |
 | `early_weapon` | random | mortar, cannon, random | Which of Cannon and Mortar is guaranteed to arrive first: it is placed in one of the checks you can reach with nothing. `mortar` is the slower opening, `cannon` the brisk one. Two exceptions. In a multiworld with other games, if only one check is reachable at the start (about 1 seed in 10 with SPAN on at 2 starters), the mission unlock gets it and the weapon is not guaranteed first. And when every player is Creeper World 4 and the opening is narrow (casual or easy logic at 2 starters, or that same SPAN draw), the world places the opening itself: the chosen weapon still arrives before the other one in all but about 1 seed in 2,000 on casual, and 1 in 150 on easy. It does not affect when the OTHER weapon arrives. Before v0.2.1 this was ignored on seeds where every player was Creeper World 4 |
-| `trap_percentage` | 50 | 0 to 100 | Share of the non-progression slots that are traps. **50 is a lot in a solo game** - lower it if they grate. 0 removes them |
+| `trap_percentage` | 50 | 0 to 100 | Share of the filler slots - those left after every unlock, unit, ERN and upgrade item is placed - that are traps. **50 is a lot in a solo game** - lower it if they grate. 0 removes them |
 | `progressive_erns` | 4 | 0 to 40 | How many Progressive ERN items go in the pool. ERNs are never required, so this is purely pool budget |
 
 **ERN port upgrades.** Percentages are whole percents. The defaults are
@@ -108,8 +107,8 @@ measured values, not guesses - see `docs/ern-upgrade-measurements.md`.
 | Option | Default | Range | What it does |
 |---|---|---|---|
 | `ern_upgrade_copies` | 2 | 0 to 4 | Copies of each of the twelve ERN port upgrade items (a Rate and a Cap for each of six upgrades), so the default puts 24 in the pool. 4 is the ceiling, not a preference: at 4 copies the fourth is the one that lands on the maximum. The default is 2 because 45 percent of these were arriving before the ERN Portal that makes them work |
-| `ern_rate_max` | 400 | 100 to 800 | What four Rate copies are worth as a percent of the game's own fill speed. 400 turns 3600 ticks to full efficiency into 900 |
-| `ern_cap_max` | 200 | 100 to 400 | How far four Cap copies raise an upgrade's ceiling. 200 is double the game's own |
+| `ern_rate_max` | 400 | 100 to 800 | What a full set of Rate copies is worth as a percent of the game's own fill speed. 400 turns 3600 ticks to full efficiency into 900 |
+| `ern_cap_max` | 200 | 100 to 400 | How far a full set of Cap copies raises an upgrade's ceiling. 200 is double the game's own |
 | `ern_cap_max_build_speed` | 150 | 100 to 400 | The Cap maximum for BUILD SPEED only, which needs its own value because the game shortens build time steeply and non-linearly |
 
 **Energy upgrades.** Both curves are capped, so the copy count IS the number
@@ -152,7 +151,8 @@ first launch) and are also editable from the in-game panel:
 - `[Connection]` Host, Port, Slot, Password, AutoConnect - connection details;
   AutoConnect joins automatically at the main menu.
 - `[Missions]` ShowSpan - show the SPAN Experiments button (off by default;
-  the randomizer covers the 20 Farsite missions).
+  every mission in a seed is on the Farsite level select, including SPAN maps
+  that `span_missions` mixes in).
 
 ## If the server goes away
 
@@ -169,13 +169,13 @@ Your received items and checked locations are cached per slot under
   Nothing is corrupt, and reinstalling BepInEx or the game does not help: a
   clean BepInEx reinstall reproduced it exactly.
 - **The connection drops mid-game.** You keep playing. Checks you make are
-  queued, the status line says how many are waiting, and the mod keeps trying to
-  reconnect on its own - backing off 5, 10, 20, 40 then 60 seconds, for as long
-  as it takes. When it gets back in, the queue is sent. You can also reconnect
-  by hand from the main menu.
+  queued, and the mod keeps trying to reconnect on its own - backing off 5, 10,
+  20, 40 then 60 seconds, for as long as it takes. When it gets back in, the
+  queue is sent. You can also reconnect by hand from the main menu.
 - **You launch the game and the server is down.** The mod comes up on the slot
   you played last, using the cache, and the missions you have unlocked are
-  playable. Same deal: checks queue and go out when you next connect.
+  playable. The status line says how many checks are still waiting from last
+  time. Same deal: checks queue and go out when you next connect.
 - **You join a different seed.** Progress does not carry across. Each
   multiworld is cached separately by its seed, so the checks you owe seed A stay
   owed to seed A and are sent the next time you connect to it - they are never
@@ -250,7 +250,7 @@ folders. The game is then fully vanilla; verify files via Steam if unsure.
 one seed's saves from showing up in another, the mod treats
 `Documents/My Games/creeperworld4/saves/farsite` as a slot-specific folder: on
 connecting to a different slot it moves the current contents into
-`Documents/My Games/creeperworld4/archipelago/save-archive/<slot>/` and restores
+`Documents/My Games/creeperworld4/archipelago/save-archive/<seed>-<slot>/` and restores
 that slot's set. Your original, pre-mod campaign saves are archived under the key
 `vanilla`.
 

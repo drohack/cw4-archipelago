@@ -7,8 +7,8 @@ script that already works.**
 ## The setup recipe
 
 Do not write a new harness from memory. Start from `tools/cmod-traptest.sh` or
-`tools/apbattery2.sh` - they already encode all of this - and change what the new
-test needs.
+`tools/trapboon-test.sh` - between them they already encode most of this - and
+change what the new test needs.
 
     1. taskkill the game, write a known BepInEx config, empty the command file
     2. launch, and WAIT for "SCENE: 'Galaxy'" in the log
@@ -98,8 +98,7 @@ setup steps looked fine because each of those commands ran once.
 
 Mark the log position BEFORE writing the command, and search only after it:
 
-    send() { mark; printf "%s
-" "$1" > "$CMD"; wait_since "$2"; }
+    send() { mark; printf "%s\n" "$1" > "$CMD"; wait_since "$2"; }
     wait_since() { for i in $(seq 1 25); do since | grep -qa "$1" && return 0; sleep 1; done; return 1; }
 
 This is the same shape as the stale-archive bug in `docs/randomizer-audit.md`:
@@ -199,10 +198,12 @@ on actual logic instead of being the only location the mod knows about, so its
 glyph is legitimately not green. The product was right and the harness was
 measuring a state it had not set up.
 
-`apbattery.sh`, `apbattery2.sh`, `msgbox.sh`, `msgfilter.sh` and
-`offline-test.sh` clear it. **The other harnesses that reach no server do not
-yet**, including `cache-handtest.sh`, `story15-handtest.sh`, `cmod-traptest.sh`
-and the `ern-*` measurement scripts. If one of those starts reporting an item or
+`apbattery.sh`, `apbattery2.sh`, `eventdriven-test.sh`, `instance-dump.sh`,
+`instance-identity.sh`, `msgbox.sh`, `msgfilter.sh`,
+`objective-backfill-test.sh`, `offline-test.sh`, `retry-interval.sh`,
+`span-e2e-test.sh` and `trapboon-test.sh` clear it. **The other harnesses that
+reach no server do not yet**, including `cache-handtest.sh`,
+`story15-handtest.sh` and `cmod-traptest.sh`. If one of those starts reporting an item or
 an unlock nobody granted, this is the first thing to check.
 
 ## Two ways a run silently corrupts itself
@@ -225,7 +226,7 @@ an unlock nobody granted, this is the first thing to check.
   Two defences, now in `tools/span-e2e-test.sh` and `tools/span-data-check.sh`
   (they were also in the ERN harnesses, which have since been retired):
 
-      guard_command_file    write a sentinel to cw4ap-commands.txt before
+      guard_command_file    write a sentinel to the command file before
                             launching, sleep, and abort if anything overwrote
                             it - a direct test of the actual hazard
 
@@ -332,10 +333,11 @@ problem because nothing is executed.
 
 ## Make only the units under test fatal
 
-`require_spawn` correctly stops a run when the unit being MEASURED is missing.
+`require_spawn`, in the ERN harnesses (since retired), correctly stopped a run
+when the unit being MEASURED was missing.
 Applying it to a nice-to-have unit is a different failure: a wrong data name on a
 supporting unit killed a 20-minute sweep at setup, after the game had booted
-perfectly. Supporting units get `optional_spawn`, which warns and lets their
+perfectly. Supporting units got `optional_spawn`, which warned and let their
 observable read `n/a`.
 
 ## Traps and boons have DIFFERENT admission rules
@@ -438,9 +440,8 @@ including when it had queued nothing, which is what made this unreadable.
 `span-e2e-test.sh` wrote its expected mission list with python's `print()`, which
 emits CRLF, then grepped the game log for each name. Every grep failed against a
 log that plainly contained the name, and the harness reported all twenty missions
-missing from a map that had all twenty. `tr -d '
-'` on the way in. The same
-shape bit an earlier version through `IFS="$(printf '	')"` - command
+missing from a map that had all twenty. `tr -d '\r'` on the way in. The same
+shape bit an earlier version through `IFS="$(printf '\t')"` - command
 substitution strips the tab it was asked to produce, so the split never happened.
 **Anywhere a harness compares a string it read from a file against one it read
 from a log, normalise both.**

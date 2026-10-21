@@ -648,10 +648,12 @@ public sealed class DevCommands
     ///   CAN_NULLIFY   whether a nullifier may target it at all
     ///   impervious    whether it can be harmed
     ///
-    ///   null:list              every nullifiable unit, with an index
-    ///   null:protect &lt;i|all&gt;   clear CAN_NULLIFY only - impervious is NOT touched
-    ///   null:allow &lt;i|all&gt;     set CAN_NULLIFY back to true
-    ///   null:kill &lt;i&gt;          spawn a fed nullifier beside unit i
+    ///   null:list                    every nullifiable unit, with an index
+    ///   null:protect &lt;name|all&gt;    clear CAN_NULLIFY only - impervious is NOT touched
+    ///   null:allow &lt;name|all&gt;      set CAN_NULLIFY back to true
+    ///   null:targets &lt;name&gt;         what GetNullifierTargets finds near the first match
+    ///   null:kill &lt;i&gt;                spawn a fed nullifier beside unit i
+    /// &lt;name&gt; is a data-name prefix (a CMOD unit's GUID prefix works).
     /// </summary>
     private void Nullify(string arg)
     {
@@ -956,6 +958,10 @@ public sealed class DevCommands
     ///   energy:supply &lt;n&gt;     add n to SUPPLY on the player's units, then measure
     ///   energy:const &lt;n&gt;      add n to the Tower/CommandBase SUPPLY constant, then measure
     ///   energy:eff &lt;mult&gt;     multiply Tower.efficiency, then report production
+    ///
+    /// Later probes, each explained at its branch: scan, gen &lt;n&gt;,
+    /// build [unit], give &lt;n&gt;, ammo &lt;n&gt;, refresh, max &lt;n&gt;, rate &lt;n&gt;,
+    /// set &lt;n&gt; and add [unit].
     /// </summary>
     private void Energy(string arg)
     {
@@ -1856,12 +1862,14 @@ public sealed class DevCommands
 
     /// <summary>Retarget a Farsite level-select planet at a SPAN map.
     ///
-    ///     span:swap story5 knucracker1
+    ///     span:swap story5 knucracker1 [objectiveMask]
     ///
-    /// Sets every field that identifies the mission behind a planet, because
+    /// Sets the fields that identify the mission behind a planet, because
     /// which one the launch path reads is exactly what this is testing:
-    /// planetGUID, map_guid, map_title, map_desc, map_width, map_height and
-    /// map_objectives. The last is the objective bitmask the map draws its icons
+    /// planetGUID, map_guid and map_title (plus the displayed title and the
+    /// unlock flags), and map_objectives when the optional third argument is
+    /// given. map_desc, map_width and map_height are not written.
+    /// map_objectives is the objective bitmask the map draws its icons
     /// from - the randomizer already rebuilds that icon set in TrackerView, so
     /// this only has to make the underlying data right.
     ///

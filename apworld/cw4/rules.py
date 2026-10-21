@@ -31,8 +31,9 @@ Reading rules applied to the worksheet:
 
 SLOT_DATA CONTRACT: each entry of location_requirements is the COMPLETE
 requirement for that location. A consumer must NOT combine it with the mission's
-entry - a mission's cache is often collectable long before the mission itself is
-winnable, and ANDing the two would hide that.
+requirements (mission_requirements, which slot_data no longer carries) - a
+mission's cache is often collectable long before the mission itself is winnable,
+and ANDing the two would hide that.
 """
 from worlds.generic.Rules import set_rule
 
@@ -711,7 +712,8 @@ def is_casual(world) -> int:
 #   no Sniper, no Shield   - hazards are invisible to every detector built; The
 #                            Compound and Archon are the campaign's proof that
 #                            the class exists
-#   no Miner               - economy stays outside logic, as it does for Farsite
+#   no Miner               - no detector measures economy; every campaign Miner
+#                            rule came from playing the map
 #
 # The honest summary is that a SPAN map is modelled as "a weapon, a nullifier,
 # and a factory", which is a floor rather than the truth. That is why the option
@@ -814,7 +816,7 @@ def mission_requirements(mission: int, casual: bool = False,
     of it.
 
     `physical` drops everything logic asserts but physics does not - the
-    MISSION_SOFT entries and the casual anti-air tier - leaving only what a
+    MISSION_SOFT entries and the casual and easy tiers - leaving only what a
     player genuinely cannot proceed without. That is the set the tracker needs
     in order to tell red (unreachable) from yellow (reachable, out of logic).
     """
@@ -951,8 +953,10 @@ def location_requirements(name: str, mission: int, casual: bool = False,
 
 def requirement_groups(casual: bool = False, physical: bool = False,
                        missions_in_seed=None) -> dict:
-    """The exact structure exported to slot_data. See the module docstring for
-    the contract: location entries are complete and must not be combined.
+    """Both requirement tables. Only "location_requirements" is exported to
+    slot_data (fill_slot_data); "mission_requirements" stays in generation,
+    where logic_item_names reads it. See the module docstring for the
+    contract: location entries are complete and must not be combined.
 
     `missions_in_seed` defaults to ALL 46 rather than to a seed's 20, because the
     one caller that must not be narrowed is logic_item_names(): classification is

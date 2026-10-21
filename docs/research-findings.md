@@ -932,9 +932,11 @@ matching the selected tab toggle (ResyncStrip in probe v0.23).
   unit names must be LOWERCASE ('tower', 'cannon'; 'Tower' fails silently,
   readback -1). UI badge + behavioral cap still to verify in unpaused play.
   UPDATE 2026-09-01: setting a limit works and is enforced, but RAISING one does
-  not, because every building's base limit IS -1 (unlimited). UnitGate skips
+  not, because every building's base limit IS -1 (unlimited). UnitGate skipped
   those on purpose - base+1 over unlimited would cap a unit that had no cap - so
-  `Build Limit +1` items are inert everywhere and are no longer generated. Note
+  `Build Limit +1` items are inert everywhere and are no longer generated.
+  (UPDATE 2026-10-21: UnitGate's limit code was deleted on 2026-10-20, so the
+  mod no longer applies a Build Limit item at all.) Note
   the readback value -1 is overloaded here: it is both the "wrong case" failure
   above and the legitimate "unlimited" answer, which is why the two took a while
   to tell apart.
@@ -983,6 +985,7 @@ pair, then SCENE Game->Galaxy on rift jump (depart detectable). Whitelist
 state persisted across missions (story7 -> story6) - correct AP semantics.
 Note: the mission gate and build limits are in-memory plugin state and reset
 on game restart; the real mod repopulates them from the AP server on connect.
+(The real mod ended up with no build limits - see the UPDATE 2026-09-01 above.)
 
 ## COMPLETE: full behavioral validation (2026-08-24 end of session)
 
@@ -1188,7 +1191,8 @@ Line colors verified live (red/grey shown). Save archiving verified:
 **SUPERSEDED: the mcs.dat rewrite below was abandoned.** Steam Cloud restores
 the file, and the mod now owns the map's display from AP state and leaves
 mcs.dat alone (`SaveArchiver`: "mcs.dat is left untouched"). Only the
-`saves/farsite` move shipped. `grep xtory` finds nothing in the repo. Original
+`saves/farsite` move shipped. `grep xtory` finds nothing in the repo outside
+this file. Original
 text: byte-rename storyN->xtoryN inside mcs.dat (same length, content rewrite -
 Steam Cloud syncs it instead of restoring), saves/farsite move works
 (NOT cloud-restored), full round-trip proven including the game's native
@@ -1265,6 +1269,10 @@ That last one is the lesson worth keeping: the patch was APPLIED (the log said
 so), it was on a real method with a plausible name, and it did nothing. Only a
 counter on the postfix plus a human collecting a cache could tell the difference.
 Every event hook in the mod now has such a counter, reported by `perf`.
+(UPDATE 2026-10-21: since 2026-10-20 the counters live in the debug plugin,
+which patches the same game methods itself in
+`src/CW4Archipelago.Debug/ModHooks.cs`, so `perf` still reports them and the
+shipped mod carries none.)
 
 ### Earlier, incomplete version of the above (kept for the reasoning)
 

@@ -641,10 +641,6 @@ public static class DevTools
             if (cb.MAX_AMMO < EnergyFloor) cb.MAX_AMMO = EnergyFloor;
             if (cb.ammo < EnergyFloor) cb.ammo = EnergyFloor;
 
-            // Keep the GEN readout consistent with the tank being permanently
-            // full. Writing this display field used to BE the bug, because
-            // nothing backed it; now the energy is genuinely there and a GEN of
-            // 1 beside an unlimited store is the confusing part.
             // energyProduction is NOT written. It is a display figure the sim
             // owns, and inflating it is precisely the bug this cheat used to
             // have - millions of GEN and no energy. The tank above is real.
