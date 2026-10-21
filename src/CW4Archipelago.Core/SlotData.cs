@@ -8,6 +8,9 @@ namespace CW4Archipelago.Core;
 /// Logic hints shipped by the apworld in slot_data. A requirement is a list of
 /// any-of groups of item names; it is satisfied when every group has at least
 /// one held item. The client evaluates these lists and never encodes rules.
+///
+/// Only the keys the mod reads are here. The deserialiser ignores any other
+/// key, so a seed generated before a key was dropped still loads.
 /// </summary>
 public sealed class SlotData
 {
@@ -26,37 +29,6 @@ public sealed class SlotData
     /// what it was built with.</summary>
     [JsonPropertyName("mission_roster")]
     public List<string> MissionRoster { get; set; } = new();
-
-    /// <summary>Specifier to display title, for the missions in the roster.
-    ///
-    /// DELIBERATELY UNREAD BY THIS PLUGIN, and it must stay that way. A title is
-    /// the location-name prefix, the key TrackerView resolves a planet by, and
-    /// the unlock item's name, all at once - so it has to be ONE value, and that
-    /// value is <see cref="SpanMissionTable.Titles"/>, which CI regenerates from
-    /// the apworld's span_data.py and fails on any diff. Preferring this field
-    /// instead would let a seed and a plugin disagree about what a mission is
-    /// called, and the symptom would be checks sent to names the server has never
-    /// heard of - silent, because a location the server does not know is simply
-    /// ignored.
-    ///
-    /// It is deserialised so an external tracker reading the same slot data has
-    /// the names without needing the table.</summary>
-    [JsonPropertyName("mission_titles")]
-    public Dictionary<string, string> MissionTitles { get; set; } = new();
-
-    /// <summary>Whether this seed mixed in the SPAN Experiments.
-    ///
-    /// DELIBERATELY UNREAD by the mod, like MissionTitles above. Which missions
-    /// a seed contains is already implied by the locations and the unlock items,
-    /// so nothing here needs the flag - but a tracker reading the same slot data
-    /// cannot infer the SETTING from that, only its consequences, and the
-    /// difference matters when a seed happens to draw no SPAN mission at all.
-    /// Do not delete it as dead: it is part of the published contract.</summary>
-    [JsonPropertyName("span_missions")]
-    public bool SpanMissions { get; set; }
-
-    [JsonPropertyName("mission_requirements")]
-    public Dictionary<string, List<List<string>>> MissionRequirements { get; set; } = new();
 
     [JsonPropertyName("location_requirements")]
     public Dictionary<string, List<List<string>>> LocationRequirements { get; set; } = new();
@@ -79,9 +51,6 @@ public sealed class SlotData
     /// that IsMissionObjectiveComplete(5) still read false.</summary>
     [JsonPropertyName("required_objectives")]
     public Dictionary<string, List<int>> RequiredObjectives { get; set; } = new();
-
-    [JsonPropertyName("ern_per_item")]
-    public int ErnPerItem { get; set; } = 1;
 
     /// <summary>How many other missions must be completed before the finale
     /// counts as the goal. 0 disables the requirement.</summary>
@@ -164,8 +133,6 @@ public sealed class SlotData
     [JsonPropertyName("world_version")]
     public string WorldVersion { get; set; } = "";
 
-    public static readonly SlotData Empty = new();
-
     public static SlotData FromJson(string json)
     {
         if (string.IsNullOrWhiteSpace(json))
@@ -174,15 +141,6 @@ public sealed class SlotData
     }
 
     public string ToJson() => JsonSerializer.Serialize(this);
-
-    /// <summary>The requirement groups for a whole mission.
-    ///
-    /// Reached only from tests today - the tracker asks per LOCATION, which is
-    /// ForLocation below. It stays because the mission-level table is what the
-    /// generator writes and a consumer of this slot data may legitimately want
-    /// it; the test is what proves the shape survives a round trip.</summary>
-    public IReadOnlyList<IReadOnlyList<string>> ForMission(string specifier)
-        => MissionRequirements.TryGetValue(specifier, out var g) ? g : NoGroups;
 
     public IReadOnlyList<IReadOnlyList<string>> ForLocation(string location)
         => LocationRequirements.TryGetValue(location, out var g) ? g : NoGroups;

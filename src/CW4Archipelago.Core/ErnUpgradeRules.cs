@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 
 namespace CW4Archipelago.Core;
 
@@ -18,11 +16,11 @@ namespace CW4Archipelago.Core;
 /// gate is the game's own, so the items need no logic entry and can be pure
 /// filler.
 ///
-/// WHY THE CAP LIVES HERE and not at the call site: a fifth copy of an item that
-/// is already at 200 percent does nothing, and an item that does nothing is the
-/// exact failure that got build limits removed from the pool. Capping in one
-/// place means the pool builder and the applier cannot disagree about how many
-/// copies are worth generating.
+/// WHY THE CAP LIVES HERE and not at the call site: a copy past the configured
+/// count does nothing, so every caller clamps the same way. The apworld
+/// generates exactly ern_upgrade_copies of each, so in a generated seed the
+/// clamp only matters for a copy that arrives some other way (start_inventory,
+/// /send).
 ///
 /// Pure C#, no Unity, so it is unit tested.
 /// </summary>
@@ -61,27 +59,11 @@ public static class ErnUpgradeRules
     /// efficiency at 150 percent instead of 200, and rate at 250 instead of
     /// 400. That asymmetry with the energy knob was not intended.</summary>
     public const int MaxCopies = 4;
-    public const float StepPerCopy = 0.25f;
-    public const float MaxMultiplier = 1f + MaxCopies * StepPerCopy;   // 2.0
-
-    /// <summary>What four copies of the RATE item are worth: 4x the game's own
-    /// fill speed, so a slot that normally takes 3600 ticks to fill takes 900.
-    ///
-    /// Higher than the cap's 2.0 on purpose, and safe to be: the rate only
-    /// changes how long you WAIT for an upgrade, never how strong it gets, so a
-    /// generous value shortens dead time without touching balance. The ceiling
-    /// is the axis that changes power, and that is capped much lower.</summary>
-    public const float MaxRateMultiplier = 4f;
 
     /// <summary>Index of Build Speed, the one upgrade that needs its own
     /// ceiling. Asserted against the game's constants at runtime by
     /// ErnUpgrades.CheckIndexOrder.</summary>
     public const int BuildSpeedIndex = 2;
-
-    /// <summary>Test-only override, so one game session can sweep candidate
-    /// ceilings instead of costing a rebuild and relaunch per value. Null means
-    /// use the configured values. Never set in normal play.</summary>
-    public static float? CeilingOverride;
 
     /// <summary>The ceiling one upgrade may reach, from the player's configured
     /// percents.
@@ -126,7 +108,6 @@ public static class ErnUpgradeRules
     /// changes.</remarks>
     public static float CeilingFor(int index, int capMaxPercent, int buildSpeedMaxPercent)
     {
-        if (CeilingOverride.HasValue) return CeilingOverride.Value;
         if (!IsValidIndex(index)) return 1f;
         int pct = index == BuildSpeedIndex ? buildSpeedMaxPercent : capMaxPercent;
         // Never below 1.0: a ceiling under the game's own would make the item a
@@ -135,20 +116,15 @@ public static class ErnUpgradeRules
         return pct / 100f;
     }
 
-    public static string RateItem(string upgrade) => RatePrefix + upgrade;
-    public static string CapItem(string upgrade) => CapPrefix + upgrade;
-
-    /// <summary>Every ERN upgrade item name, for the pool and for tests.</summary>
-    public static IEnumerable<string> AllItemNames()
-    {
-        foreach (var u in UpgradeNames) yield return RateItem(u);
-        foreach (var u in UpgradeNames) yield return CapItem(u);
-    }
-
     public static bool IsValidIndex(int index) => index >= 0 && index < UpgradeNames.Length;
 
     /// <summary>How much faster this upgrade's efficiency fills. 1.0 means the
     /// game's own rate, 4.0 is four times as fast.
+    ///
+    /// The default maximum (ern_rate_max 400 percent) is higher than the cap's
+    /// 200 on purpose, and safe to be: the rate only changes how long you WAIT
+    /// for an upgrade, never how strong it gets, so a generous value shortens
+    /// dead time without touching balance.
     ///
     /// Step derived from the maximum, like the cap, so the LAST copy lands
     /// exactly on 4.0 and no copy is ever a no-op - 1.75, 2.5, 3.25, 4.0 at
@@ -203,13 +179,4 @@ public static class ErnUpgradeRules
                          state?.Hints?.ErnCapMaxPercent ?? 200,
                          state?.Hints?.ErnCapMaxBuildSpeedPercent ?? 150,
                          state?.Hints?.ErnUpgradeCopies ?? MaxCopies);
-
-    private static float Multiplier(SlotState state, int index, string prefix)
-    {
-        if (state == null || !IsValidIndex(index)) return 1f;
-        int copies = state.Count(prefix + UpgradeNames[index]);
-        if (copies <= 0) return 1f;
-        if (copies > MaxCopies) copies = MaxCopies;
-        return 1f + copies * StepPerCopy;
-    }
 }

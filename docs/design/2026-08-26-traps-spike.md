@@ -155,6 +155,12 @@ Settable live in depth units / percent:
 `trap:set spores=2 payload=20 target=player depth=2 radius=3 offset=12 energy=100 emitmul=3 emitsec=20 stun=0`
 (`stun=0` means per-unit `STUN_TIME`).
 
+**CHANGED 2026-10-20:** these values are now constants in `TrapEffects`, so a
+received trap always fires what ships. `trap:set` sets overrides inside the debug
+plugin that the `trap:` commands pass as arguments (0 clears one); `offset` is
+not a trap parameter and is no longer tunable, and `target=riftlab` is gone (see
+below).
+
 ### Spore targeting: two traps, and why neither uses the game's STRUCTURE mode
 
 `Spore.TARGET_BEHAVIOR` has three values. Measured with `trap:aim`, which fires a
@@ -189,8 +195,9 @@ Since a trap should threaten the PLAYER, both shipped variants are built on
   rather than always hitting the rift lab keeps it threatening without being
   surgical.
 
-`SporeAim.RiftLab` aims every spore at the base. Available via
-`trap:set target=riftlab`, not shipped - it is surgical enough to feel unfair.
+`SporeAim.RiftLab` aimed every spore at the base. It was never shipped - it is
+surgical enough to feel unfair - and was removed from the mod on 2026-10-20,
+since nothing but `trap:set target=riftlab` could reach it.
 
 Both targeted modes fall back to a real scatter when there is nothing to aim at
 (no player buildings, or no rift lab), rather than dumping the strike at (0,0)
@@ -247,6 +254,10 @@ because a trap item would need them.**
   state, and `ModCore.Tick` drives its restore (it also drops the snapshot if
   the mission changes mid-burst, so it never writes through stale IL2CPP
   pointers).
+  **MOVED 2026-10-20:** `Status`, `Set`, `Aim`, `Coord` and the emitter burst
+  are in `src/CW4Archipelago.Debug/DebugTraps.cs`. `TrapEffects` keeps only the
+  six effects a received item fires, and the debug plugin's own tick restores a
+  burst.
 - `src/CW4Archipelago.Debug/DebugChannel.cs` - `trap:<name> [args]`, plus two
   pieces of test scaffolding this spike needed: `sim:run [speed]` / `sim:pause`
   (clears every entry in `GameSpace.pauseOwner` so a battery can run the sim
@@ -322,6 +333,13 @@ Held loosely, and deliberately cheap to undo. Nothing was deleted: the effect, t
 applier mapping, the `trap:emit` command and the yaml weight all still work, and
 `POOL_TRAP_ITEMS` in `apworld/cw4/items.py` is the whole change - the name stays in
 `TRAP_ITEMS` so item ids do not renumber.
+
+**CHANGED 2026-10-20:** no longer cheap to undo. The mod does not apply Emitter
+Overdrive (one arriving by start_inventory or /send is ignored), the yaml weight
+`trap_weight_emitter_overdrive` is gone, and the effect itself lives only in the
+debug plugin as `trap:emit`. The item NAME still keeps its id. Bringing the trap
+back means moving the effect into `TrapEffects`, restoring the `TrapApplier` case
+and the `TrapRules` constant, and putting it in `POOL_TRAP_ITEMS`.
 
 **What would reopen it:** the 11-of-20 figure counts emitters at mission START.
 Enemies arrive during play, so real coverage is better and possibly much better.

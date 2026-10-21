@@ -92,14 +92,6 @@ public class EnergyRulesTests
     }
 
     [Fact]
-    public void UsefulCopies_IsTheConfiguredCount()
-    {
-        Assert.Equal(8, EnergyRules.UsefulCopies(8));
-        Assert.Equal(36, EnergyRules.UsefulCopies(36));
-        Assert.Equal(0, EnergyRules.UsefulCopies(0));
-    }
-
-    [Fact]
     public void ZeroOrNegativeSettings_AreInertRatherThanHarmful()
     {
         var s = Copies(EnergyRules.StorageItem, 5);

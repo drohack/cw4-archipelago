@@ -55,7 +55,9 @@ COUNTS = span['SPAN_INSTANCE_COUNTS']
 SLOTS = span['SPAN_OBJECTIVE_SLOTS']
 FACTORY = span['SPAN_TOTEMS_NEED_FACTORY']
 MOVER = span['SPAN_NEEDS_MOVER']
-NOTES = span['SPAN_NOTES']
+# The notes are generated alongside span_data.py but kept out of it, because
+# span_data.py ships in the .apworld and nothing in generation reads them.
+NOTES = runpy.run_path(os.path.join(REPO, 'tools', 'span_notes.py'))['SPAN_NOTES']
 
 SLOT_NAMES = {0: 'Nullify', 1: 'Totems', 2: 'Reclaim', 3: 'Hold', 4: 'Collect', 5: 'Custom'}
 WARE = {29: 'Arg', 30: 'Liftic'}

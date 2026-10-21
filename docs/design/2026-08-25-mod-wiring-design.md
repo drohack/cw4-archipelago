@@ -27,9 +27,8 @@ in `research-findings.md`; the item/location/logic content comes from
   - red - not accessible (mission unlock not held)
   - yellow - reachable but not in logic
   - green - reachable and in logic
-  - orange - partial (some remaining checks in logic, some not).
-    **CORRECTION: no glyph is ever orange.** `TrackerStatus.Partial` exists but
-    `StatusColor` maps it to GREEN, so the map shows four colours, not five.
+  - a mission with some remaining checks in logic and some not
+    (`TrackerStatus.Partial`) is drawn green, so the map shows four colours.
   - grey - finished (PopTracker hides cleared locations; planets cannot hide)
   - blue (visible but unobtainable) has no CW4 equivalent and is unused
 - **Logic lives once, in the apworld.** The apworld ships requirement groups in
@@ -51,7 +50,7 @@ src/CW4Archipelago.Core (net6.0 class lib, NO Unity/interop refs, unit-tested)
    UnitRules      item name -> game unit key / limit increment; AllowedUnits, Limits
    MissionRules   storyN <-> title <-> unlock item; starter set
    ErnRules       Progressive ERN count -> ERNs to grant per mission
-   TrackerRules   per-location + per-mission status (Red/Yellow/Green/Orange/Grey)
+   TrackerRules   per-location + per-mission status (Red/Yellow/Green/Grey)
                   from state + requirement groups
    SlotStore      JSON persistence per (seed, slot)
         ^

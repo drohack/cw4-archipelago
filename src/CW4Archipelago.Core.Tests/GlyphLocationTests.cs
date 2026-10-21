@@ -53,7 +53,8 @@ public class GlyphLocationTests
     {
         Assert.Equal(TrackerStatus.Done,
             TrackerRules.Aggregate(new[] { TrackerStatus.Done, TrackerStatus.Done }));
-        // One reachable check beside an unreachable one is ORANGE, not red.
+        // One reachable check beside an unreachable one is Partial (drawn
+        // green), not red.
         // Red used to win here, which hid the check that could be taken now.
         Assert.Equal(TrackerStatus.Partial,
             TrackerRules.Aggregate(new[] { TrackerStatus.InLogic, TrackerStatus.Locked }));

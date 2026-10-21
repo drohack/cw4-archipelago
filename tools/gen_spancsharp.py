@@ -71,7 +71,7 @@ lines = [
     'public static class SpanMissionTable',
     '{',
     '    /// <summary>The first SPAN mission number. Anything below this is Farsite.</summary>',
-    '    public const int FirstMission = %d;' % data['FIRST_SPAN_MISSION'],
+    '    public const int FirstMission = %d;' % min(missions),
     '',
     '    /// <summary>mission -> the map guid, which IS its launch specifier.',
     '    /// Verified by booting all 26: specifier == guid on every one.</summary>',
@@ -97,7 +97,7 @@ lines += [
     '    /// Counted from the live map, the same measurement behind the apworld',
     '    /// tables. Hold (slot 3) never appears: no Farsite mission uses it and',
     '    /// there is no location for it, so a SPAN map that has one is recorded in',
-    '    /// span_data.SPAN_NOTES rather than given an objective here.</summary>',
+    '    /// tools/span_notes.py rather than given an objective here.</summary>',
     '    public static readonly IReadOnlyDictionary<int, int[]> Objectives = new Dictionary<int, int[]>',
     '    {',
 ]

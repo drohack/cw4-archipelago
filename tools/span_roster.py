@@ -9,6 +9,10 @@ not on sys.path for a script invoked by absolute path.
 Exists because tools/span-e2e-test.sh has to assert against what the SEED
 actually drew. A harness that hard-codes a mission name measures whichever seed
 happens to contain it and silently passes on every other one.
+
+The titles come from the apworld's own tables in the clone, not from slot data:
+slot data carries the roster by specifier only, because the mod reads titles
+from its generated table and nothing else read a title key.
 """
 import os
 import pickle
@@ -27,10 +31,13 @@ def main() -> int:
     # Multidata is a one-byte version prefix followed by a zlib'd pickle.
     data = pickle.loads(zlib.decompress(raw[1:]))
 
+    from worlds.cw4.items import ALL_MISSION_TITLES
+    from worlds.cw4.locations import mission_specifier
+    titles = {mission_specifier(n): title for n, title in ALL_MISSION_TITLES.items()}
+
     for _slot, slot_data in (data.get("slot_data") or {}).items():
         if not isinstance(slot_data, dict) or "mission_roster" not in slot_data:
             continue
-        titles = slot_data.get("mission_titles") or {}
         for specifier in slot_data["mission_roster"]:
             print("%s\t%s" % (specifier, titles.get(specifier, "")))
         return 0

@@ -14,10 +14,11 @@ WHAT IS COMPARED, and what a difference in each would mean:
   location ids     the id table itself. Any difference breaks seeds in flight.
   placements       location id -> (item id, player). Any difference IS a
                    different seed, even if it is still winnable.
-  slot_data        the contract with the game mod. New KEYS are expected and
-                   listed; a changed VALUE on an existing key is not.
+  slot_data        the contract with the game mod. New and removed KEYS are
+                   expected and listed; a changed VALUE on an existing key is
+                   not.
 
-Exit 0 when the seeds are identical bar the expected new slot_data keys.
+Exit 0 when the seeds are identical bar the expected slot_data keys.
 """
 import os
 import pickle
@@ -34,14 +35,15 @@ sys.path.insert(0, os.getcwd())
 
 # STRICT MODE, for a refactor rather than a feature.
 #
-# The two allow-lists below exist because the SPAN change deliberately added
-# slot_data keys and deliberately fixed Archon's logic. A RESTRUCTURE is
+# The allow-lists below exist because the SPAN change deliberately added
+# slot_data keys and deliberately fixed Archon's logic, and a later cleanup
+# deliberately dropped keys the mod never read. A RESTRUCTURE is
 # supposed to change nothing at all, and running it against those allow-lists
 # would let exactly those differences through unnoticed - the change most likely
 # to be introduced by accident while moving code is a change to the tables the
 # allow-lists cover.
 #
-# So `CW4_PARITY_STRICT=1` empties both. A pure refactor that needs an
+# So `CW4_PARITY_STRICT=1` empties all three. A pure refactor that needs an
 # allow-list entry is not a pure refactor, and should fail here rather than be
 # argued about later.
 STRICT = os.environ.get("CW4_PARITY_STRICT") == "1"
@@ -49,8 +51,10 @@ STRICT = os.environ.get("CW4_PARITY_STRICT") == "1"
 # Keys this change is ALLOWED to add. Anything else new, or any existing key
 # whose value moved, is a real difference and fails.
 EXPECTED_NEW_KEYS = {
-    # Added by the SPAN work, which is what this harness was built for.
-    "mission_roster", "mission_titles", "span_missions",
+    # Added by the SPAN work, which is what this harness was built for. It also
+    # added mission_titles and span_missions, which are gone again - see
+    # EXPECTED_REMOVED_KEYS.
+    "mission_roster",
     # Added by AUDIT 1, so the mod can notice it does not match the seed's
     # apworld. Missing from this list until 2026-09-17, which meant
     # span-off-parity.sh had reported a failure on every seed since that
@@ -58,6 +62,15 @@ EXPECTED_NEW_KEYS = {
     # run again until the full sweep. The placements were identical the
     # whole time; only the key was unlisted.
     "world_version",
+}
+
+# Keys this change is ALLOWED to drop. Removed 2026-10-20: the mod deserialised
+# them and never read any of them - titles come from its own generated table, a
+# mission's requirements reach its tracker as its locations' requirements, and
+# ern_per_item was always 1. Against a pre-SPAN base only the first two can
+# vanish; against a later one all four do.
+EXPECTED_REMOVED_KEYS = {
+    "mission_requirements", "ern_per_item", "mission_titles", "span_missions",
 }
 
 # Requirement ROWS that deliberately changed, with the reason. An allow-list that
@@ -80,6 +93,7 @@ REQUIREMENT_TABLES = ("location_requirements", "strict_location_requirements")
 
 if STRICT:
     EXPECTED_NEW_KEYS = set()
+    EXPECTED_REMOVED_KEYS = set()
     EXPECTED_CHANGED_REQUIREMENTS = set()
 
 
@@ -153,9 +167,12 @@ def main():
     else:
         print("  NOTE  slot_data gained no keys")
 
-    if removed:
+    gone = removed - EXPECTED_REMOVED_KEYS
+    if gone:
         bad += 1
-        print("  FAIL  slot_data keys disappeared: %s" % sorted(removed))
+        print("  FAIL  slot_data keys disappeared: %s" % sorted(gone))
+    elif removed:
+        print("  PASS  slot_data lost only the expected keys: %s" % sorted(removed))
     else:
         print("  PASS  no slot_data key was removed")
 
@@ -196,7 +213,7 @@ def main():
     elif STRICT:
         print("parity: IDENTICAL - nothing differed at all")
     else:
-        print("parity: IDENTICAL apart from the new keys")
+        print("parity: IDENTICAL apart from the expected slot_data keys")
     return 1 if bad else 0
 
 

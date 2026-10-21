@@ -50,16 +50,6 @@ public sealed class LocationWatcher
     /// <summary>Set by the game-event patches to scan on the next tick.</summary>
     internal static volatile bool Poke;
 
-    /// <summary>How often each patch has actually FIRED. Reported by the debug
-    /// channel's "perf".
-    ///
-    /// Applying is not firing: a patch on a private method or a property setter
-    /// can attach to a method IL2CPP never actually calls, and the safety poll
-    /// would quietly cover for it forever. These counters are how a test tells
-    /// the difference.</summary>
-    internal static int TotemPokes;
-    internal static int CachePokes;
-
     /// <summary>Frames between safety-net scans. Sixty is about once a second.</summary>
     private const int SafetyInterval = 60;
     private int _countdown;
@@ -271,13 +261,13 @@ public sealed class LocationWatcher
     ///
     /// A collected cache is DESTROYED and leaves GameSpace.mustCollect, so the
     /// live set names what is LEFT and can never name what was taken. The full
-    /// list is therefore recorded in SlotState the first time the mission is
-    /// seen intact (mustCollect still at maxMustCollect), and after that a
-    /// remembered cell no longer present is a cache that was collected.
+    /// list comes from MapCells, the generated table of every cache's cell, and
+    /// a listed cell no longer present is a cache that was collected.
     ///
-    /// No memory means a save whose caches were taken before the mod ever saw
-    /// the mission; that falls through to counting, which loses the ordering but
-    /// never mislabels a check.</summary>
+    /// A mission the table does not cover falls through to counting, which
+    /// loses the ordering but never mislabels a check. That costs nothing today:
+    /// every mission with two or more caches (1, 12 and 17) has a row, and every
+    /// SPAN mission has at most one cache, where there is no ordering to lose.</summary>
     private void SendCaches(GameSpace gs, World world)
     {
         var remaining = new List<(int X, int Y)>();
@@ -300,7 +290,6 @@ public sealed class LocationWatcher
         if (locations <= 0)
             return;
         int collected = max < 0 ? -1 : max - remaining.Count;
-        var state = ModCore.Client.State;
         var key = MissionRules.Specifier(_mission);
         int fromGame = AllIfObjectiveDone(world, 4);
 
@@ -310,11 +299,10 @@ public sealed class LocationWatcher
             if (c.X >= 0 && c.Y >= 0)
                 present.Add(InstanceIndex.Key(c.X, c.Y));
 
-        // FIRST CHOICE: the known map cells. Cache positions do not vary with a
-        // save, a seed or a playthrough, so the intact set does not have to be
-        // observed - it is a fact about the mission. That matters for the one
-        // case the observed-set memory below can never serve: a save whose
-        // caches were already taken before this mod was installed.
+        // The known map cells. Cache positions do not vary with a save, a seed
+        // or a playthrough, so the intact set does not have to be observed - it
+        // is a fact about the mission, and it serves a save whose caches were
+        // already taken before this mod was installed.
         //
         // Guarded three ways, because a wrong index here is a mislabelled check:
         // the table must know the mission, its row must be the length the GAME
@@ -334,34 +322,10 @@ public sealed class LocationWatcher
             ModCore.Log.LogWarning(
                 $"CACHES: the known cell table does not fit {key} " +
                 $"(table={table.Count} game={max} covers={MapCells.Covers(_mission, present)}) " +
-                "- falling back to what this run observed");
+                "- falling back to counting");
         }
 
-        // SECOND: the set as first seen this playthrough. Guarded on the mission
-        // actually BEING intact at that moment - remembering a half-collected
-        // first sighting as the whole thing would shift every index after the
-        // gap.
-        if (max > 0 && remaining.Count == max && !state.CacheCells.ContainsKey(key))
-        {
-            var remembered = InstanceIndex.Remember(remaining);
-            if (remembered.Count == max)
-            {
-                state.CacheCells[key] = remembered;
-                ModCore.Log.LogInfo(
-                    $"CACHES: remembered {remembered.Count} cell(s) for {key} " +
-                    $"[{string.Join(" ", remembered)}]");
-            }
-        }
-
-        if (state.CacheCells.TryGetValue(key, out var known) && known != null && known.Count > 0)
-        {
-            foreach (var n in InstanceIndex.DoneFromRemembered(known, remaining, locations))
-                SendCheck(MissionRules.InstanceLocation(_mission, 4, n));
-            SendCounted(4, fromGame);
-            return;
-        }
-
-        // LAST: count. Loses which cache, never claims the wrong one.
+        // Count. Loses which cache, never claims the wrong one.
         SendCounted(4, Math.Max(collected, fromGame));
     }
 
@@ -629,10 +593,7 @@ public static class TotemCompletePatch
     public static void Postfix(bool value)
     {
         if (value)
-        {
-            LocationWatcher.TotemPokes++;
             LocationWatcher.Poke = true;
-        }
     }
 }
 
@@ -646,7 +607,7 @@ public static class TotemCompletePatch
 /// it sets the cache's own `retrieved` flag and nothing else, and the collected
 /// unit is simply gone from gs.units. Every cache check up to that point was
 /// being delivered by the once-a-second safety poll, which is exactly the
-/// silent failure the poke counters were added to expose.
+/// silent failure the debug plugin's poke counters ("perf") exist to expose.
 ///
 /// DestroyUnit is what the pickup actually does. It also fires if a cache dies
 /// some other way, which is harmless: the postfix only asks for a rescan, and
@@ -658,9 +619,5 @@ public static class TotemCompletePatch
 public static class CacheDestroyedPatch
 {
     [HarmonyPostfix]
-    public static void Postfix()
-    {
-        LocationWatcher.CachePokes++;
-        LocationWatcher.Poke = true;
-    }
+    public static void Postfix() => LocationWatcher.Poke = true;
 }

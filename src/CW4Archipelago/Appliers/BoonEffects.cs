@@ -33,7 +33,7 @@ public static class BoonEffects
     /// <summary>Default energy granted by one Energy Cache, as a fraction of the
     /// rift lab's CURRENT ceiling. A fraction rather than a flat number so it
     /// stays meaningful after storage upgrades raise the cap.</summary>
-    public static float CacheFraction = 0.5f;
+    private const float CacheFraction = 0.5f;
 
     /// <summary>Is this the rift lab, whose "ammo" is the ENERGY STORE rather
     /// than a weapon's magazine?
@@ -160,12 +160,12 @@ public static class BoonEffects
     // that "GetWareHeld does not see the factory's contents" was too strong.
 
     /// <summary>Default stock one cache grants, per factory.</summary>
-    public static int CacheWareAmount = 10;
+    internal const int CacheWareAmount = 10;
 
     /// <summary>The ware ids, read from the game rather than hard-coded. They
     /// are assigned PER MISSION, so a literal would be wrong on some maps.
     /// Returns -1 for a ware this mission does not define.</summary>
-    public static int WareId(string which)
+    internal static int WareId(string which)
     {
         try
         {
@@ -181,72 +181,56 @@ public static class BoonEffects
         return -1;
     }
 
-    /// <summary>Add stock of one ware to every player factory, once.
+    /// <summary>Add stock to every player factory, once, for every ware the
+    /// factory has a channel for on this mission.
     ///
     /// WHIFFS HARMLESSLY with no factory, which the designer accepted
     /// explicitly. That is a looser rule than the traps get - a trap that does
     /// nothing feels broken, which is why Emitter Overdrive was pulled - but a
     /// boon that does nothing is only a let-down.
     ///
-    /// <paramref name="useCreate"/> selects between the two write methods so a
-    /// test can measure which one the sim honours instead of guessing. This
-    /// repo has already been caught writing a recomputed summary
-    /// (gs.energyStore) and moving nothing but the HUD.</summary>
-    public static void ResourceCache(string which, int amount, bool useCreate)
+    /// Every ware, not one: a factory only holds wares the MISSION gives it a
+    /// channel for. On story2 liftic had channel 2 and bluite, redon and greenar
+    /// had none at all - so a per-ware item would whiff on most missions for a
+    /// reason the player cannot see or act on, which is much worse than "you
+    /// have no factory".
+    ///
+    /// The debug plugin's "boon:cache <ware>" grants a single ware with full
+    /// per-factory logging, for measuring; that lives there, not here.</summary>
+    public static void ResourceCache()
     {
         var gs = Live("resource cache");
         if (gs == null) return;
 
-        // "all" grants every ware the factory actually has a channel for, which
-        // is what a single Resource Cache item should do.
-        //
-        // MEASURED, and the reason one item beats three: a factory only holds
-        // wares the MISSION gives it a channel for. On story2 liftic had
-        // channel 2 and bluite, redon and greenar had none at all - so a
-        // per-ware item would whiff on most missions for a reason the player
-        // cannot see or act on, which is much worse than "you have no factory".
-        if (which == "all")
+        // ONE summary line, not one per ware. Firing the item logged four
+        // separate "whiffed" lines for a single grant, which reads like four
+        // failures instead of one item doing its job on the one ware this
+        // mission happens to channel.
+        var paid = new List<string>();
+        var dry = new List<string>();
+        foreach (var w in new[] { "bluite", "redon", "greenar", "liftic" })
         {
-            // ONE summary line, not one per ware. Firing the item logged four
-            // separate "whiffed" lines for a single grant, which reads like
-            // four failures instead of one item doing its job on the one ware
-            // this mission happens to channel.
-            var paid = new List<string>();
-            var dry = new List<string>();
-            foreach (var w in new[] { "bluite", "redon", "greenar", "liftic" })
-            {
-                int got = ResourceCacheOne(gs, w, amount, useCreate, quiet: true);
-                if (got > 0) paid.Add($"{w} +{got}");
-                else dry.Add(w);
-            }
-            if (paid.Count > 0)
-                ModCore.Log.LogInfo(
-                    $"BOON resource cache: {string.Join(", ", paid)}"
-                    + (dry.Count > 0 ? $" (no channel this mission: {string.Join("/", dry)})" : ""));
-            else
-                ModCore.Log.LogInfo(
-                    "BOON resource cache: whiffed - no factory, or none of "
-                    + $"{string.Join("/", dry)} is channelled on this mission (allowed)");
-            return;
+            int got = ResourceCacheOne(gs, w);
+            if (got > 0) paid.Add($"{w} +{got}");
+            else dry.Add(w);
         }
-        ResourceCacheOne(gs, which, amount, useCreate, quiet: false);
+        if (paid.Count > 0)
+            ModCore.Log.LogInfo(
+                $"BOON resource cache: {string.Join(", ", paid)}"
+                + (dry.Count > 0 ? $" (no channel this mission: {string.Join("/", dry)})" : ""));
+        else
+            ModCore.Log.LogInfo(
+                "BOON resource cache: whiffed - no factory, or none of "
+                + $"{string.Join("/", dry)} is channelled on this mission (allowed)");
     }
 
-    /// <summary>One ware. Returns how much was actually granted, so the "all"
-    /// caller can summarise instead of every ware logging for itself.</summary>
-    private static int ResourceCacheOne(GameSpace gs, string which, int amount,
-                                        bool useCreate, bool quiet)
+    /// <summary>One ware. Returns how much was actually granted, so the caller
+    /// can summarise instead of every ware logging for itself.</summary>
+    private static int ResourceCacheOne(GameSpace gs, string which)
     {
-
         int ware = WareId(which);
         if (ware < 0)
-        {
-            if (!quiet)
-                ModCore.Log.LogWarning(
-                    $"BOON resource cache: '{which}' is not a ware this mission defines");
             return 0;
-        }
-        if (amount <= 0) amount = CacheWareAmount;
 
         int cap = int.MaxValue;
         try { cap = Factory.MAX_WARES; } catch { }
@@ -270,58 +254,31 @@ public static class BoonEffects
                 int channel = -1;
                 try { channel = f.GetChannelForWare(ware); } catch { }
                 if (channel < 0)
-                {
-                    if (!quiet)
-                        ModCore.Log.LogInfo(
-                            $"BOON resource cache: {which} on factory {factories}: " +
-                            "no channel for it on this mission (whiff, not a failure)");
                     continue;
-                }
 
                 int before = f.GetProducedWares(ware);
-                int want = before + amount;
+                int want = before + CacheWareAmount;
                 if (want > cap) want = cap;
                 if (want <= before)
-                {
-                    if (!quiet)
-                        ModCore.Log.LogInfo(
-                            $"BOON resource cache: {which} on factory {factories}: " +
-                            $"already at {before} of cap {cap}, nothing to add");
                     continue;
-                }
 
-                if (useCreate) f.CreateProducedWares(ware, want - before);
-                else f.SetProducedWares(ware, want);
+                f.SetProducedWares(ware, want);
 
                 int after = f.GetProducedWares(ware);
                 granted += after - before;
                 // Read back, always. A write that does not land must be visible
-                // as before == after rather than assumed to have worked - and
-                // that line is logged even when quiet, because a failed write
-                // is never noise.
-                if (!quiet || after == before)
+                // as before == after rather than assumed to have worked, and a
+                // failed write is never noise.
+                if (after == before)
                     ModCore.Log.LogInfo(
                         $"BOON resource cache: {which} on factory {factories} ch{channel}: " +
-                        $"{before} -> {after} (asked for {want}, cap {cap}, " +
-                        $"{(useCreate ? "CreateProducedWares" : "SetProducedWares")})"
-                        + (after == before ? "  <- WRITE DID NOT LAND" : ""));
+                        $"{before} -> {after} (asked for {want}, cap {cap}, SetProducedWares)" +
+                        "  <- WRITE DID NOT LAND");
             }
             catch (Exception e)
             {
                 ModCore.Log.LogWarning($"BOON resource cache: factory threw {e.Message}");
             }
-        }
-
-        // Zero factories is a WHIFF, not a failure, and says so plainly - the
-        // log must not read like a bug when the player simply has no factory.
-        if (!quiet)
-        {
-            if (factories == 0)
-                ModCore.Log.LogInfo(
-                    $"BOON resource cache: {which} whiffed - no factory built (this is allowed)");
-            else
-                ModCore.Log.LogInfo(
-                    $"BOON resource cache: {which} +{granted} across {factories} factory(ies)");
         }
         return granted;
     }

@@ -1,8 +1,7 @@
 """Item tables for Creeper World 4.
 
 Source of truth: docs/randomizer-design.md in the repository root.
-Skeleton status: names and counts are real per the design doc; the pool is
-padded with build-limit filler to match the location count.
+The pool is padded to the location count with the one-shot boons - see PAD_ITEMS.
 """
 from BaseClasses import Item, ItemClassification
 
@@ -84,8 +83,8 @@ RETIRED_ITEMS = {"Greenar Refinery"}
 PROGRESSIVE_ERN = "Progressive ERN"
 
 # Every name that HAS an id. Like Emitter Overdrive these are deliberately still
-# here and deliberately not generated - see POOL_FILLER_KINDS below. Dropping the
-# names outright would renumber every id after them, and ids must not move.
+# here and deliberately not generated - see the note below FILLER_ITEMS. Dropping
+# the names outright would renumber every id after them, and ids must not move.
 BUILD_LIMIT_ITEMS = [
     "Build Limit +1 (Tower)",
     "Build Limit +1 (Cannon)",
@@ -137,11 +136,10 @@ ERN_UPGRADE_ITEMS = ERN_RATE_ITEMS + ERN_CAP_ITEMS
 
 # A FIFTH COPY DOES NOTHING, so four is the whole supply of each name.
 #
-# This is why they cannot go through filler_sequence: that draws with
-# replacement by weight, so it could hand a player nine copies of one name -
-# five of them inert - and none of another. An item that does nothing is the
-# exact defect that got build limits pulled from the pool, so these are
-# generated as FIXED counts instead.
+# This is why they cannot go through filler_sequence: that pads however many
+# slots are left, so it could hand a player nine copies of one name - five of
+# them inert. An item that does nothing is the exact defect that got build
+# limits pulled from the pool, so these are generated as FIXED counts instead.
 ERN_UPGRADE_MAX_COPIES = 4
 
 # One-shot BENEFICIAL items - the mirror of the traps, and the pool's only
@@ -187,19 +185,11 @@ FILLER_ITEMS = BUILD_LIMIT_ITEMS + [ENERGY_STORAGE_ITEM, BASE_GENERATION_ITEM]
 # 24 of 256 items in a seed, so roughly one check in ten paid out a message with
 # nothing behind it, and there was no in-game signal to notice.
 #
-# HELD LOOSELY, and cheap to reopen. Nothing else was removed: the ids, the
-# UnitRules mapping, UnitGate's base-capture and increment, and the yaml weight all
-# still work. If a mission is found that ships a real limit - or if limits are ever
-# introduced deliberately, which is the more likely route - reopening means adding
-# the name to PAD_ITEMS, which is what filler_sequence actually draws from.
-#
-# NOT this list. POOL_FILLER_KINDS IS READ BY NO GENERATION CODE - only by two
-# tests and tools/audit/audit.py, where it is the declaration of what SHOULD be
-# poolable. This comment used to say "putting build_limit back in this list is the
-# whole change", and docs/randomizer-design.md repeated it; following either would
-# have generated nothing while turning the item-group test green, because that
-# test derives its expectation from this same constant.
-POOL_FILLER_KINDS = [ENERGY_STORAGE_ITEM, BASE_GENERATION_ITEM]
+# ONLY THE IDS REMAIN (2026-10-20). The mod no longer applies a build limit and
+# the filler_build_limit_weight option is gone, so the names exist purely to hold
+# their ids. A build-limit item that reaches a player anyway - start_inventory,
+# plando, or a server /send - arrives and does nothing. Reopening them would mean
+# restoring the mod's handling, then generating them.
 
 # Traps. Every effect is temporary and recoverable by design - a trap may sting,
 # but none may make a mission unwinnable, which is why permanent terrain
@@ -237,10 +227,12 @@ TRAP_ITEMS = [
 # counts emitters at mission start only; enemies arrive during play, so real
 # coverage is better and possibly much better. If someone measures emitter counts
 # a few minutes in and it is more like 16 of 20, "essentially every mission"
-# becomes arguable and this decision should be revisited. Nothing else was
-# removed to make that easy: the effect, the applier mapping, the trap: debug
-# command and the yaml weight all still work, so putting the name back in this
-# list is the whole change.
+# becomes arguable and this decision should be revisited.
+#
+# ONLY THE ID REMAINS (2026-10-20). The mod no longer applies the effect and the
+# trap_weight_emitter_overdrive option is gone, so reopening means restoring both
+# before this list changes. An Emitter Overdrive Trap that reaches a player some
+# other way - start_inventory, plando, a server /send - does nothing.
 POOL_TRAP_ITEMS = [t for t in TRAP_ITEMS if t != "Emitter Overdrive Trap"]
 
 # APPENDED, never inserted. Item ids are positional, and the client's
@@ -296,12 +288,9 @@ def classification(name: str) -> ItemClassification:
     # HELD LOOSELY: the effects are large once live (Mine Production triples
     # production), so if these end up feeling like real rewards rather than
     # padding, promoting them to useful is a one-line change.
-    if name in ERN_UPGRADE_ITEMS:
-        return ItemClassification.filler
-    # A one-shot benefit, and genuinely filler: welcome when it lands, never
-    # something anyone is blocked on.
-    if name in BOON_ITEMS:
-        return ItemClassification.filler
+    #
+    # The boons are filler too: a one-shot benefit, welcome when it lands, never
+    # something anyone is blocked on. Both reach here by falling through.
     return ItemClassification.filler
 
 
@@ -317,7 +306,9 @@ def energy_useful_copies(world) -> tuple:
     as a spare. Generating more would put dead items in the pool, which is the
     defect that got build limits removed.
 
-    Mirrors EnergyRules.UsefulCopies, which is the identity for the same reason.
+    The mod reads the same count from slot data (energy_storage_copies,
+    base_generation_copies) and divides the maximum by it, so the two sides
+    cannot disagree about what one copy is worth.
     """
     o = world.options
     return o.energy_storage_copies.value, o.base_generation_copies.value
@@ -349,12 +340,12 @@ def create_all_items(world) -> None:
 
     # ERN port upgrades, as FIXED counts before any weighted padding.
     #
-    # Not part of filler_sequence on purpose: that draws with replacement, so it
-    # could hand out nine copies of one name (five of them inert, since a fifth
-    # copy does nothing) and none of another. Fixed counts guarantee every copy
+    # Not part of filler_sequence on purpose: that pads however many slots are
+    # left, so it could hand out nine copies of one name (five of them inert,
+    # since a fifth copy does nothing). Fixed counts guarantee every copy
     # generated is a copy that works.
     #
-    # Clamped to what is actually left. At the default 4 copies this is 48
+    # Clamped to what is actually left. At the maximum 4 copies this is 48
     # items, which fits comfortably, but a seed with few locations - a small
     # missions_for_finale, or heavy starter_missions - must not overflow its
     # own location count.
@@ -371,7 +362,7 @@ def create_all_items(world) -> None:
     #
     # This is a large change from the old behaviour, where these two names
     # absorbed every leftover slot - about 142 of them - and the copies past the
-    # useful count were inert. See the note on PAD_KIND below for what now fills
+    # useful count were inert. See the note on PAD_ITEMS below for what now fills
     # the gap they leave.
     storage_copies, generation_copies = energy_useful_copies(world)
     for name, count in ((ENERGY_STORAGE_ITEM, storage_copies),
@@ -381,16 +372,15 @@ def create_all_items(world) -> None:
                 break
             pool.append(create_item(world, name))
 
-    # Pad to the number of unfilled locations, drawing filler by the player's
-    # weights. Round-robin used to do this, which ignored the weights entirely
-    # and made the mix depend on how many real items happened to precede it.
+    # Pad to the number of unfilled locations: traps by the player's trap
+    # weights, and the rest from PAD_ITEMS in turn.
     remaining = max(0, unfilled - len(pool))
 
-    # Split what is left between traps and useful upgrades.
+    # Split what is left between traps and boons.
     traps = remaining * world.options.trap_percentage.value // 100
     for name in trap_sequence(world, traps):
         pool.append(create_item(world, name))
-    for name in filler_sequence(world, remaining - traps):
+    for name in filler_sequence(remaining - traps):
         pool.append(create_item(world, name))
     world.multiworld.itempool += pool
 
@@ -402,10 +392,6 @@ def trap_weights(world) -> dict:
         "Spore Scatter Trap": o.trap_weight_spore_scatter.value,
         "Rift Breach Trap": o.trap_weight_creeper_surge.value,
         "Energy Drain Trap": o.trap_weight_energy_drain.value,
-        # Read but unused while Emitter Overdrive is out of the pool - see
-        # POOL_TRAP_ITEMS. Kept so the option keeps working if it goes back in,
-        # and so an existing yaml naming it is not an error.
-        "Emitter Overdrive Trap": o.trap_weight_emitter_overdrive.value,
         "Unit Stun Trap": o.trap_weight_unit_stun.value,
         "Ammo Drain Trap": o.trap_weight_ammo_drain.value,
     }
@@ -415,15 +401,15 @@ def trap_sequence(world, count: int) -> list:
     """`count` trap names drawn by the configured weights.
 
     If a player zeroes every trap weight while still asking for traps, the slots
-    become useful items rather than failing generation - an unfillable
-    preference should degrade, not break the seed.
+    become boons rather than failing generation - an unfillable preference
+    should degrade, not break the seed.
     """
     if count <= 0:
         return []
     weights = {k: v for k, v in trap_weights(world).items()
                if v > 0 and k in POOL_TRAP_ITEMS}
     if not weights:
-        return filler_sequence(world, count)
+        return filler_sequence(count)
     kinds = list(weights)
     return world.random.choices(kinds, weights=[weights[k] for k in kinds], k=count)
 
@@ -433,41 +419,42 @@ def trap_sequence(world, count: int) -> list:
 # Every filler kind now has a CAP: the ERN upgrades stop at 4 copies each, and
 # the two energy upgrades stop at whatever count reaches their maximum (20 each
 # by default). Capping them was the point - a copy that does nothing is the
-# defect that got build limits pulled - but it leaves a hole:
+# defect that got build limits pulled - but it leaves a hole. At the defaults,
+# counted off a generated pool:
 #
 #     236 locations
-#      46 real items (unlocks, units, bonus, progressive ERN)
-#      48 ERN upgrades      (12 names x 4)
-#      16 energy upgrades   (8 + 8 at the defaults)
-#      63 traps             (50 percent of what is left)
+#      45 real items (unlocks, units, bonus, progressive ERN)
+#      24 ERN upgrades      (12 names x 2)
+#      40 energy upgrades   (20 + 20)
+#      63 traps             (50 percent of the 127 left)
 #     ---
-#      63 slots with no capped item left to put in them
+#      64 slots with no capped item left to put in them
 #
 # The boons pad them, because a one-shot effect is the only shape that can
 # absorb an arbitrary count honestly - the thirtieth copy refills weapons
 # exactly as well as the first.
 #
-# All nine share the load evenly, which is why there are nine: it cuts how
-# many of any one name a player sees to about a ninth.
+# All ten share the load evenly, which is why there are ten: it cuts how many
+# of any one name a player sees to about a tenth.
 #
 # Progressive ERN was tried first and was wrong: padding with it meant a player
 # who set progressive_erns to 0 still received sixty-six of them, which
 # overrides an explicit option. A padder must not be something anyone can ask
 # for less of.
 #
-# STILL NOT A FINISHED DESIGN. About thirty copies of each is a lot, and a
-# backlog arriving while ammo and energy are both full fires them all for
-# nothing. The real fix is more item KINDS to spread the leftover across, which
+# STILL NOT A FINISHED DESIGN. About six copies of each at the defaults, more
+# with traps turned down, and a backlog arriving while ammo and energy are both
+# full fires them all for nothing. The real fix is more item KINDS to spread the leftover across, which
 # is the same gap the ERN upgrades were added to close.
 PAD_ITEMS = BOON_ITEMS
 
 
-def filler_sequence(world, count: int) -> list:
-    """`count` filler item names.
+def filler_sequence(count: int) -> list:
+    """`count` filler item names, for the slots left after every fixed count.
 
-    The player's filler weights still choose between the two energy upgrades
-    where there is a choice, but their COUNTS are fixed now, so this is only
-    reached for the leftover slots described above - and those go to PAD_ITEM.
+    The energy and ERN upgrades are placed as fixed counts in create_all_items,
+    so this is only reached for the leftover slots described above - and those
+    go to PAD_ITEMS.
     """
     if count <= 0:
         return []
@@ -477,4 +464,4 @@ def filler_sequence(world, count: int) -> list:
 
 
 def get_filler_item_name(world) -> str:
-    return filler_sequence(world, 1)[0]
+    return filler_sequence(1)[0]

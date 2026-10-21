@@ -73,7 +73,6 @@ public sealed class ApClient
     public bool Connected => Status == ConnectionStatus.Connected;
 
     public event Action? StateChanged;         // raised on the main thread after any change
-    public event Action<string>? MessageReceived;   // AP server log line (plain text), main thread
     public event Action<System.Collections.Generic.List<Appliers.MsgSpan>, bool>? LineReceived;  // colored parts + relevance, main thread
 
     /// <summary>Wire the initial state's events; the property setter handles
@@ -496,7 +495,6 @@ public sealed class ApClient
         _dispatch(() =>
         {
             _log.LogInfo($"AP MESSAGE: relevant={(relevant ? 1 : 0)} {text}");
-            MessageReceived?.Invoke(text);
             LineReceived?.Invoke(spans, relevant);
         });
     }

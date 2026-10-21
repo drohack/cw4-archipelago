@@ -114,7 +114,7 @@ def bootstrap_threshold(world) -> int:
     Why casual specifically: rules._casual_defense ADDS a defensive requirement
     from CASUAL_DEFENSE_FROM onward, so casual is the HARSHER setting despite
     the name. At the default two starters the opening is two locations wide,
-    which clears SAFE_OPENING_MIN and is still far below the SAFE_OPENING of 4
+    which clears SAFE_OPENING_MIN and is still far below the SAFE_OPENING of 6
     this module treats as slack - and every extra requirement raises the chance
     that the fill's next progression item opens nothing. bootstrap_opening's own
     docstring is the description of that failure: "one item that opens nothing
@@ -205,8 +205,6 @@ def opening_width(world) -> int:
     """How many locations are collectable from a standing start, holding nothing.
 
     This is what decides whether the seed can afford more than one early item.
-    Imported late for the same reason `classification` does it: locations imports
-    items, so a top-level import of either here would be a cycle.
     """
     casual = is_casual(world)
     return sum(
@@ -454,7 +452,7 @@ def bootstrap_opening(world) -> list:
 #
 # After the late-mission logic review, a 32-configuration sweep found fill
 # failures in about 0.06 percent of seeds (5 in 8000), all in STANDARD-logic
-# configurations - the ones where the line above returns SAFE_OPENING_MIN, so
+# configurations - the ones where bootstrap_threshold returns SAFE_OPENING_MIN, so
 # opening_width (2 at two starters) is not LESS than the threshold (2) and the
 # bootstrap never runs at all. Two fixes were tried and measured:
 #
@@ -582,26 +580,6 @@ def bootstrap_opening(world) -> list:
 # ANYTHING ELSE paragraph above calls the winner. Deepest observed 3 of 8.
 OWN_FILL_ATTEMPTS = 8
 
-# SOLO SEEDS ONLY. place_own_progression returns immediately in any multiworld
-# that contains another game.
-#
-# WHAT A MULTIWORLD WOULD PAY, which is why it is off there: our progression
-# would be placed into our OWN locations, so it could no longer live in another
-# player's world. World.needs_bootstrap measures what that is worth - "4 CW4
-# progression items per seed living in the other world" over 40 seeds - and that
-# cross-game placement is most of the point of a multiworld. The retry loop
-# itself costs nothing when nothing fails; the loss is where the items end up.
-#
-# Set to False to run the fill on every seed.
-#
-# (This comment used to say the opposite - "the designer chose every seed" - and
-# ended "Set to True to make this solo-only" directly above a constant that was
-# already True. It was wrong from the commit that introduced it and survived
-# every audit until 2026-09-17. A reader would have concluded that a multiworld
-# exercises the retry path, which it does not.)
-OWN_FILL_SOLO_ONLY = True
-
-
 def place_own_progression(world) -> list:
     """Place OUR progression into OUR locations, retrying on failure.
 
@@ -636,7 +614,17 @@ def place_own_progression(world) -> list:
     from Fill import FillError, fill_restrictive, sweep_from_pool
 
     mw = world.multiworld
-    if OWN_FILL_SOLO_ONLY and not every_player_is_cw4(world):
+    # SOLO SEEDS ONLY: this returns immediately in any multiworld that contains
+    # another game.
+    #
+    # WHAT A MULTIWORLD WOULD PAY, which is why it is off there: our progression
+    # would be placed into our OWN locations, so it could no longer live in
+    # another player's world. World.needs_bootstrap measures what that is worth -
+    # "4 CW4 progression items per seed living in the other world" over 40 seeds -
+    # and that cross-game placement is most of the point of a multiworld. The
+    # retry loop itself costs nothing when nothing fails; the loss is where the
+    # items end up.
+    if not every_player_is_cw4(world):
         return []
 
     ours = [item for item in mw.itempool
@@ -652,9 +640,6 @@ def place_own_progression(world) -> list:
             continue                     # the player asked for no progression here
         (priority if loc.progress_type == LocationProgressType.PRIORITY
          else default).append(loc)
-
-    if OWN_FILL_ATTEMPTS < 1:
-        return []            # switched off - see test/bases.py CW4TestBase
 
     # WHAT "EARLY" MEANS is exactly what distribute_early_items means: reachable
     # from the starting state swept through EVENT locations only. Sweeping every
@@ -717,10 +702,6 @@ def place_own_progression(world) -> list:
                              on_place=filled.append, name="CW4 own progression")
             # dict.fromkeys: a swap can record the same location twice.
             placed = [loc for loc in dict.fromkeys(filled) if loc.item is not None]
-            # Recorded so a run can show how often the retry actually fires and
-            # whether it recovers - the only direct evidence that the retry, and
-            # not luck, is what removed the failures.
-            world.own_fill_attempts = attempt
             break
         except FillError:
             # Undo the attempt completely before reshuffling, the way

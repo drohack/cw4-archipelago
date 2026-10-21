@@ -82,7 +82,7 @@ public static class SpanMissionTable
     /// Counted from the live map, the same measurement behind the apworld
     /// tables. Hold (slot 3) never appears: no Farsite mission uses it and
     /// there is no location for it, so a SPAN map that has one is recorded in
-    /// span_data.SPAN_NOTES rather than given an objective here.</summary>
+    /// tools/span_notes.py rather than given an objective here.</summary>
     public static readonly IReadOnlyDictionary<int, int[]> Objectives = new Dictionary<int, int[]>
     {
         [21] = new[] { 0, 1, 2 },

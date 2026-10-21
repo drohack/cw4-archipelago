@@ -19,42 +19,35 @@ public class UnitRulesTests
     public void AllowedUnits_MapsItemsAndIgnoresUnknown()
     {
         var s = new SlotState();
-        s.ApplyReceivedItems(new[] { "Cannon", "Greenar Refinery", "Mission Unlock: Home", "Progressive ERN", "Bertha" });
+        s.ApplyReceivedItems(new[] { "Cannon", "Mission Unlock: Home", "Progressive ERN", "Bertha" });
         var allowed = UnitRules.AllowedUnits(s);
         Assert.Contains("cannon", allowed);
-        Assert.Contains("greenarrefinery", allowed);
         Assert.Contains("bertha", allowed);
-        // riftlab + tower, plus cannon, greenarrefinery and bertha.
-        Assert.Equal(5, allowed.Count);
-    }
-
-    [Theory]
-    [InlineData("Build Limit +1 (Tower)", "tower")]
-    [InlineData("Build Limit +1 (Cannon)", "cannon")]
-    [InlineData("Build Limit +1 (Missile Launcher)", "missilelauncher")]
-    public void LimitItems_Parse(string item, string expected)
-    {
-        Assert.True(UnitRules.TryParseLimitItem(item, out var key));
-        Assert.Equal(expected, key);
-    }
-
-    [Theory]
-    [InlineData("Cannon")]
-    [InlineData("Build Limit +1 (Nonsense)")]
-    [InlineData("Build Limit +1 (Tower")]
-    public void LimitItems_RejectNonLimits(string item)
-    {
-        Assert.False(UnitRules.TryParseLimitItem(item, out _));
+        // riftlab + tower, plus cannon and bertha.
+        Assert.Equal(4, allowed.Count);
     }
 
     [Fact]
-    public void LimitIncrements_Accumulate()
+    public void Factory_AlsoUnlocksTheRefinery()
     {
         var s = new SlotState();
-        s.ApplyReceivedItems(new[] { "Build Limit +1 (Tower)", "Build Limit +1 (Tower)", "Build Limit +1 (Cannon)", "Cannon" });
-        var limits = UnitRules.LimitIncrements(s);
-        Assert.Equal(2, limits["tower"]);
-        Assert.Equal(1, limits["cannon"]);
-        Assert.Equal(2, limits.Count);
+        s.ApplyReceivedItems(new[] { "Factory" });
+        var allowed = UnitRules.AllowedUnits(s);
+        Assert.Contains("factory", allowed);
+        Assert.Contains("greenarrefinery", allowed);
+    }
+
+    // Retired items are never generated, and the mod does not apply them: one
+    // arriving by start_inventory or /send unlocks nothing.
+    [Theory]
+    [InlineData("Greenar Refinery")]
+    [InlineData("Build Limit +1 (Tower)")]
+    [InlineData("Build Limit +1 (Cannon)")]
+    [InlineData("Build Limit +1 (Mortar)")]
+    public void RetiredItems_UnlockNothing(string item)
+    {
+        var s = new SlotState();
+        s.ApplyReceivedItems(new[] { item });
+        Assert.Equal(new HashSet<string> { "riftlab", "tower" }, UnitRules.AllowedUnits(s));
     }
 }

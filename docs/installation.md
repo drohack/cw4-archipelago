@@ -128,20 +128,13 @@ relative frequency of each trap within the `trap_percentage` share:
 `trap_weight_spore_strike`, `trap_weight_spore_scatter`,
 `trap_weight_creeper_surge` (the Rift Breach Trap - the option keeps the
 old name so existing yamls stay valid), `trap_weight_energy_drain`,
-`trap_weight_unit_stun` and `trap_weight_ammo_drain`. A seventh,
-`trap_weight_emitter_overdrive`, exists but is inert - see below.
+`trap_weight_unit_stun` and `trap_weight_ammo_drain`.
 
-**Four options are accepted but do nothing.** They are kept so that a yaml
-naming them stays valid rather than erroring, and they are hidden from the
-options page and the shipped yaml:
-
-- `trap_weight_emitter_overdrive` - Emitter Overdrive is not generated. It does
-  nothing on missions that have no emitters, which is a third of the campaign,
-  and a trap that silently does nothing is worse than no trap.
-- `filler_energy_storage_weight`, `filler_base_generation_weight` and
-  `filler_build_limit_weight` - filler counts come from the `*_copies` options
-  above, not from weights. Build limits are not generated at all, because every
-  building starts unlimited so there is no limit for a "+1" to raise.
+**Removed options.** `trap_weight_emitter_overdrive`,
+`filler_energy_storage_weight`, `filler_base_generation_weight` and
+`filler_build_limit_weight` did nothing and were removed in 0.2.2. A yaml that
+still names one generates normally; Archipelago logs a warning that the option
+is not valid and ignores it.
 
 ## Connecting
 

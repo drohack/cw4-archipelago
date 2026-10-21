@@ -34,14 +34,6 @@ public sealed class TrackerView
     // Cached while the map is open: the planets, and each planet's objective
     // markers. Both are stable for as long as the Galaxy scene is loaded.
     private SpanNetworkPlanet[]? _planets;
-    private int _recolours;
-
-    /// <summary>How many planet recolours have happened. Read by the debug
-    /// channel so the per-frame audit's claims can be checked at runtime.</summary>
-    public int Recolours => _recolours;
-
-    /// <summary>The cached planet list, for the flash diagnostic only.</summary>
-    internal SpanNetworkPlanet[]? Planets => _planets;
     private readonly Dictionary<IntPtr, SpanNetworkPlanetObjective[]> _markers = new();
 
     public static Color StatusColor(TrackerStatus status) => status switch
@@ -117,7 +109,6 @@ public sealed class TrackerView
     /// leave a planet in a state we did not choose.</summary>
     internal void Paint(SpanNetworkPlanet p, SlotState state)
     {
-        TrackerDiag.PaintCalls++;
         int mission = ResolveMission(p);
         if (mission == 0)
             return;
@@ -142,18 +133,11 @@ public sealed class TrackerView
         {
             ReconcileGlyphs(p, mission, state);
             ColorGlyphs(p, mission, state);
-            _recolours++;
         }
     }
 
     private static void SetVisuals(SpanNetworkPlanet p, bool unlocked)
     {
-        try
-        {
-            if (p.lockedPlanet != null && p.lockedPlanet.gameObject.activeSelf == unlocked)
-                TrackerDiag.VisualFixes++;   // it had drifted; someone else wrote it
-        }
-        catch { }
         try { if (p.lockedPlanet != null) p.lockedPlanet.gameObject.SetActive(!unlocked); } catch { }
         try { if (p.planet != null) p.planet.gameObject.SetActive(unlocked); } catch { }
         try { if (p.objectiveContainer != null) p.objectiveContainer.gameObject.SetActive(unlocked); } catch { }
@@ -499,7 +483,6 @@ public static class PlanetRefreshPatch
         try
         {
             _painting = true;
-            TrackerDiag.Refreshes++;
             // Refresh APPENDS markers to the objective container without
             // clearing it, so this planet's cached marker array is now short by
             // however many it just added.
@@ -516,67 +499,6 @@ public static class PlanetRefreshPatch
         catch { }
         finally { _painting = false; }
     }
-}
-
-/// <summary>
-/// Diagnostic counters for the mission map. Not a feature: they exist because
-/// "Not My Mars" was seen flashing between its planet and its locked "?", which
-/// means something repaints a planet by a route the mod does not hook, and the
-/// old per-frame re-assert had been hiding it.
-///
-/// Read with the debug channel's "diag:span".
-/// </summary>
-internal static class TrackerDiag
-{
-    internal static int Refreshes;
-    internal static int UnlockedSets;
-    internal static int PaintCalls;
-    internal static int VisualFixes;
-
-    /// <summary>Frames left in a "diag:watch" window. While it runs, every frame
-    /// is checked for a planet showing the wrong thing.</summary>
-    internal static int WatchFrames;
-
-    private static int _reported;
-
-    /// <summary>Called from Update - i.e. BEFORE our own LateUpdate gets a chance
-    /// to correct anything. A mismatch seen here is a frame the player actually
-    /// saw wrong, which is what "the planet is flashing" means.</summary>
-    internal static void Watch(SpanNetworkPlanet[]? planets, SlotState state)
-    {
-        if (WatchFrames <= 0 || planets == null)
-            return;
-        WatchFrames--;
-        foreach (var p in planets)
-        {
-            if (!GameUtil.IsAlive(p)) continue;
-            int mission = TrackerView.MissionByTitle(TrackerView.TitleOf(p));
-            if (mission == 0) continue;
-            bool want = MissionRules.IsUnlocked(state, mission);
-            bool sphere;
-            try { sphere = p.planet != null && p.planet.gameObject.activeSelf; } catch { continue; }
-            if (sphere == want) continue;
-            if (_reported++ > 40) { WatchFrames = 0; return; }   // enough to see the pattern
-            bool fu = false, un = false;
-            try { fu = p.forceUnlocked; } catch { }
-            try { un = p.unlocked; } catch { }
-            ModCore.Log.LogWarning(
-                $"DIAG FLASH: frame={UnityEngine.Time.frameCount} story{mission} " +
-                $"'{TrackerView.TitleOf(p)}' wantUnlocked={want} sphereOn={sphere} " +
-                $"forceUnlocked={fu} unlocked={un} refreshes={Refreshes} unlockedSets={UnlockedSets}");
-        }
-    }
-}
-
-/// <summary>
-/// The `unlocked` property is the other way a planet's display changes. Counted
-/// to find out whether the game drives it per frame.
-/// </summary>
-[HarmonyPatch(typeof(SpanNetworkPlanet), nameof(SpanNetworkPlanet.unlocked), MethodType.Setter)]
-public static class PlanetUnlockedSetPatch
-{
-    [HarmonyPostfix]
-    public static void Postfix() => TrackerDiag.UnlockedSets++;
 }
 
 /// <summary>

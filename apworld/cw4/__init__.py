@@ -84,10 +84,6 @@ class CW4World(World):
     # so this is the only thing that says which 20 exist for THIS seed.
     mission_roster: list
     early_weapon: str
-    bootstrapped: list = []
-    # What place_own_progression placed, as (location, item) names. Empty when
-    # it stood down (another game present) or was switched off.
-    own_placements: list = []
 
     def generate_early(self) -> None:
         # Chosen before regions are built, because which missions start unlocked
@@ -150,12 +146,12 @@ class CW4World(World):
 
     def pre_fill(self) -> None:
         if self.needs_bootstrap():
-            self.bootstrapped = opening.bootstrap_opening(self)
+            opening.bootstrap_opening(self)
         # Place our own progression, with retries. Archipelago's main fill is
         # not ours to retry, and it gives up on a solvable arrangement about
         # once in 18,000 seeds; oot and pokemon_emerald handle the same problem
         # the same way. See opening.place_own_progression.
-        self.own_placements = opening.place_own_progression(self)
+        opening.place_own_progression(self)
 
     def create_item(self, name: str) -> items.CW4Item:
         return items.create_item(self, name)
@@ -164,8 +160,13 @@ class CW4World(World):
         return items.get_filler_item_name(self)
 
     def fill_slot_data(self) -> Mapping[str, Any]:
-        data = dict(rules.requirement_groups(
-            rules.is_casual(self), missions_in_seed=self.mission_roster))
+        # Only the LOCATION table travels. requirement_groups also builds the
+        # per-mission table, which generation needs (logic_item_names reads it)
+        # and the mod never has: a mission's requirements reach the tracker as
+        # its locations' requirements.
+        data = {"location_requirements": rules.requirement_groups(
+            rules.is_casual(self),
+            missions_in_seed=self.mission_roster)["location_requirements"]}
         # The PHYSICAL layer as well: what a player genuinely cannot proceed
         # without, as opposed to what logic is willing to assume. It lets the
         # in-game tracker paint red only where a check cannot be reached at all,
@@ -204,22 +205,6 @@ class CW4World(World):
         # plugin ignoring this key still behaves correctly.
         data["mission_roster"] = [locations.mission_specifier(n)
                                   for n in self.mission_roster]
-        # Titles alongside - for READERS OTHER THAN THE PLUGIN. The plugin does
-        # not use this, and must not: a mission's title is its location-name
-        # prefix, the key the tracker resolves a planet by, and the unlock item's
-        # name all at once, so it has to be ONE value. That value is the
-        # generated table in src/CW4Archipelago.Core/SpanMissionTable.g.cs, which
-        # CI regenerates and diffs against this same span_data.py, so the two
-        # cannot drift. Wiring the plugin to prefer this key instead would create
-        # exactly the divergence the single table exists to prevent.
-        #
-        # It is sent because an external tracker has no such table and would
-        # otherwise see twenty opaque guids.
-        data["mission_titles"] = {
-            locations.mission_specifier(n): items.ALL_MISSION_TITLES[n]
-            for n in self.mission_roster
-        }
-        data["span_missions"] = bool(self.options.span_missions)
         # WHICH APWORLD BUILT THIS SEED, so the mod can say so when they differ.
         #
         # Three documents promise that the plugin and the apworld are a matched
@@ -234,7 +219,6 @@ class CW4World(World):
         # Read from archipelago.json rather than restated here: a second literal
         # is the thing this key is meant to stop.
         data["world_version"] = _world_version()
-        data["ern_per_item"] = 1
         data["missions_for_finale"] = self.options.missions_for_finale.value
         # Amounts for the energy upgrades. They are here rather than in the item
         # names so that item ids stay identical across yamls.

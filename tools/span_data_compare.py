@@ -12,7 +12,8 @@ checks four things per map against the frozen table:
 
 SLOT 3, HOLD, IS EXCLUDED ON BOTH SIDES. No Farsite mission uses it, there is no
 location for it, and span_data drops it by construction - so a map that enables
-it is expected to differ here and the maps that do are listed in SPAN_NOTES.
+it is expected to differ here and the maps that do are listed in
+tools/span_notes.py.
 
 TWO DIFFERENT QUESTIONS, depending on which log you point it at, and it is worth
 being clear which one a green run has answered:
@@ -42,7 +43,9 @@ span = runpy.run_path(os.path.join(REPO, 'apworld', 'cw4', 'span_data.py'))
 MISSIONS = span['SPAN_MISSIONS']
 COUNTS = span['SPAN_INSTANCE_COUNTS']
 SLOTS = span['SPAN_OBJECTIVE_SLOTS']
-NOTES = span['SPAN_NOTES']
+# The notes are generated alongside span_data.py but kept out of it, because
+# span_data.py ships in the .apworld and nothing in generation reads them.
+NOTES = runpy.run_path(os.path.join(REPO, 'tools', 'span_notes.py'))['SPAN_NOTES']
 
 BY_GUID = {guid: n for n, (guid, _title) in MISSIONS.items()}
 

@@ -8,7 +8,6 @@ public class TrapRulesTests
     [InlineData("Spore Scatter Trap")]
     [InlineData("Rift Breach Trap")]
     [InlineData("Energy Drain Trap")]
-    [InlineData("Emitter Overdrive Trap")]
     [InlineData("Unit Stun Trap")]
     [InlineData("Ammo Drain Trap")]
     public void TrapNames_MatchTheApworld(string name) => Assert.True(TrapRules.IsTrap(name));
@@ -17,11 +16,13 @@ public class TrapRulesTests
     [InlineData("Cannon")]
     [InlineData("Mission Unlock: Home")]
     [InlineData("Progressive Energy Storage")]
+    // Never generated, and not applied: see TrapRules.
+    [InlineData("Emitter Overdrive Trap")]
     [InlineData("")]
     public void NonTraps_AreNotTraps(string name) => Assert.False(TrapRules.IsTrap(name));
 
     [Fact]
-    public void SevenTraps_Exist() => Assert.Equal(7, TrapRules.All.Count);
+    public void SixTraps_Exist() => Assert.Equal(6, TrapRules.All.Count);
 
     [Fact]
     public void TrapsAppliedMark_IsNotClobberedByAnItemResync()

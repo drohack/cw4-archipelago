@@ -34,15 +34,28 @@ WHAT IT CHECKS, and why each rule earned its place rather than being a tidy idea
                         it is low severity and listed last.
 
   artifact rules        Only with --apworld / --zip. These are the ones the audit
-                        was really about: the .apworld must carry no test/ and
-                        must declare this repo's version, and the zip must
-                        actually CONTAIN the mod. That last one is not
-                        hypothetical - package-release.ps1's only zip assertion
-                        is a one-pattern blocklist, and Copy-Item with a wildcard
+                        was really about: the .apworld must declare this repo's
+                        version, and the zip must actually CONTAIN the mod. That
+                        last one is not hypothetical - Copy-Item with a wildcard
                         matching nothing is a silent no-op even under
                         ErrorActionPreference=Stop, so a build whose output path
-                        moved would have produced an empty zip, passed the
-                        blocklist and printed success.
+                        moved would have produced an empty zip and printed
+                        success.
+
+  exact file lists      Both artifacts are compared against an ALLOWLIST, not a
+                        blocklist. The blocklists ("no test/", "no *Debug.dll")
+                        each caught one known leak and nothing else: the apworld
+                        builder walks the filesystem, so any untracked file in
+                        apworld/cw4 - a .bak, a scratch .py - would have shipped.
+                        Adding a file to a release is now a deliberate edit here.
+
+  no debug-only names   The mod's DLLs once carried counters, readbacks and
+                        overrides that only the debug plugin or the tests ever
+                        used (removed 2026-10-20; see docs/developing.md, "Which
+                        code ships"). Their names are read out of the shipped
+                        assemblies' metadata and must stay absent. A regression
+                        guard for those specific names, not a general detector -
+                        the rule that stops new ones is the one in developing.md.
 
 Exit 0 when everything agrees. Every failure names the file, what it found and
 what it expected.
@@ -52,6 +65,7 @@ import io
 import json
 import os
 import re
+import struct
 import sys
 import zipfile
 
@@ -71,6 +85,47 @@ DEV_PLUGINS = [
     ("CW4DevTools", os.path.join(REPO, "src", "CW4DevTools", "CW4DevTools.csproj"),
      os.path.join(REPO, "src", "CW4DevTools", "Plugin.cs")),
 ]
+
+# Everything a player's .apworld may contain. The builder writes its own
+# archipelago.json; test/, player.yaml and __pycache__ are excluded by the
+# world's .apignore and Archipelago's global one.
+APWORLD_FILES = {
+    "cw4/__init__.py",
+    "cw4/archipelago.json",
+    "cw4/docs/en_Creeper World 4.md",
+    "cw4/docs/setup_en.md",
+    "cw4/groups.py",
+    "cw4/items.py",
+    "cw4/locations.py",
+    "cw4/opening.py",
+    "cw4/options.py",
+    "cw4/regions.py",
+    "cw4/roster.py",
+    "cw4/rules.py",
+    "cw4/span_data.py",
+}
+
+# Everything the mod zip may contain: the mod, its rules library, and the two
+# NuGet assemblies the client needs. Directory entries are ignored.
+ZIP_DIR = "BepInEx/plugins/CW4Archipelago/"
+ZIP_FILES = {ZIP_DIR + n for n in (
+    "CW4Archipelago.dll",
+    "CW4Archipelago.Core.dll",
+    "Archipelago.MultiClient.Net.dll",
+    "Newtonsoft.Json.dll",
+)}
+
+# Names that existed in the shipped assemblies only for the debug plugin or the
+# tests, and were moved out on 2026-10-20. Each is distinctive enough not to
+# collide with a game or library name; generic ones (Status, Set, Aim) are left
+# out on purpose rather than risk a false alarm.
+DEBUG_ONLY_NAMES = {
+    "TrackerDiag", "PlanetUnlockedSetPatch", "TrackerRecolours", "SetShowAll",
+    "TotemPokes", "CachePokes", "CeilingOverride", "RaiseLocationsChanged",
+    "SporeTargeting", "RiftLab", "AllItemNames", "UsefulCopies", "ForMission",
+    "MaxRateMultiplier", "StepPerCopy", "LimitIncrements", "TryParseLimitItem",
+    "MissionTitles", "ErnPerItem", "RenderedLines",
+}
 
 FAILURES = []
 
@@ -185,13 +240,18 @@ def check_apworld(path, version):
         return
     with zipfile.ZipFile(path) as zf:
         names = zf.namelist()
-        tests = [n for n in names if re.search(r"(^|/)test/", n)]
-        if tests:
+        files = {n for n in names if not n.endswith("/")}
+        extra = sorted(files - APWORLD_FILES)
+        missing = sorted(APWORLD_FILES - files)
+        if extra:
             fail("apworld contents",
-                 "%d test file(s) inside the artifact, e.g. %s - add them to "
-                 "apworld/cw4/.apignore" % (len(tests), tests[0]))
-        else:
-            ok("apworld contents", "%d files, no test/" % len(names))
+                 "%d file(s) not on the allowlist, e.g. %s - exclude it in "
+                 "apworld/cw4/.apignore, or add it to APWORLD_FILES if it "
+                 "really ships" % (len(extra), extra[0]))
+        if missing:
+            fail("apworld contents", "missing from the artifact: %s" % ", ".join(missing))
+        if not extra and not missing:
+            ok("apworld contents", "exactly the %d allowed files" % len(files))
 
         manifest = [n for n in names if n.endswith("archipelago.json")]
         if not manifest:
@@ -208,22 +268,102 @@ def check_apworld(path, version):
 
 
 def check_zip(path):
-    """The zip must CONTAIN the mod, not merely lack the debug assembly."""
+    """The zip must contain exactly the mod - not merely lack the debug
+    assembly - and the mod must carry none of the debug-only names."""
     if not os.path.exists(path):
         fail("zip contents", "no such file: %s" % path)
         return
     with zipfile.ZipFile(path) as zf:
         names = zf.namelist()
-    required = ["CW4Archipelago.dll", "CW4Archipelago.Core.dll",
-                "Archipelago.MultiClient.Net.dll"]
-    missing = [r for r in required if not any(n.endswith(r) for n in names)]
-    if missing:
-        fail("zip contents", "missing from the zip: %s" % ", ".join(missing))
+        files = {n for n in names if not n.endswith("/")}
+        extra = sorted(files - ZIP_FILES)
+        missing = sorted(ZIP_FILES - files)
+        if extra:
+            fail("zip contents", "not on the allowlist: %s" % ", ".join(extra))
+        if missing:
+            fail("zip contents", "missing from the zip: %s" % ", ".join(missing))
+        if not extra and not missing:
+            ok("zip contents", "exactly the %d allowed assemblies" % len(files))
+
+        for dll in ("CW4Archipelago.dll", "CW4Archipelago.Core.dll"):
+            entry = ZIP_DIR + dll
+            if entry in files:
+                check_assembly_names(dll, zf.read(entry))
+
+
+def metadata_strings(data):
+    """Every identifier in a .NET assembly's #Strings heap: type, member,
+    namespace and assembly-reference names.
+
+    Read straight from the PE file, so it needs no .NET runtime and runs the
+    same in CI as on Windows. Raises ValueError for anything that is not a
+    managed assembly."""
+    def u16(o):
+        return struct.unpack_from("<H", data, o)[0]
+
+    def u32(o):
+        return struct.unpack_from("<I", data, o)[0]
+
+    if data[:2] != b"MZ":
+        raise ValueError("not a PE file")
+    pe = u32(0x3C)
+    if data[pe:pe + 4] != b"PE\0\0":
+        raise ValueError("no PE signature")
+    coff = pe + 4
+    sections, opt_size = u16(coff + 2), u16(coff + 16)
+    opt = coff + 20
+    dirs = opt + (96 if u16(opt) == 0x10B else 112)
+    cli_rva = u32(dirs + 14 * 8)
+    if not cli_rva:
+        raise ValueError("no CLI header - not a managed assembly")
+
+    spans = []
+    for i in range(sections):
+        sh = opt + opt_size + i * 40
+        spans.append((u32(sh + 12), u32(sh + 8), u32(sh + 20)))
+
+    def offset(rva):
+        for va, size, raw in spans:
+            if va <= rva < va + size:
+                return raw + rva - va
+        raise ValueError("RVA 0x%x is in no section" % rva)
+
+    root = offset(u32(offset(cli_rva) + 8))
+    if u32(root) != 0x424A5342:
+        raise ValueError("bad metadata signature")
+    p = root + 16 + u32(root + 12) + 2
+    streams = u16(p)
+    p += 2
+    for _ in range(streams):
+        off, size = u32(p), u32(p + 4)
+        end = data.index(b"\0", p + 8)
+        name = data[p + 8:end].decode("ascii")
+        p = (end + 4) & ~3
+        if name == "#Strings":
+            heap = data[root + off:root + off + size]
+            return {s.decode("utf-8", "replace") for s in heap.split(b"\0") if s}
+    raise ValueError("no #Strings heap")
+
+
+def check_assembly_names(label, data):
+    try:
+        names = metadata_strings(data)
+    except ValueError as e:
+        fail("no debug-only names", "%s: cannot read metadata (%s)" % (label, e))
+        return
+    # Whole-word, not whole-string: the compiler merges a string into the tail
+    # of a longer one, so a property's own name can exist only as the end of
+    # its getter's ("get_RenderedLines"), and a generated name wraps it
+    # ("<AllItemNames>d__12").
+    found = sorted(n for n in DEBUG_ONLY_NAMES
+                   if any(re.search(r"(?<![A-Za-z0-9])%s(?![A-Za-z0-9])" % re.escape(n), s)
+                          for s in names))
+    if found:
+        fail("no debug-only names",
+             "%s carries %s - debug and test code belongs in "
+             "src/CW4Archipelago.Debug or the test projects" % (label, ", ".join(found)))
     else:
-        ok("zip contents", "%d entries, all required assemblies present" % len(names))
-    leaked = [n for n in names if n.endswith("Debug.dll")]
-    if leaked:
-        fail("zip contents", "debug assembly leaked: %s" % ", ".join(leaked))
+        ok("no debug-only names", "%s (%d names read)" % (label, len(names)))
 
 
 def main():

@@ -352,26 +352,6 @@ OBJECTIVE_OWN = {
     (20, "Nullify"): [["Nullifier"]],
 }
 
-# Objectives that need NONE of what completing the mission needs - no weapon, no
-# mission-wide extra. Almost all are the cache a player can take with the rift
-# lab and a single tower before the creeper reaches it; the worksheet says so
-# mission by mission ("You can get the item immediately with rift lab and single
-# tower", "spawn in the rift lab near it and place a single tower").
-#
-# This is what makes a starting weapon unnecessary, and why cannon, mortar and
-# sprayer can all stay real checks instead of one being handed over up front.
-#
-# Archon is here for a different reason: its caches are buried rather than close,
-# and its NEAR-CENTRE one "you can get with just a terp" (designer, 2026-09-16).
-# The waiver is objective-wide, so its far cache re-states the weapon for itself
-# in OBJECTIVE_INSTANCE_EXTRA. This used to cite "If you have a pylon and a terp
-# you can get the 2nd item (no weapons needed)", which the designer has since
-# withdrawn - the far cache needs a weapon on either route.
-#
-# Deliberately NOT here, because the worksheet says the opposite: More and More
-# ("No easy way to get the item at the start of this one. it starts under
-# creep"), Tower of Darkness ("No easy way to get item. need to fight back creep
-# to do it"), The Compound, Sequence, Wallis, Founders and Ever After.
 # Per-objective requirements that LOGIC asserts and PHYSICS does not.
 #
 # MISSION_SOFT says "this mission", which cannot express "this mission's Nullify
@@ -581,6 +561,26 @@ OBJECTIVE_INSTANCE_SOFT = {
 }
 
 
+# Objectives that need NONE of what completing the mission needs - no weapon, no
+# mission-wide extra. Almost all are the cache a player can take with the rift
+# lab and a single tower before the creeper reaches it; the worksheet says so
+# mission by mission ("You can get the item immediately with rift lab and single
+# tower", "spawn in the rift lab near it and place a single tower").
+#
+# This is what makes a starting weapon unnecessary, and why cannon, mortar and
+# sprayer can all stay real checks instead of one being handed over up front.
+#
+# Archon is here for a different reason: its caches are buried rather than close,
+# and its NEAR-CENTRE one "you can get with just a terp" (designer, 2026-09-16).
+# The waiver is objective-wide, so its far cache re-states the weapon for itself
+# in OBJECTIVE_INSTANCE_EXTRA. This used to cite "If you have a pylon and a terp
+# you can get the 2nd item (no weapons needed)", which the designer has since
+# withdrawn - the far cache needs a weapon on either route.
+#
+# Deliberately NOT here, because the worksheet says the opposite: More and More
+# ("No easy way to get the item at the start of this one. it starts under
+# creep"), Tower of Darkness ("No easy way to get item. need to fight back creep
+# to do it"), The Compound, Sequence, Wallis, Founders and Ever After.
 WAIVES_MISSION_REQUIREMENTS = {
     (2, "Collect"), (3, "Collect"), (4, "Collect"), (5, "Collect"),
     (7, "Collect"), (10, "Collect"), (11, "Collect"), (12, "Collect"),
@@ -826,16 +826,14 @@ def mission_requirements(mission: int, casual: bool = False,
     return _expand(groups)
 
 
-def objective_requirements(mission: int, slot: int, casual: bool = False) -> list:
-    """The COMPLETE requirement for one objective check, by slot index."""
-    return requirements_for_kind(mission, OBJECTIVE_TYPES[slot], casual)
-
-
 def requirements_for_kind(mission: int, kind: str, casual: bool = False,
                           physical: bool = False) -> list:
-    """The COMPLETE requirement for every check of one objective type on one
-    mission. Each instance of that type carries the same rule - the game cannot
-    distinguish one totem from another, and neither can logic."""
+    """The requirement every check of one objective type on one mission shares.
+
+    Instances can differ on top of it: OBJECTIVE_INSTANCE_EXTRA and _SOFT add to
+    one instance, and WAIVES_INSTANCE drops the mission's requirements for one.
+    location_requirements applies those, so this is the complete answer only for
+    an instance none of them name."""
     groups = []
 
     # Type-wide: nullifying anything needs the Nullifier, on every mission,

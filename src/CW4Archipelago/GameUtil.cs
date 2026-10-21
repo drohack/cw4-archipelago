@@ -78,10 +78,14 @@ public static class GameUtil
 
     public static bool IsPlayerUnit(UnitManager u)
     {
+        // ItemAlsoUnlocks too: the greenar refinery has no item of its own any
+        // more (Factory unlocks it), but it is still the player's building.
         _playerKeys ??= new HashSet<string>(
             System.Linq.Enumerable.Concat(
                 System.Linq.Enumerable.Concat(Core.UnitRules.AlwaysAvailable, Core.UnitRules.ItemToUnit.Values),
-                ExtraPlayerKeys),
+                System.Linq.Enumerable.Concat(
+                    System.Linq.Enumerable.SelectMany(Core.UnitRules.ItemAlsoUnlocks.Values, v => v),
+                    ExtraPlayerKeys)),
             StringComparer.OrdinalIgnoreCase);
         try
         {

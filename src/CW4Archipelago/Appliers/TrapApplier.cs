@@ -74,7 +74,7 @@ public sealed class TrapApplier
             case BoonRules.FieldShield: BoonEffects.Shield(); return;
             // "all" grants every ware the factory has a channel for; see
             // BoonRules.ResourceCache for why this is one item, not three.
-            case BoonRules.ResourceCache: BoonEffects.ResourceCache("all", 0, false); return;
+            case BoonRules.ResourceCache: BoonEffects.ResourceCache(); return;
         }
     }
 
@@ -88,7 +88,6 @@ public sealed class TrapApplier
             case TrapRules.SporeScatter: TrapEffects.SporeStrikeScatter(0, 0); return;
             case TrapRules.RiftBreach: TrapEffects.Creep(0, 0); return;
             case TrapRules.EnergyDrain: TrapEffects.Energy(0f); return;
-            case TrapRules.EmitterOverdrive: TrapEffects.Emit(0f, 0f); return;
             case TrapRules.UnitStun: TrapEffects.Stun(0f); return;
             case TrapRules.AmmoDrain: TrapEffects.Drain(); return;
         }

@@ -48,7 +48,7 @@ See also: [AP feature comparison + recommendations](design/2026-08-26-ap-feature
 | `Progressive ERN` | `progressive_erns`, default 4 | Range 0-40. Never required to finish a mission, so this is purely pool budget |
 | `Build Limit +1 (<Unit>)` | **not generated** | Every building starts at the "unlimited" sentinel of -1, so there is no limit to raise and the item does nothing. Ids kept, pool entry removed - see the build-limits note below |
 | Energy storage / base generation | filler | Two items, applied to the rift lab. See "Energy items" below |
-| Traps | 6 | Share of the non-progression slots set by `trap_percentage`, default 50. Seven effects exist; Emitter Overdrive is deliberately not generated - see the traps section |
+| Traps | 6 | Share of the non-progression slots set by `trap_percentage`, default 50. Six are generated; a seventh, Emitter Overdrive, keeps its item id only - see the traps section |
 
 There is no "ERN Spawning" item. An earlier draft proposed one; it was never
 built, and the deny-sweep idea it depended on was explicitly ruled out - see
@@ -156,8 +156,8 @@ mistakes most likely to be re-introduced:
   restores it. The mod owns the display from AP state and leaves the file alone.
   Save isolation moves `saves/farsite` per slot instead.
 - Palette: FOUR colours - red not accessible, yellow reachable but not in logic,
-  green reachable and in logic, grey finished. There is no orange: `Partial`
-  exists as a TrackerStatus but maps to green, so do not document an orange.
+  green reachable and in logic, grey finished. A mission with some checks
+  reachable and some not (`TrackerStatus.Partial`) is drawn green.
 - Menu: chronom/markV/colonies/editor hidden; AP login panel functional.
 
 ## Survey data (probe v0.54, automated, 2026-08-25)
@@ -266,7 +266,7 @@ Revised baseline rule sketch per mission:
 Addendum (user, 2026-08-26) - objective requirements:
 - **Totems objective requires greenar**: totems are activated by feeding them
   greenar, so the greenar chain (Greenar Refinery) is required wherever a
-  Totems objective is a location. Encoded in rules.objective_requirements.
+  Totems objective is a location. Encoded in rules.requirements_for_kind.
   CORRECTED: **14** of the twenty carry the chain - 5, 7, 8, 9, 10, 11, 12, 13,
   14, 15, 16, 18, 19, 20. Missions 2, 3 and 4 require NOTHING for their totems:
   they run off loose liftic caches, so there is deliberately no type-wide Totems
@@ -484,17 +484,18 @@ Three consequences worth keeping in view:
   per row length, since a row of the wrong length would shift every index after
   the gap.
 
-  Two fallbacks sit under it, each losing precision without ever mislabelling: a
-  set observed intact earlier in the run (`SlotState.CacheCells`), then plain
-  counting. The table is only trusted when its row length matches what the game
-  reports AND every cache still standing appears in it, so a cache moved by a
-  game update drops to the fallback with a logged warning rather than
+  Under it sits plain counting, which loses which cache was taken without ever
+  mislabelling one. The table is only trusted when its row length matches what
+  the game reports AND every cache still standing appears in it, so a cache
+  moved by a game update drops to counting with a logged warning rather than
   confidently naming the wrong one.
 
-  An earlier version of this used only the observed-intact set. That is strictly
-  weaker and the gap is worth remembering: it can never help a save whose caches
-  were taken before the mod was installed, because by then the full set has
-  never been seen. Knowing map data beats observing it.
+  An earlier version used a set observed intact earlier in the run. That is
+  strictly weaker - it can never help a save whose caches were taken before the
+  mod was installed, because by then the full set has never been seen - and it
+  was never actually saved, despite its comment. It was removed on 2026-10-20:
+  every mission with two or more caches (1, 12, 17) has a table row, and every
+  SPAN mission has at most one cache, where counting loses nothing.
 
 ### Starter missions are RANDOM, and there is no starting weapon
 
@@ -573,12 +574,14 @@ mission it could have got wrong is now played and reported above.
 
 ### Traps
 
-The seven effects from the feasibility spike are now items:
+The seven effects from the feasibility spike became items:
 `Spore Strike Trap`, `Spore Scatter Trap`, `Rift Breach Trap`,
 `Energy Drain Trap`, `Emitter Overdrive Trap`, `Unit Stun Trap`,
-`Ammo Drain Trap`. Each has a weight option, and
+`Ammo Drain Trap`. Six are generated, each with a weight option, and
 `trap_percentage` (default 50) sets what share of the non-progression slots they
-take. Every effect is temporary and recoverable - permanent terrain deformation
+take. Emitter Overdrive was pulled from the pool on 2026-08-31, and on 2026-10-20
+its weight option and the mod's effect were removed too; only its item id
+remains, because ids are positional. Every effect is temporary and recoverable - permanent terrain deformation
 was dropped during the spike precisely because it could strand a mission.
 
 **Traps must fire exactly once, and only in a mission.** Two hazards, both
@@ -886,14 +889,12 @@ ten paying out nothing, with no in-game signal that anything was missing. Same
 rule that removed Emitter Overdrive, applied to a worse case: that trap is dead on
 a third of the campaign, this item was dead on all of it.
 
-Held loosely. The ids, the `UnitRules.ItemToUnit` mapping, `UnitGate`'s base
-capture and increment, the `limit:` debug command and the yaml weight all still
-work, so the code side of a revival is small. The pool side is NOT
-`POOL_FILLER_KINDS`, despite how that constant reads: it is consulted by the
-audit tooling and the tests, and by no generation code at all. What fills the
-non-trap leftovers is `PAD_ITEMS`, and that is where a name would have to go
-back. The likely route back is limits being introduced deliberately rather than a
-mission being found that ships one.
+Only the ids remain (2026-10-20). The mod no longer applies a build limit and the
+`filler_build_limit_weight` option is gone; the names stay because item ids are
+positional. A revival would mean restoring the mod's handling first, then adding
+the name to `PAD_ITEMS`, which is what fills the non-trap leftovers. The likely
+route back is limits being introduced deliberately rather than a mission being
+found that ships one.
 
 ### Verified
 
@@ -1473,7 +1474,8 @@ requested items in the pool - and this fill had already taken them. So
 on, from the day it landed. It now places them first itself; see "Which weapon
 opens the seed" above for the measurements.
 
-SOLO ONLY (`opening.OWN_FILL_SOLO_ONLY`). A multiworld does not need it - measured
+SOLO ONLY (`opening.place_own_progression` returns at once in any multiworld that
+contains another game). A multiworld does not need it - measured
 0 failures in 200 - and applying it there would place all our progression
 locally, costing the cross-game placements the design values. The designer
 initially asked for it everywhere, then chose solo-only once it was clear the

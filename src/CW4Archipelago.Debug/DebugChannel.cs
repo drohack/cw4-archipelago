@@ -151,10 +151,18 @@ public sealed class DebugChannel
         if (lower == "minimap:dump") { MinimapDump(); return; }
         if (lower == "hud:dump") { HudDump(); return; }
         if (lower == "menu:dump") { MenuDump(); return; }
-        if (lower.StartsWith("msgbox:set")) { MsgBoxSet(line.Substring(10).Trim()); return; }
         if (lower.StartsWith("shot:")) { Shot(line.Substring(5).Trim()); return; }
         if (lower.StartsWith("say:")) { ModCore.Client.Say(line.Substring(4).Trim()); return; }
-        if (lower.StartsWith("showall:")) { ModCore.SetShowAll(line.Substring(8).Trim() == "on"); return; }
+        if (lower.StartsWith("showall:"))
+        {
+            // The same as the in-box button, plus a re-render so the change is
+            // retroactive over the history already shown.
+            bool on = line.Substring(8).Trim() == "on";
+            ApMessageBox.ShowAll = on;
+            ModHooks.MessageBox?.Rerender();
+            ModCore.Log.LogInfo($"MSGBOX SHOWALL={(on ? 1 : 0)} (debug)");
+            return;
+        }
         if (lower == "canvas:dump") { CanvasDump(); return; }
         if (lower == "ui:input") { InputDump(); return; }
         if (lower.StartsWith("grant:")) { Grant(line.Substring(6).Trim()); return; }
@@ -189,17 +197,18 @@ public sealed class DebugChannel
                         "FFFFFF"),
                 });
             }
-            ModCore.MessageBox.Rerender();
+            ModHooks.MessageBox?.Rerender();
             ModCore.Log.LogInfo($"MSGBOX FILL: added {count} line(s), history={ModCore.MessageHistory.Count}");
             return;
         }
         if (lower == "msgbox:dump")
         {
-            var box = ModCore.MessageBox;
+            var box = ModHooks.MessageBox;
+            if (box == null) { ModCore.Log.LogWarning("MSGBOX DUMP: no message box"); return; }
             ModCore.Log.LogInfo(
                 $"MSGBOX DUMP: history={ModCore.MessageHistory.Count} " +
-                $"rendered={box.RenderedLines} scroll={box.ScrollPosition:0.000} " +
-                $"autoScroll={box.AutoScroll}");
+                $"rendered={ModHooks.RenderedLines(box)} scroll={ModHooks.ScrollPosition(box):0.000} " +
+                $"autoScroll={ModHooks.AutoScroll(box)}");
             return;
         }
         if (lower.StartsWith("boot:")) { Boot(line.Substring(5).Trim()); return; }
@@ -214,7 +223,7 @@ public sealed class DebugChannel
         {
             var arg = line.Substring(10).Trim();
             int secs = int.TryParse(arg, out var v) ? v : 10;
-            TrackerDiag.WatchFrames = secs * 60;
+            ModHooks.WatchFrames = secs * 60;
             ModCore.Log.LogInfo($"DEBUG diag:watch: armed for ~{secs}s");
             return;
         }
@@ -234,8 +243,8 @@ public sealed class DebugChannel
         if (lower == "perf")
         {
             ModCore.Log.LogInfo(
-                $"DEBUG PERF: tracker recolours={ModCore.TrackerRecolours} " +
-                $"totemPokes={LocationWatcher.TotemPokes} cachePokes={LocationWatcher.CachePokes}");
+                $"DEBUG PERF: tracker recolours={ModHooks.Recolours} " +
+                $"totemPokes={ModHooks.TotemPokes} cachePokes={ModHooks.CachePokes}");
             return;
         }
         if (lower.StartsWith("loc:add ")) { LocAdd(line.Substring(8).Trim()); return; }
@@ -257,13 +266,13 @@ public sealed class DebugChannel
             var a = line.Substring(7).Trim();
             if (a.Length == 0 || a == "off")
             {
-                CW4Archipelago.Core.ErnUpgradeRules.CeilingOverride = null;
+                ModHooks.CeilingOverride = null;
                 ModCore.Log.LogInfo("ERN cap: override cleared, using the per-upgrade table");
             }
             else if (float.TryParse(a, System.Globalization.NumberStyles.Float,
                                     System.Globalization.CultureInfo.InvariantCulture, out var cv))
             {
-                CW4Archipelago.Core.ErnUpgradeRules.CeilingOverride = cv;
+                ModHooks.CeilingOverride = cv;
                 ModCore.Log.LogInfo($"ERN cap: override set to {cv:0.###}");
             }
             else ModCore.Log.LogWarning($"ERN cap: cannot parse '{a}'");
@@ -307,7 +316,9 @@ public sealed class DebugChannel
             // "create" selects CreateProducedWares over SetProducedWares,
             // so a run can measure which write the sim honours.
             bool create = t.Length > 2 && t[2] == "create";
-            BoonEffects.ResourceCache(which, amt, create);
+            // "all" is the player's item, exactly as a received one fires it.
+            if (which == "all") BoonEffects.ResourceCache();
+            else DebugTraps.CacheOne(which, amt, create);
             return;
         }
         // Starts a surge WITHOUT going through the received-items path, so the
@@ -444,8 +455,8 @@ public sealed class DebugChannel
     private static void SpanDiag()
     {
         ModCore.Log.LogInfo(
-            $"DIAG SPAN: refreshes={TrackerDiag.Refreshes} unlockedSets={TrackerDiag.UnlockedSets} " +
-            $"paints={TrackerDiag.PaintCalls} visualFixes={TrackerDiag.VisualFixes} " +
+            $"DIAG SPAN: refreshes={ModHooks.Refreshes} unlockedSets={ModHooks.UnlockedSets} " +
+            $"paints={ModHooks.PaintCalls} visualFixes={ModHooks.VisualFixes} " +
             $"frame={UnityEngine.Time.frameCount}");
         var planets = UnityEngine.Object.FindObjectsOfType<SpanNetworkPlanet>();
         if (planets == null) return;
@@ -901,27 +912,6 @@ public sealed class DebugChannel
         catch (Exception e) { ModCore.Log.LogWarning($"shot failed: {e.Message}"); }
     }
 
-    // Live-tune the message box geometry: msgbox:set w=400 h=180 left=6 bottom=20 alpha=0.5
-    private static void MsgBoxSet(string arg)
-    {
-        foreach (var tok in arg.Split(new[] { ' ', ',' }, StringSplitOptions.RemoveEmptyEntries))
-        {
-            var kv = tok.Split('=');
-            if (kv.Length != 2 || !float.TryParse(kv[1], System.Globalization.NumberStyles.Float,
-                    System.Globalization.CultureInfo.InvariantCulture, out var v)) continue;
-            switch (kv[0].ToLowerInvariant())
-            {
-                case "w": case "width": ApMessageBox.WidthRef = v; break;
-                case "h": case "height": ApMessageBox.BaseHeightRef = v; break;
-                case "left": ApMessageBox.LeftInsetRef = v; break;
-                case "bottom": ApMessageBox.BottomInsetRef = v; break;
-                case "alpha": ApMessageBox.BgAlpha = v; break;
-            }
-        }
-        ModCore.Log.LogInfo($"MSGBOX SET: w={ApMessageBox.WidthRef} h={ApMessageBox.BaseHeightRef} " +
-            $"left={ApMessageBox.LeftInsetRef} bottom={ApMessageBox.BottomInsetRef} alpha={ApMessageBox.BgAlpha}");
-    }
-
     // Enumerate the bottom HUD cluster (terrain height, creeper coverage, emit
     // mode) so the message box can be sized to their combined on-screen width.
     private static void HudDump()
@@ -1024,7 +1014,7 @@ public sealed class DebugChannel
         // raises a change event. Announce it, or the listeners that now drive
         // the map and the lock never hear about a change this command exists to
         // make.
-        state.RaiseLocationsChanged();
+        ModHooks.RaiseLocationsChanged(state);
 
         ModCore.Log.LogInfo(
             $"DEBUG FINALE: need={state.Hints.MissionsForFinale} " +
@@ -1044,7 +1034,7 @@ public sealed class DebugChannel
             state.AllLocations.Add(name);
         // Which locations exist decides which glyphs are tracked, so this is a
         // change the map has to hear about.
-        state.RaiseLocationsChanged();
+        ModHooks.RaiseLocationsChanged(state);
         ModCore.Log.LogInfo($"DEBUG LOC ADD: '{name}' (total {state.AllLocations.Count})");
     }
 
@@ -1462,39 +1452,9 @@ public sealed class DebugChannel
     }
 
     /// <summary>Traps feasibility spike (docs/design/2026-08-26-traps-spike.md).
-    /// "trap:&lt;name&gt; [args]" - each effect is fire-and-forget or self-restoring;
-    /// nothing here may make a mission unwinnable.</summary>
+    /// "trap:&lt;name&gt; [args]" - see DebugTraps.Command.</summary>
     private void Trap(string arg)
-    {
-        var tok = arg.Split(new[] { ' ', ',' }, StringSplitOptions.RemoveEmptyEntries);
-        var name = tok.Length > 0 ? tok[0].ToLowerInvariant() : "";
-        // 0 means "use the tuned default in TrapEffects"; amounts are in depth units.
-        float A(int i, float dflt) =>
-            tok.Length > i && float.TryParse(tok[i], System.Globalization.NumberStyles.Float,
-                System.Globalization.CultureInfo.InvariantCulture, out var v) ? v : dflt;
-
-        switch (name)
-        {
-            // Two distinct spore traps: a fair scatter, and a strike on a
-            // random building. "trap:spore" uses the configured default.
-            case "spore":    TrapEffects.SporeStrike((int)A(1, 0f), (int)(A(2, 0f) * 1_000_000)); return;
-            case "scatter":  TrapEffects.SporeStrikeScatter((int)A(1, 0f), (int)(A(2, 0f) * 1_000_000)); return;
-            case "building": TrapEffects.SporeStrikeBuilding((int)A(1, 0f), (int)(A(2, 0f) * 1_000_000)); return;
-            case "creep":  TrapEffects.Creep((int)A(1, 0f), (int)(A(2, 0f) * 1_000_000)); return;
-            case "energy": TrapEffects.Energy(A(1, 0f)); return;
-            case "emit":   TrapEffects.Emit(A(1, 0f), A(2, 0f)); return;
-            case "stun":   TrapEffects.Stun(A(1, 0f)); return;
-            case "drain":  TrapEffects.Drain(); return;
-            case "status": TrapEffects.Status(); return;
-            case "set":    TrapEffects.Set(tok.Skip(1).ToArray()); return;
-            case "aim":    TrapEffects.Aim(tok.Length > 1 ? tok[1] : ""); return;
-            case "coord":  TrapEffects.Coord(); return;
-            default:
-                ModCore.Log.LogWarning(
-                    $"trap: unknown effect '{name}' - expected spore|scatter|building|creep|energy|emit|stun|drain|status|set|aim");
-                return;
-        }
-    }
+        => DebugTraps.Command(arg.Split(new[] { ' ', ',' }, StringSplitOptions.RemoveEmptyEntries));
 
     /// <summary>Settle whether powerZoneCells reading 0 on all twenty missions is
     /// the truth or a broken read.

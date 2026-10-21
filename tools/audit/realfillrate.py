@@ -27,6 +27,9 @@ from test.general import setup_solo_multiworld              # noqa: E402
 import Fill                                              # noqa: E402
 from Fill import FillError                                # noqa: E402
 from worlds.cw4 import CW4World, opening as openingmod       # noqa: E402
+from worlds.cw4.test import recorder                         # noqa: E402
+
+recorder.install()
 
 N = int(os.environ.get("N", "2000"))
 OWN_FILL = os.environ.get("OWN_FILL", "1") != "0"
@@ -106,7 +109,7 @@ for i in range(N):
     except FillError:
         fails += 1
     else:
-        if getattr(world, "own_fill_attempts", 1) > 1:
+        if recorder.of(world).own_fill_attempts > 1:
             retried += 1
         # ACCESSIBILITY AND BEATABILITY, both of which real generation enforces
         # and a bare distribute_items_restrictive does not. Main.py submits

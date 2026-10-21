@@ -112,6 +112,8 @@ def main():
         return 1
 
     from worlds.cw4 import opening as cw4_opening
+    from worlds.cw4.test import recorder
+    recorder.install()
     if args.cap:
         cw4_opening.OWN_FILL_ATTEMPTS = args.cap
     cap = cw4_opening.OWN_FILL_ATTEMPTS
@@ -133,7 +135,7 @@ def main():
                 if len(failures) == 1:
                     traceback.print_exc()
             else:
-                depths[getattr(world, "own_fill_attempts", 0)] += 1
+                depths[recorder.of(world).own_fill_attempts] += 1
                 span_counts[sum(1 for n in world.mission_roster if n >= 21)] += 1
             if (i + 1) % 100 == 0 or i + 1 == args.seeds:
                 rate = (i + 1) / max(1e-9, time.time() - started)

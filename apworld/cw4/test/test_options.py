@@ -1,6 +1,6 @@
 import unittest
 
-from . import bases
+from . import bases, recorder
 
 
 class TestDefaults(bases.CW4TestBase):
@@ -15,7 +15,7 @@ class TestDefaults(bases.CW4TestBase):
         names = [i.name for i in self.multiworld.itempool]
         self.assertTrue(
             any(n in ("Progressive Energy Storage", "Progressive Base Generation") for n in names),
-            "energy upgrades should appear as filler at the default weights",
+            "energy upgrades should be in the pool at the default copy counts",
         )
 
     def test_energy_upgrades_are_useful_not_filler(self) -> None:
@@ -63,34 +63,27 @@ class TestNoErns(bases.CW4TestBase):
         self.assertEqual(len(names), len(locations))
 
 
-class TestOnlyStorageFiller(bases.CW4TestBase):
-    """The filler WEIGHTS no longer size the energy blocks.
+class TestAllWeightsZero(bases.CW4TestBase):
+    """Every trap weight at zero while traps are still asked for.
 
-    Their counts are their own options now, because both curves are capped and
-    the count that reaches the cap is the only count worth generating. The
-    weight options are kept so existing yamls naming them are not errors - the
-    same treatment build limits got - but they no longer decide anything.
+    The draw has nothing to pick, so trap_sequence hands the slots to the boons
+    instead. (This class zeroed the three filler weights until those options
+    were removed on 2026-10-20; the trap weights are the zero-weight case that
+    still exists.)
     """
     options = {
-        "filler_energy_storage_weight": 100,
-        "filler_base_generation_weight": 0,
-        "filler_build_limit_weight": 0,
+        "trap_weight_spore_strike": 0,
+        "trap_weight_spore_scatter": 0,
+        "trap_weight_creeper_surge": 0,
+        "trap_weight_energy_drain": 0,
+        "trap_weight_unit_stun": 0,
+        "trap_weight_ammo_drain": 0,
     }
 
-    def test_counts_come_from_their_own_options_not_the_weights(self) -> None:
+    def test_no_trap_is_generated(self) -> None:
+        from ..items import TRAP_ITEMS
         names = [i.name for i in self.multiworld.itempool]
-        # Zero weight, but the copies option is still 20.
-        self.assertEqual(names.count("Progressive Base Generation"), 20)
-        self.assertEqual(names.count("Progressive Energy Storage"), 20)
-        self.assertNotIn("Build Limit +1 (Tower)", names)
-
-
-class TestAllWeightsZero(bases.CW4TestBase):
-    options = {
-        "filler_energy_storage_weight": 0,
-        "filler_base_generation_weight": 0,
-        "filler_build_limit_weight": 0,
-    }
+        self.assertFalse([n for n in names if n in TRAP_ITEMS])
 
     def test_pool_still_fills(self) -> None:
         # An unfillable preference must not fail generation.
@@ -184,11 +177,11 @@ class TestEarlyWeaponWithOneStarter(bases.CW4TestBase):
     def test_the_bootstrap_widens_the_opening(self) -> None:
         from BaseClasses import CollectionState
         from ..opening import SAFE_OPENING
-        self.assertTrue(self.world.bootstrapped, "nothing was bootstrapped")
+        self.assertTrue(self.prefill.bootstrapped, "nothing was bootstrapped")
         # prevent_sweep, or the sweep collects the OTHER locked bootstrap items
         # for us and the measurement stops being about the listed items.
         state = CollectionState(self.multiworld)
-        for _name, item_name in self.world.bootstrapped:
+        for _name, item_name in self.prefill.bootstrapped:
             state.collect(self.world.create_item(item_name), prevent_sweep=True)
         reachable = [l for l in self.multiworld.get_locations(self.player)
                      if l.address is not None and l.can_reach(state)]
@@ -202,7 +195,7 @@ class TestEarlyWeaponWithOneStarter(bases.CW4TestBase):
         state = CollectionState(self.multiworld)
         before = len([l for l in self.multiworld.get_locations(self.player)
                       if l.address is not None and l.can_reach(state)])
-        for _name, item_name in self.world.bootstrapped:
+        for _name, item_name in self.prefill.bootstrapped:
             state.collect(self.world.create_item(item_name), prevent_sweep=True)
             after = len([l for l in self.multiworld.get_locations(self.player)
                          if l.address is not None and l.can_reach(state)])
@@ -215,7 +208,7 @@ class TestEarlyWeaponWithOneStarter(bases.CW4TestBase):
         # pool, so the pool alone no longer matches the location count.
         locations = [l for l in self.multiworld.get_locations(self.player)
                      if l.address is not None]
-        self.assertEqual(len(self.multiworld.itempool) + len(self.world.bootstrapped),
+        self.assertEqual(len(self.multiworld.itempool) + len(self.prefill.bootstrapped),
                          len(locations))
 
 
@@ -269,18 +262,10 @@ class TestOpeningWidthAtTwoStarters(bases.CW4TestBase):
 class TestBuildLimitsNeverGenerate(bases.CW4TestBase):
     """Build limits are out of the pool, and this is the test that keeps them out.
 
-    The weight is turned UP to 100 and the two real fillers to zero, so the ONLY
-    thing the old code could have drawn is a build limit. If they ever return to
-    the pool by accident rather than by decision, this fails.
-
-    It also covers the fallback: with every poolable weight at zero the draw has
-    nothing to pick, and the pool still has to fill exactly.
+    The mod no longer applies one, so a build limit in the pool would be a check
+    that pays out nothing. If they ever return to the pool by accident rather
+    than by decision, this fails.
     """
-    options = {
-        "filler_build_limit_weight": 100,
-        "filler_energy_storage_weight": 0,
-        "filler_base_generation_weight": 0,
-    }
 
     def test_no_build_limit_item_is_generated(self) -> None:
         from ..items import BUILD_LIMIT_ITEMS
@@ -371,7 +356,6 @@ class TestOneTrapKind(bases.CW4TestBase):
         "trap_weight_spore_scatter": 0,
         "trap_weight_creeper_surge": 0,
         "trap_weight_energy_drain": 0,
-        "trap_weight_emitter_overdrive": 0,
         "trap_weight_unit_stun": 0,
         "trap_weight_ammo_drain": 0,
     }
@@ -448,7 +432,7 @@ class TestCasualLogic(bases.CW4TestBase):
         # Whatever pre_fill placed is part of the seed too, so it belongs in the
         # state - otherwise the assertion could pass merely for want of a
         # mission unlock the bootstrap had taken out of the pool.
-        for _loc, name in (getattr(self.world, "bootstrapped", None) or []):
+        for _loc, name in self.prefill.bootstrapped:
             if name not in anti_air:
                 state.collect(self.world.create_item(name), prevent_sweep=True)
 
@@ -491,7 +475,7 @@ class TestEasyLogic(bases.CW4TestBase):
         for item in self.multiworld.itempool:
             if item.name not in missing:
                 state.collect(item, prevent_sweep=True)
-        for _loc, name in (getattr(self.world, "bootstrapped", None) or []):
+        for _loc, name in self.prefill.bootstrapped:
             if name not in missing:
                 state.collect(self.world.create_item(name), prevent_sweep=True)
         return state
@@ -651,11 +635,6 @@ class TestEmitterOverdriveIsNotGenerated(bases.CW4TestBase):
         from ..items import POOL_TRAP_ITEMS
         self.assertEqual(6, len(POOL_TRAP_ITEMS))
 
-    def test_only_the_two_energy_upgrades_are_poolable_filler(self) -> None:
-        from ..items import BASE_GENERATION_ITEM, ENERGY_STORAGE_ITEM, POOL_FILLER_KINDS
-        self.assertEqual([ENERGY_STORAGE_ITEM, BASE_GENERATION_ITEM],
-                         list(POOL_FILLER_KINDS))
-
 
 class TestArchipelagoConventions(bases.CW4TestBase):
     """The encouraged-feature list from Archipelago's own "adding games" doc.
@@ -681,11 +660,14 @@ class TestArchipelagoConventions(bases.CW4TestBase):
         # got no error and no effect - the same silent failure the docstring above
         # warns about, arrived at from the other direction.
         from ..groups import ITEM_NAME_GROUPS
-        from ..items import (BONUS_UNIT_ITEMS, MISSION_UNLOCK_ITEMS,
-                             POOL_FILLER_KINDS, POOL_TRAP_ITEMS, PROGRESSIVE_ERN,
+        from ..items import (BASE_GENERATION_ITEM, BONUS_UNIT_ITEMS, ENERGY_STORAGE_ITEM,
+                             MISSION_UNLOCK_ITEMS, POOL_TRAP_ITEMS, PROGRESSIVE_ERN,
                              UNIT_ITEMS)
+        # The two energy upgrades are the only FILLER_ITEMS create_all_items
+        # generates; the build limits keep their ids and nothing else.
         poolable = (set(MISSION_UNLOCK_ITEMS) | set(UNIT_ITEMS) | set(BONUS_UNIT_ITEMS)
-                    | {PROGRESSIVE_ERN} | set(POOL_FILLER_KINDS) | set(POOL_TRAP_ITEMS))
+                    | {PROGRESSIVE_ERN, ENERGY_STORAGE_ITEM, BASE_GENERATION_ITEM}
+                    | set(POOL_TRAP_ITEMS))
         for group, names in ITEM_NAME_GROUPS.items():
             for name in names:
                 self.assertIn(name, poolable,
@@ -777,9 +759,9 @@ class TestErnUpgradeItems(bases.CW4TestBase):
         ])
 
     def test_the_option_decides_the_count_and_the_default_is_two(self) -> None:
-        # FIXED counts, not a weighted draw. filler_sequence draws with
-        # replacement, which could produce nine copies of one name - five of
-        # them inert, because a fifth copy does nothing - and none of another.
+        # FIXED counts, not a weighted draw. A draw with replacement could
+        # produce nine copies of one name - five of them inert, because a fifth
+        # copy does nothing - and none of another.
         #
         # This used to assert ERN_UPGRADE_MAX_COPIES, conflating two different
         # numbers: the useful CEILING (4, still enforced by the next test) and
@@ -949,7 +931,7 @@ class TestCasualBootstrap(bases.CW4TestBase):
         width = opening.opening_width(self.world)
         self.assertLess(width, opening.bootstrap_threshold(self.world),
                         f"casual opening is {width}, so the bootstrap will not run")
-        self.assertTrue(getattr(self.world, "bootstrapped", None),
+        self.assertTrue(self.prefill.bootstrapped,
                         "bootstrap_opening placed nothing")
 
 
@@ -995,7 +977,7 @@ class TestOwnProgressionFill(bases.CW4TestBase):
     own_fill = True
 
     def test_progression_is_placed_and_out_of_the_pool(self) -> None:
-        placed = getattr(self.world, "own_placements", [])
+        placed = self.prefill.own_placements
         self.assertTrue(placed, "our own fill placed nothing")
         names = {n for _loc, n in placed}
         pool = [i.name for i in self.multiworld.itempool
@@ -1012,13 +994,13 @@ class TestOwnProgressionFill(bases.CW4TestBase):
         # fill_restrictive directly bypasses that. Getting this wrong would
         # silently ignore a player's exclude_locations option.
         from BaseClasses import LocationProgressType
-        for loc_name, _item in getattr(self.world, "own_placements", []):
+        for loc_name, _item in self.prefill.own_placements:
             loc = self.multiworld.get_location(loc_name, self.player)
             self.assertNotEqual(LocationProgressType.EXCLUDED, loc.progress_type,
                                 f"{loc_name} is excluded and got progression")
 
     def test_every_placement_is_ours(self) -> None:
-        for loc_name, _item in getattr(self.world, "own_placements", []):
+        for loc_name, _item in self.prefill.own_placements:
             loc = self.multiworld.get_location(loc_name, self.player)
             self.assertEqual(self.player, loc.player)
             self.assertEqual(self.player, loc.item.player)
@@ -1036,7 +1018,7 @@ class TestOwnFillCanBeSwitchedOff(bases.CW4TestBase):
     own_fill = False
 
     def test_nothing_is_pre_placed(self) -> None:
-        self.assertEqual([], getattr(self.world, "own_placements", []))
+        self.assertEqual([], self.prefill.own_placements)
 
 
 class TestFillRunsTheShippedPath(bases.CW4TestBase):
@@ -1064,7 +1046,7 @@ class TestFillRunsTheShippedPath(bases.CW4TestBase):
 
     def test_fill(self) -> None:
         self.assertTrue(
-            getattr(self.world, "own_placements", []),
+            self.prefill.own_placements,
             "test_fill generated with our pre_fill disabled. That tests a "
             "configuration that never ships and fails on roughly 1 seed in "
             "1000; see CW4TestBase.FILL_TESTS.")
@@ -1140,7 +1122,7 @@ class TestOwnFillHonoursEarlyItems(bases.CW4TestBase):
         # pool. The early phase and the main phase both write into one list,
         # and a swap can record a location twice; this is what would show it.
         seen = set()
-        for loc_name, item_name in self.world.own_placements:
+        for loc_name, item_name in self.prefill.own_placements:
             loc = self.multiworld.get_location(loc_name, self.player)
             self.assertEqual(item_name, loc.item.name)
             self.assertIs(loc, loc.item.location)
@@ -1235,7 +1217,7 @@ class TestEarlyPlacementIsUndoneOnRetry(unittest.TestCase):
             mw = setup_multiworld([CW4World], gen_steps, seed=7,
                                   options=[{"early_weapon": "cannon"}])
         world = mw.worlds[1]
-        self.assertEqual(2, world.own_fill_attempts)
+        self.assertEqual(2, recorder.of(world).own_fill_attempts)
         early = _early_locations(mw, 1)
         for name in _requested(mw, 1):
             held = _holders(mw, 1, name)
@@ -1452,7 +1434,7 @@ class TestOwnFillAttemptsIsAReachablePatchPoint(bases.CW4TestBase):
     own_fill = False
 
     def test_zeroing_it_places_nothing(self) -> None:
-        self.assertEqual([], self.world.own_placements,
+        self.assertEqual([], self.prefill.own_placements,
                          "OWN_FILL_ATTEMPTS was zeroed and the fill ran anyway - "
                          "the constant and place_own_progression are no longer "
                          "in the same module")

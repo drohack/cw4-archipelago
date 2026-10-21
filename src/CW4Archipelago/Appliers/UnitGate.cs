@@ -7,7 +7,7 @@ using UnityEngine.SceneManagement;
 namespace CW4Archipelago.Appliers;
 
 /// <summary>
-/// Enforces the allowed-unit whitelist and build limits on the live
+/// Enforces the allowed-unit whitelist on the live
 /// BuildUnitManager, with the proven no-flash hide + multi-frame reveal.
 /// Ported from the probe; driven by SlotState instead of a file whitelist.
 /// </summary>
@@ -123,7 +123,6 @@ public sealed class UnitGate
             _lastGameSpace = gs.Pointer;
             ModCore.Log.LogInfo($"New GameSpace - enforcing units: {string.Join(",", Allowed)}");
             _revealCountdown = _paneHidden ? 30 : -1;
-            CaptureBaseLimits(bum);
             // Baseline the item count so the initial reveal (not a mid-mission
             // receipt) owns the first paint.
             _lastItemCount = ModCore.Client.State.ReceivedItems.Count;
@@ -149,7 +148,6 @@ public sealed class UnitGate
             }
             kv.Value(bum, want);
         }
-        ApplyLimits(bum);
 
         // Rebuilding the strip is the only way to remove a button the game has
         // already added. Throttled, because a mission that re-grants every
@@ -186,43 +184,6 @@ public sealed class UnitGate
         }
 
         RunReveal();
-    }
-
-    // Mission-default build limits, captured once per mission so "+1" items
-    // apply as base+increment rather than accumulating every frame.
-    private readonly Dictionary<string, int> _baseLimits = new();
-
-    private void CaptureBaseLimits(BuildUnitManager bum)
-    {
-        _baseLimits.Clear();
-        foreach (var key in UnitRules.ItemToUnit.Values)
-        {
-            try { _baseLimits[key] = bum.GetBuildCountLimit(key); } catch { }
-        }
-        foreach (var key in UnitRules.AlwaysAvailable)
-        {
-            try { _baseLimits[key] = bum.GetBuildCountLimit(key); } catch { }
-        }
-    }
-
-    private void ApplyLimits(BuildUnitManager bum)
-    {
-        foreach (var kv in UnitRules.LimitIncrements(ModCore.Client.State))
-        {
-            if (!_baseLimits.TryGetValue(kv.Key, out var baseLimit))
-                continue;
-            // A negative base is the game's "unlimited" sentinel - a +N to
-            // unlimited is meaningless, and setting a concrete value would
-            // actually CAP a unit that had no cap. Leave those alone.
-            //
-            // This turns out to be EVERY building: all of them start unlimited, so
-            // this branch always taken is why Build Limit items did nothing and are
-            // no longer generated. The guard stays right as written - it is the
-            // item that was wrong, not the refusal.
-            if (baseLimit < 0)
-                continue;
-            try { bum.SetBuildCountLimit(kv.Key, baseLimit + kv.Value); } catch { }
-        }
     }
 
     private bool RefreshPane()

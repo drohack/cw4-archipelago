@@ -52,6 +52,48 @@
 - `docs/research-findings.md` - proven recipes and crash rules for modding
   CW4 under IL2CPP. Read this before touching plugin code.
 
+### Which code ships
+
+A player installs three things: the mod zip (`CW4Archipelago.dll`,
+`CW4Archipelago.Core.dll` and the two NuGet assemblies), the `.apworld`, and the
+player yaml. Everything else is for us.
+
+| Ships to players | Never ships |
+|---|---|
+| `src/CW4Archipelago` - player features only | `src/CW4Archipelago.Debug` - every debug command, counter, readback, override and probe |
+| `src/CW4Archipelago.Core` - the pure rules the mod uses | `src/CW4DevTools` - cheats and surveys |
+| `apworld/cw4/*.py` and `docs/` - what generation needs | `src/CW4Archipelago.Core.Tests`, `apworld/cw4/test/` |
+| `apworld/cw4/player.yaml`, as its own asset | `tools/` - harnesses, audits, generators |
+
+**The rule: nothing in a shipped assembly or module exists for the debug
+plugin, the tests or the tools.** Not a counter, not a readback property, not a
+"test-only" override, not a constant only a test reads, not a field made mutable
+so a command can tune it. A player never uses any of it and never should.
+
+How each side gets what it needs instead:
+
+- **The debug plugin attaches from outside.** Its counters and watches are its
+  own Harmony patches - on the same game methods the mod hooks, or on the mod's
+  own methods - and it reads the mod's private state with `AccessTools`
+  (`src/CW4Archipelago.Debug/ModHooks.cs`). It patches at Load, straight after
+  the mod and before any patched method first runs. Its tuning commands pass
+  values as arguments rather than writing the mod's constants
+  (`DebugTraps.cs`). `InternalsVisibleTo` stays, but only for player code the
+  debug plugin also calls - `AssemblyInfo.cs` lists exactly what.
+- **Tests keep their helpers in the test project** - e.g.
+  `src/CW4Archipelago.Core.Tests/ErnItems.cs` builds item names the mod builds
+  inline. The apworld tests and the audit tools record what the World did by
+  wrapping its functions, not by reading attributes the World set for them.
+- **Log lines are fine** as long as they only output data and tell the player
+  nothing they do not already know.
+
+This used to be only half true. Splitting the debug channel out (2026-09-03)
+moved the commands but left the counters, readbacks and tuning code they drive
+in the mod, reached through `InternalsVisibleTo`, and later debug features
+followed that pattern. They were moved out on 2026-10-20. `tools/check_release.py`
+now holds both artifacts to exact file lists and reads the shipped DLLs'
+metadata for the names that were removed, so those cannot quietly return.
+
 ## Build setup (C# mod)
 
 1. Install the .NET SDK (net6.0 target; any SDK >= 6 works).
@@ -420,7 +462,7 @@ single bool test and the per-frame WORK is zero.
 | `InfoCache.DestroyUnit` | public | Polling `gs.mustCollect` |
 | `ApClient.StateChanged` | the mod's own | Recomputing tracker/gate state every frame |
 | `ConfigFile.SettingChanged` | BepInEx | The dev overlay's hand-maintained signature |
-| `SpanNetworkPlanet.unlocked` setter | property setter | Nothing - it is diagnostic only, counting how often the game writes that property (`diag:span`) |
+| `SpanNetworkPlanet.unlocked` setter | property setter | Nothing - it is diagnostic only, counting how often the game writes that property (`diag:span`). The debug plugin's, not the mod's, since 2026-10-20 |
 
 A constraint worth recording: `ApClient` REPLACES the `SlotState` object on
 connect, so subscribing once to `State.ItemsChanged` would leave a dead
@@ -490,7 +532,9 @@ became one-line Harmony postfixes on the game's own update.
 being APPLIED is not the same as a patch FIRING. A postfix can attach to a method
 IL2CPP never calls, or to a method that is simply not on the path you think it is,
 and a safety poll will then cover for it silently forever. So `perf` reports
-`totemPokes` and `cachePokes`, and the battery asserts both are non-zero.
+`totemPokes` and `cachePokes`, and the battery asserts both are non-zero. The
+counters are the debug plugin's own postfixes on the same two game methods
+(`ModHooks.cs`), so a player's install carries none of them.
 
 That is not hypothetical: `cachePokes` was **0 after a human collected a cache**.
 The cache hook was on `InfoCache.Retrieved`, which is never called on the pickup
@@ -498,8 +542,9 @@ path - the poll had been doing all the work since the hook was written. Without
 the counter the feature looked fine, because it WAS fine, just for a different
 reason than the code claimed. The hook is now on `InfoCache.DestroyUnit`.
 
-The rule: every event hook gets a fired-counter, and something has to trigger the
-real event at least once. "The patch applied" proves very little on its own.
+The rule: every event hook gets a fired-counter - in the debug plugin, patched
+on the same method, never in the mod - and something has to trigger the real
+event at least once. "The patch applied" proves very little on its own.
 
 ### The flashing planet: one hook was not enough
 
@@ -724,7 +769,7 @@ Write commands to `<game>/BepInEx/cw4ap-commands.txt`, read results from
 `LogOutput.log`. Commands: connect, disconnect, dump, units, item:<name>,
 check:<location>, boot:<storyN>, objective:<n>, win, ada:close, tracker:dump,
 story:open, clickplanet:<storyN>, limit:<unit>, ern:status, gatecheck:<storyN>,
-say:<text>, showall:on|off, shot:<path>, msgbox:set, msgbox:dump, canvas:dump,
+say:<text>, showall:on|off, shot:<path>, msgbox:dump, canvas:dump,
 hud:dump, minimap:dump, menu:dump, toast:<text>, finale:need <n>, finale:beat
 <n>, loc:add <location>, perf, glyphs:dump [planet title], totem:complete,
 cache:destroy, counts:dump, totems:dump, pane:dump, resources:dump,
@@ -764,12 +809,16 @@ configured), `creep`, `energy`, `emit`, `stun`, `drain` - plus `status` for a re
 player/non-player unit histogram that catches a trap silently affecting
 nothing), `set k=v` for live tuning in depth units, and the diagnostics `aim`
 (where spores actually aim) and `coord` (cell/world mapping). Omitted or zero
-arguments use the tuned defaults in `TrapEffects.cs`.
+arguments use the `trap:set` override if there is one, else the tuned
+constants in `TrapEffects.cs`; `trap:set` never changes what a received trap
+fires. Everything but the six player effects lives in
+`src/CW4Archipelago.Debug/DebugTraps.cs`.
 
 **These are no longer dormant.** All seven have real AP item names in
 `TRAP_ITEMS` (`apworld/cw4/items.py`) and SIX of them are generated:
 `POOL_TRAP_ITEMS` holds Emitter Overdrive out, because it is dead on a third
-of the campaign. The six are drawn from the filler pool at `trap_percentage`
+of the campaign. The mod does not apply it either; `trap:emit` in the debug
+plugin is the only way to fire that effect. The six are drawn from the filler pool at `trap_percentage`
 (default **50**), fired on receipt by `Appliers/TrapApplier.cs` off a persisted high-water
 mark, with the item-name table in `Core/TrapRules.cs` and per-trap frequency
 weights in the yaml. The `trap:` commands remain the way to exercise one without

@@ -4,10 +4,13 @@ using System.Linq;
 namespace CW4Archipelago.Core;
 
 /// <summary>
-/// Archipelago / PopTracker convention:
-/// Locked = red (not accessible), OutOfLogic = yellow (reachable, not in logic),
-/// InLogic = green, Partial = orange (some remaining checks in logic, some not),
-/// Done = grey (finished).
+/// The map's four colours, PopTracker's palette: Locked = red (not accessible),
+/// OutOfLogic = yellow (reachable, not in logic), InLogic = green, Done = grey
+/// (finished).
+///
+/// Partial - some remaining checks in logic, some not - is a status but not a
+/// colour of its own: TrackerView draws it green, because a mission with a
+/// check that can be taken right now should read as takeable.
 /// </summary>
 public enum TrackerStatus
 {
@@ -72,8 +75,8 @@ public static class TrackerRules
         // Judge on what is LEFT to do. One unreachable check used to paint the
         // whole mission red, which hid the fact that another check on it could
         // be taken right now - the single most useful thing the map can say.
-        // A mission with both is Partial (orange); red is for a mission with
-        // nothing left that can be reached.
+        // A mission with both is Partial, which the map draws green; red is
+        // for a mission with nothing left that can be reached.
         var remaining = statuses.Where(s => s != TrackerStatus.Done).ToList();
         if (remaining.All(s => s == TrackerStatus.Locked))
             return TrackerStatus.Locked;

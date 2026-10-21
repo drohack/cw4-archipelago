@@ -35,9 +35,6 @@ public static class ModCore
 
     public static string CurrentScene => _lastScene;
 
-    /// <summary>Exposed for the per-frame audit check.</summary>
-    public static int TrackerRecolours => _tracker?.Recolours ?? -1;
-
     /// <summary>Mark the mission map as needing a repaint. Called from the
     /// Harmony patches and on Archipelago state changes; only sets a flag, so it
     /// is safe from any thread.</summary>
@@ -87,8 +84,6 @@ public static class ModCore
     /// <summary>Rolling history of colored message lines (survives scene changes).</summary>
     public static readonly System.Collections.Generic.List<Appliers.MsgLine> MessageHistory = new();
 
-    /// <summary>The message box, for the debug channel's readbacks only.</summary>
-    internal static Appliers.ApMessageBox MessageBox => _messageBox;
     private const int MaxHistory = 200;
 
     /// <summary>Append a colored line to the history and the live box.</summary>
@@ -102,16 +97,6 @@ public static class ModCore
     /// <summary>Append a single-color line (connection status, debug).</summary>
     public static void EnqueueToast(string message)
         => AppendLine(new System.Collections.Generic.List<Appliers.MsgSpan> { new Appliers.MsgSpan(message, "C0C8D4") }, true);
-
-    /// <summary>Toggle the message box between relevant-only and show-all, and
-    /// re-render history so the change is retroactive (used by the debug channel;
-    /// the in-box button toggles directly).</summary>
-    public static void SetShowAll(bool on)
-    {
-        Appliers.ApMessageBox.ShowAll = on;
-        _messageBox.Rerender();
-        Log.LogInfo($"MSGBOX SHOWALL={(on ? 1 : 0)} (debug)");
-    }
 
     // Per-slot cache lives next to the game's own save data.
     private static string StoreRoot()
@@ -159,11 +144,6 @@ public static class ModCore
             OnSceneChanged(scene);
         }
 
-        // Flash diagnostic: sampled in Update, before our own LateUpdate can
-        // correct anything, so it sees what the player saw. Off unless armed.
-        if (Appliers.TrackerDiag.WatchFrames > 0)
-            Appliers.TrackerDiag.Watch(_tracker.Planets, Client.State);
-
         _menu.Tick(scene);
         _units.Tick();
         _erns.Tick();
@@ -172,7 +152,6 @@ public static class ModCore
         _traps.Tick();
         _finaleLock.Tick();
         _locations.Tick();
-        TrapEffects.Tick();   // restores a timed trap:emit burst
         Appliers.BoonEffects.Tick();    // expires a Field Shield
 
         // Periodic pending-check flush safety (~ every 5s at 60fps).

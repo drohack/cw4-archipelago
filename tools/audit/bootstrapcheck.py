@@ -23,6 +23,9 @@ sys.path.insert(0, os.getcwd())
 
 from test.general import setup_solo_multiworld  # noqa: E402
 from worlds.cw4 import CW4World, items, opening  # noqa: E402
+from worlds.cw4.test import recorder  # noqa: E402
+
+recorder.install()
 
 STEPS = ("generate_early", "create_regions", "create_items", "set_rules",
          "connect_entrances", "generate_basic", "pre_fill")
@@ -66,7 +69,7 @@ for casual in (False, True):
         # casual opening is too narrow for the fill to survive a dud pick, and
         # the world now widens it itself.
         check(engaged, "the bootstrap engages for casual", f"width {width} < {got}")
-        placed = getattr(w, "bootstrapped", None)
+        placed = recorder.of(w).bootstrapped
         check(bool(placed), "bootstrap_opening placed something",
               f"{len(placed) if placed else 0} placement(s)")
         if placed:

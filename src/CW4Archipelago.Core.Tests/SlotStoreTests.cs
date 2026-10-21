@@ -21,7 +21,7 @@ public class SlotStoreTests : IDisposable
         {
             Seed = "AB12",
             Slot = "Droha/CW4",
-            Hints = SlotData.FromJson("{\"starter_missions\":[\"story1\"],\"mission_requirements\":{\"story2\":[[\"Cannon\",\"Mortar\"]]},\"ern_per_item\":2}"),
+            Hints = SlotData.FromJson("{\"starter_missions\":[\"story1\"],\"location_requirements\":{\"Home - Totems\":[[\"Cannon\",\"Mortar\"]]},\"missions_for_finale\":7}"),
             GoalPending = true,
         };
         s.SetAllLocations(new[] { "Home - Totems", "Home - Collect" });
@@ -39,8 +39,8 @@ public class SlotStoreTests : IDisposable
         Assert.Contains("Home - Totems", loaded.CheckedLocations);
         Assert.Equal(new[] { "Home - Totems" }, loaded.PendingChecks);
         Assert.True(loaded.GoalPending);
-        Assert.Equal(2, loaded.Hints.ErnPerItem);
-        Assert.Single(loaded.Hints.ForMission("story2"));
+        Assert.Equal(7, loaded.Hints.MissionsForFinale);
+        Assert.Single(loaded.Hints.ForLocation("Home - Totems"));
     }
 
     [Fact]

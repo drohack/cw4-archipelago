@@ -1,6 +1,11 @@
 from test.bases import WorldTestBase
 
 from .. import items, opening
+from . import recorder
+
+# What pre_fill placed is recorded from outside the World, so the World carries
+# nothing that only tests read. See recorder.py.
+recorder.install()
 
 
 class CW4TestBase(WorldTestBase):
@@ -47,6 +52,11 @@ class CW4TestBase(WorldTestBase):
     # test, not per class: TestAllWeightsZero needs an untouched pool for its
     # own assertions and the shipped fill for the inherited test_fill.
     FILL_TESTS = frozenset({"test_fill"})
+
+    @property
+    def prefill(self) -> recorder.PreFillRecord:
+        """What this test's World.pre_fill placed."""
+        return recorder.of(self.world)
 
     def setUp(self) -> None:
         self._own_fill_attempts = opening.OWN_FILL_ATTEMPTS

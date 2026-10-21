@@ -40,8 +40,10 @@ own random:
   and filed UT support under "Later".
 
 The values UT would need are already in slot data: `starter_missions` and
-`mission_roster` (as map guids), plus `mission_titles`. That is unverified as a
-diagnosis until it is reproduced.
+`mission_roster` (as map guids). Titles are not sent - `mission_titles` was
+dropped in 0.2.2 because nothing read it - but UT runs the apworld itself, so
+it has the title tables. That is unverified as a diagnosis until it is
+reproduced.
 
 **To look into:**
 

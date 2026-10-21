@@ -47,6 +47,8 @@ jobs:
           #    in package-release.ps1 AND in bump-version.ps1 AND in
           #    post-release-bump.yml - four implementations of one rule.
           python3 tools/check_release.py
+          # And the checker's own artifact rules, on synthetic artifacts.
+          python3 -m unittest discover -s tools -p "test_check_release.py"
 
           # 2. And it must not be a version that has already SHIPPED. This is
           #    the check package-release.ps1 gained on 2026-09-03 after main sat

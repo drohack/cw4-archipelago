@@ -160,7 +160,10 @@ for k, v in CATS.items():
     tot += len(v)
 check(tot == len(item_names), "categories cover the id table", f"{tot} vs {len(item_names)}")
 print(f"      total item NAMES (ids): {len(item_names)}", flush=True)
-print(f"      poolable filler kinds: {len(I.POOL_FILLER_KINDS)}  "
+# The two energy upgrades are the only FILLER_ITEMS create_all_items generates;
+# the build limits keep their ids and nothing else.
+POOL_FILLER_KINDS = [I.ENERGY_STORAGE_ITEM, I.BASE_GENERATION_ITEM]
+print(f"      poolable filler kinds: {len(POOL_FILLER_KINDS)}  "
       f"poolable traps: {len(I.POOL_TRAP_ITEMS)}", flush=True)
 
 print(f"[1/6] step 4/6: rules reference only real items", flush=True)
@@ -187,7 +190,7 @@ check(not missing_rule, "every location rule resolves to real items", str(missin
 
 print(f"[1/6] step 6/6: name groups", flush=True)
 poolable = (set(I.MISSION_UNLOCK_ITEMS) | set(I.UNIT_ITEMS) | set(I.BONUS_UNIT_ITEMS)
-            | {I.PROGRESSIVE_ERN} | set(I.POOL_FILLER_KINDS) | set(I.POOL_TRAP_ITEMS))
+            | {I.PROGRESSIVE_ERN} | set(POOL_FILLER_KINDS) | set(I.POOL_TRAP_ITEMS))
 dead = {g: sorted(set(v) - poolable) for g, v in G.ITEM_NAME_GROUPS.items()
         if set(v) - poolable}
 check(not dead, "no item group names an ungeneratable item", str(dead))
@@ -242,17 +245,21 @@ print(f"[2/6] step 4/4: trap names agree", flush=True)
 # reported the same failure had the mod genuinely not been renamed, so it could
 # not tell a real break from its own blind spot. Every const string in
 # TrapRules.cs is a trap name, so bind to the declaration instead.
+#
+# Against POOL_TRAP_ITEMS, the traps a seed can contain, not TRAP_ITEMS. A retired
+# trap (Emitter Overdrive) keeps its NAME in the apworld because item ids are
+# positional, but the mod handles only the traps that are generated.
 tr = open(os.path.join(REPO, "src/CW4Archipelago.Core/TrapRules.cs"), encoding="utf-8").read()
 cs_traps = set(re.findall(r'const\s+string\s+\w+\s*=\s*"([^"]*)"', tr))
-check(len(cs_traps) == len(I.TRAP_ITEMS),
-      "the mod declares one const per apworld trap",
-      "cs=%d apworld=%d" % (len(cs_traps), len(I.TRAP_ITEMS)))
-missing = set(I.TRAP_ITEMS) - cs_traps
-check(not missing, "every apworld trap name exists in the mod's TrapRules", str(sorted(missing)))
+check(len(cs_traps) == len(I.POOL_TRAP_ITEMS),
+      "the mod declares one const per generated trap",
+      "cs=%d apworld=%d" % (len(cs_traps), len(I.POOL_TRAP_ITEMS)))
+missing = set(I.POOL_TRAP_ITEMS) - cs_traps
+check(not missing, "every generated trap name exists in the mod's TrapRules", str(sorted(missing)))
 # And the other direction. A rename applied to the C# side only would leave the
 # apworld sending a name the mod no longer answers to; without this the check
 # was one-way and a half-done rename passed.
-extra = cs_traps - set(I.TRAP_ITEMS)
+extra = cs_traps - set(I.POOL_TRAP_ITEMS)
 check(not extra, "the mod declares no trap the apworld never sends", str(sorted(extra)))
 print(f"      apworld traps: {len(I.TRAP_ITEMS)} names, {len(I.POOL_TRAP_ITEMS)} generated", flush=True)
 
@@ -377,12 +384,9 @@ MATRIX = [
     ("five starters", {"starter_missions": 5}),
     ("finale open", {"missions_for_finale": 0}),
     ("finale maxed", {"missions_for_finale": 19}),
-    ("filler weights all zero", {"filler_energy_storage_weight": 0,
-                                 "filler_base_generation_weight": 0,
-                                 "filler_build_limit_weight": 0}),
     ("trap weights all zero", {"trap_weight_spore_strike": 0, "trap_weight_spore_scatter": 0,
                                "trap_weight_creeper_surge": 0, "trap_weight_energy_drain": 0,
-                               "trap_weight_emitter_overdrive": 0, "trap_weight_unit_stun": 0,
+                               "trap_weight_unit_stun": 0,
                                "trap_weight_ammo_drain": 0}),
 ]
 results = []

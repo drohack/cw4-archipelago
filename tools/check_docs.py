@@ -262,12 +262,12 @@ def check_double_summary():
 
 
 # ---------------------------------------------------------------- rule 5
-# SEVEN artifacts, not four. The rule started on the generated DOCS because that
-# is where a hand-edit gets silently destroyed, but three generated CODE and DATA
-# files have exactly the same contract and had no gate at all: MapCells.cs is
-# compiled and span_data.py ships. All three already declared their generator
-# correctly, so the gate was free to add - and it is what would catch a rename
-# campaign that missed one of them.
+# Every generated artifact, not only the docs. The rule started on the generated
+# DOCS because that is where a hand-edit gets silently destroyed, but generated
+# CODE and DATA files have exactly the same contract and had no gate at all:
+# MapCells.cs is compiled and span_data.py ships. They already declared their
+# generator correctly, so the gate was free to add - and it is what would catch
+# a rename campaign that missed one of them.
 GENERATORS = {
     "docs/randomizer-logic.md": "tools/audit/logictable.py",
     "docs/design/span-requirements.md": "tools/gen_spanreqs.py",
@@ -276,6 +276,7 @@ GENERATORS = {
     "src/CW4Archipelago.Core/MapCells.cs": "tools/gen_mapcells.py",
     "src/CW4Archipelago.Core/SpanMissionTable.g.cs": "tools/gen_spancsharp.py",
     "apworld/cw4/span_data.py": "tools/gen_spandata.py",
+    "tools/span_notes.py": "tools/gen_spandata.py",
     ".github/ISSUE_TEMPLATE/span-map-report.yml": "tools/gen_spanworksheet.py",
 }
 

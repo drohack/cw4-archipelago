@@ -68,8 +68,12 @@ echo "[mf] step 4: another player joins -> relevant=0 (filtered by default)"
 # which is a guaranteed relevant=0 event for us. (A cheat /send to an OFFLINE
 # slot is only a ServerChat 'Cheat console' notice = relevant=1, so it cannot
 # exercise this path - hence a real client.)
+#
+# py -3.13, not python3: Windows has no python3, so this step used to print
+# "python3: command not found", never connect the second client, and fail both
+# other-player checks on every run - as a test failure, not as a setup error.
 mark
-python3 "$REPO/tools/ap_player2.py" 2 "$AP_PORT" 2>&1 | sed 's/^/[mf]   p2: /'
+py -3.13 "$REPO/tools/ap_player2.py" 2 "$AP_PORT" 2>&1 | sed 's/^/[mf]   p2: /'
 sleep 2
 since | grep "MSGBOX APPEND" | sed 's/^.*CW4 Archipelago\] /[mf]   /'
 since | grep -q "MSGBOX APPEND relevant=0 shown=0"; verdict $? "other-player event relevant=0 hidden by default"
@@ -79,7 +83,7 @@ mark
 send "showall:on"; sleep 1
 since | grep -q "MSGBOX SHOWALL=1"; verdict $? "showall toggled on"
 mark
-python3 "$REPO/tools/ap_player2.py" 0 "$AP_PORT" 2>&1 | sed 's/^/[mf]   p2: /'
+py -3.13 "$REPO/tools/ap_player2.py" 0 "$AP_PORT" 2>&1 | sed 's/^/[mf]   p2: /'
 sleep 2
 since | grep -q "MSGBOX APPEND relevant=0 shown=1"; verdict $? "other-player event shown when showall on"
 

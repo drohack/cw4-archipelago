@@ -15,7 +15,7 @@ classes.
 """
 from dataclasses import dataclass
 
-from Options import Choice, OptionGroup, PerGameCommonOptions, Range, Toggle, Visibility
+from Options import Choice, OptionGroup, PerGameCommonOptions, Range, Toggle
 
 
 # Cannon and Mortar are interchangeable in logic - every rule that wants offense
@@ -329,22 +329,6 @@ class TrapWeightEnergyDrain(Range):
     default = 100
 
 
-# CURRENTLY UNUSED: this trap is not generated, so the weight has no effect. It
-# does nothing on missions that have no emitters, which is a third of the
-# campaign, and a trap that silently does nothing is worse than no trap. Kept so
-# an existing yaml naming it is not an error, and so it starts working again if
-# the trap returns. Hidden from the website and templates until then: offering a
-# setting that does nothing is noise.
-class TrapWeightEmitterOverdrive(Range):
-    """Relative weight of Emitter Overdrive Trap. Currently unused: this trap is
-    not generated."""
-    display_name = "Trap Weight: Emitter Overdrive"
-    range_start = 0
-    range_end = 100
-    default = 100
-    visibility = Visibility.none
-
-
 class TrapWeightUnitStun(Range):
     """Relative weight of Unit Stun Trap, which briefly disables your units.
     0 to 100; 0 means never."""
@@ -428,45 +412,6 @@ class BaseGenerationCopies(Range):
     default = 20
 
 
-# CURRENTLY UNUSED, like the two weights below it. The energy upgrades have
-# their own copy-count options now (energy_storage_copies), because both curves
-# are capped and the count that reaches the cap is the only count worth
-# generating - a weight cannot express that. Kept so an existing yaml naming it
-# is not an error; hidden from the website and templates.
-class FillerEnergyStorageWeight(Range):
-    """Currently unused: the count comes from Energy Storage Copies."""
-    display_name = "Filler Weight: Energy Storage"
-    range_start = 0
-    range_end = 100
-    default = 40
-    visibility = Visibility.none
-
-
-# CURRENTLY UNUSED: the count comes from base_generation_copies. See
-# FillerEnergyStorageWeight.
-class FillerBaseGenerationWeight(Range):
-    """Currently unused: the count comes from Base Generation Copies."""
-    display_name = "Filler Weight: Base Generation"
-    range_start = 0
-    range_end = 100
-    default = 40
-    visibility = Visibility.none
-
-
-# CURRENTLY UNUSED: build limits are not generated, so the weight has no effect.
-# Every building starts unlimited, so there is no limit for a "+1" to raise and
-# the item does nothing on any unit on any mission. Kept so that an existing
-# yaml naming it is not an error, and so it starts working again if build limits
-# return; hidden from the website and templates until then.
-class FillerBuildLimitWeight(Range):
-    """Currently unused: build limits are not generated."""
-    display_name = "Filler Weight: Build Limits"
-    range_start = 0
-    range_end = 100
-    default = 20
-    visibility = Visibility.none
-
-
 # The declaration order is NOT the display order - option_groups below is. Keep
 # this order as it is: Generate rolls weighted yaml options in this order, so
 # moving a line would change which value a weighted yaml gets for a given seed.
@@ -487,16 +432,12 @@ class CW4Options(PerGameCommonOptions):
     trap_weight_spore_scatter: TrapWeightSporeScatter
     trap_weight_creeper_surge: TrapWeightCreeperSurge
     trap_weight_energy_drain: TrapWeightEnergyDrain
-    trap_weight_emitter_overdrive: TrapWeightEmitterOverdrive
     trap_weight_unit_stun: TrapWeightUnitStun
     trap_weight_ammo_drain: TrapWeightAmmoDrain
     energy_storage_max: EnergyStorageMax
     energy_storage_copies: EnergyStorageCopies
     base_generation_max: BaseGenerationMax
     base_generation_copies: BaseGenerationCopies
-    filler_energy_storage_weight: FillerEnergyStorageWeight
-    filler_base_generation_weight: FillerBaseGenerationWeight
-    filler_build_limit_weight: FillerBuildLimitWeight
 
 
 # The order a player reads them in, on the website and in player.yaml alike:
@@ -504,8 +445,7 @@ class CW4Options(PerGameCommonOptions):
 # puts its own progression_balancing and accessibility above all of these, in a
 # "Game Options" group of everything no group claims. Declared here
 # rather than in the world class, matching how the worlds in the Archipelago
-# tree do it (messenger, blasphemous, ahit). The hidden options appear in no
-# group; Archipelago filters them out of every view anyway.
+# tree do it (messenger, blasphemous, ahit).
 option_groups = [
     OptionGroup("Goal and Logic", [
         MissionsForFinale,

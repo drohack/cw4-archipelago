@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 
 namespace CW4Archipelago.Core;
@@ -35,7 +34,6 @@ public static class UnitRules
         ["Nullifier"] = "nullifier",
         ["Miner"] = "miner",
         ["Factory"] = "factory",
-        ["Greenar Refinery"] = "greenarrefinery",
         ["Missile Launcher"] = "missilelauncher",
         ["Sprayer"] = "sprayer",
         ["Terp"] = "terp",
@@ -68,40 +66,16 @@ public static class UnitRules
     /// it.
     ///
     /// So Factory now unlocks the refinery too, and "Greenar Refinery" is
-    /// retired from the item pool. Its NAME must stay in the tables: item ids
-    /// are positional, so a removed name would shift every id after it and
-    /// break every existing seed. Retiring rather than deleting is the same
-    /// thing the Build Limit items did.
+    /// retired: the apworld never generates it, and it is not in ItemToUnit, so
+    /// one arriving by start_inventory or /send unlocks nothing. Its NAME stays
+    /// in the apworld's item table, because item ids are positional and a
+    /// removed name would shift every id after it.
     /// </summary>
     public static readonly IReadOnlyDictionary<string, string[]> ItemAlsoUnlocks =
         new Dictionary<string, string[]>
         {
             ["Factory"] = new[] { "greenarrefinery" },
         };
-
-    private const string LimitPrefix = "Build Limit +1 (";
-
-    /// <summary>"Build Limit +1 (Tower)" -> "tower". Unit display names match ItemToUnit keys
-    /// or the always-available units (Tower, Pylon).</summary>
-    public static bool TryParseLimitItem(string item, out string unitKey)
-    {
-        unitKey = "";
-        if (!item.StartsWith(LimitPrefix, StringComparison.Ordinal) || !item.EndsWith(")", StringComparison.Ordinal))
-            return false;
-        var display = item.Substring(LimitPrefix.Length, item.Length - LimitPrefix.Length - 1);
-        if (ItemToUnit.TryGetValue(display, out var key))
-        {
-            unitKey = key;
-            return true;
-        }
-        var lower = display.Replace(" ", "").ToLowerInvariant();
-        if (Array.IndexOf(AlwaysAvailable, lower) >= 0)
-        {
-            unitKey = lower;
-            return true;
-        }
-        return false;
-    }
 
     /// <summary>Unit keys the player may build given the received items.</summary>
     public static HashSet<string> AllowedUnits(SlotState state)
@@ -116,23 +90,5 @@ public static class UnitRules
                     set.Add(k);
         }
         return set;
-    }
-
-    /// <summary>Per-unit build-limit increments over the game's defaults.</summary>
-    /// <remarks>
-    /// Returns an empty dictionary in practice as of 2026-09-01: the apworld no
-    /// longer generates Build Limit items, because every building's base limit is
-    /// the game's "unlimited" sentinel and ApplyLimits correctly refuses to write
-    /// over that. Kept working, and tested, so that re-adding the items to the
-    /// pool is a one-line apworld change - see apworld/cw4/items.py,
-    /// POOL_FILLER_KINDS.
-    /// </remarks>
-    public static Dictionary<string, int> LimitIncrements(SlotState state)
-    {
-        var limits = new Dictionary<string, int>();
-        foreach (var item in state.ReceivedItems)
-            if (TryParseLimitItem(item, out var key))
-                limits[key] = limits.TryGetValue(key, out var n) ? n + 1 : 1;
-        return limits;
     }
 }

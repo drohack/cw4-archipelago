@@ -110,20 +110,22 @@ class TestSpanOn(bases.CW4TestBase):
         data = self.world.fill_slot_data()
         self.assertEqual([mission_specifier(n) for n in self.world.mission_roster],
                          data["mission_roster"])
-        self.assertTrue(data["span_missions"])
-        # Every specifier in the roster has a title and a requirement entry, or
-        # the plugin cannot name the planet or paint its tracker.
+        # Every specifier in the roster says which objectives win it, or the
+        # plugin cannot send that mission's checks on completion. Its title
+        # the plugin reads from its own generated table, not from here.
         for specifier in data["mission_roster"]:
-            self.assertIn(specifier, data["mission_titles"])
-            self.assertIn(specifier, data["mission_requirements"])
             self.assertIn(specifier, data["required_objectives"])
 
     def test_slot_data_holds_only_this_seed(self) -> None:
         # Sending all 46 missions' requirements would be a silent bloat and
         # would let the tracker paint a mission the seed does not contain.
+        from ..items import ALL_MISSION_TITLES
         data = self.world.fill_slot_data()
-        self.assertEqual(20, len(data["mission_requirements"]))
         self.assertEqual(20, len(data["required_objectives"]))
+        titles = {ALL_MISSION_TITLES[n] for n in self.world.mission_roster}
+        for name in data["location_requirements"]:
+            self.assertIn(name.split(" - ", 1)[0], titles,
+                          f"{name} is not in this seed's roster")
 
 
 class TestSpanSpecifiers(bases.CW4TestBase):

@@ -233,8 +233,8 @@ class TestAccess(CW4TestBase):
         # asks for the chain too. Since 2026-09-03 that chain is a single item:
         # the Factory unlocks the refinery as well, so the expansion is one
         # entry rather than two.
-        from ..rules import objective_requirements
-        groups = objective_requirements(19, 4)  # Founders - Collect
+        from ..rules import requirements_for_kind
+        groups = requirements_for_kind(19, "Collect")  # Founders
         self.assertIn(["Factory"], groups)
         # The retired name must never reappear in a rule - it is no longer
         # generated, so requiring it would be unsatisfiable.
@@ -272,8 +272,8 @@ class TestAccess(CW4TestBase):
 
     def test_alternatives_do_not_inherit_prerequisites(self) -> None:
         # "Porter or Platform" must not demand the platform's greenar chain.
-        from ..rules import objective_requirements
-        groups = objective_requirements(11, 0)  # Shattered - Nullify
+        from ..rules import requirements_for_kind
+        groups = requirements_for_kind(11, "Nullify")  # Shattered
         self.assertIn(["Porter", "Platform"], groups)
         self.assertNotIn(["Greenar Refinery"], groups)
 
@@ -342,8 +342,8 @@ class TestAccess(CW4TestBase):
         # factory used to read as satisfied, because the old code added the
         # prerequisite only when EVERY option shared it - which meant it added
         # it to nobody.
-        from ..rules import objective_requirements
-        groups = objective_requirements(11, 0)     # Shattered - Nullify
+        from ..rules import requirements_for_kind
+        groups = requirements_for_kind(11, "Nullify")  # Shattered
         self.assertIn(["Porter", "Platform"], groups)
         # Porter needs no liftic, so it routes around the factory; a Platform
         # on its own does not.
@@ -475,11 +475,21 @@ class TestAccess(CW4TestBase):
 
     def test_slot_data_matches_rules(self) -> None:
         data = self.world.fill_slot_data()
-        self.assertEqual(data["mission_requirements"]["story1"], [["Cannon", "Mortar"]])
         self.assertEqual(data["location_requirements"]["Home - Nullify 1"],
                          [["Nullifier"], ["Cannon", "Mortar"]])
         # A waived cache carries no requirement at all.
         self.assertNotIn("Home - Cache 1", data["location_requirements"])
+
+    def test_slot_data_carries_nothing_the_mod_does_not_read(self) -> None:
+        # Removed 2026-10-20. The mod deserialised these and never read them:
+        # titles come from its own generated table, a mission's requirements
+        # reach the tracker as its locations' requirements, and the ERN count
+        # was always multiplied by 1. A key nobody reads is a promise nobody
+        # keeps, so they stay out.
+        data = self.world.fill_slot_data()
+        for key in ("mission_requirements", "mission_titles", "span_missions",
+                    "ern_per_item"):
+            self.assertNotIn(key, data)
 
     def test_location_count(self) -> None:
         # One check per INSTANCE: 20 caches + 63 totems + 120 nullify targets,

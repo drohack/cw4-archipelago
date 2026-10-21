@@ -1,5 +1,4 @@
 using System;
-using System.Linq;
 using UnityEngine;
 
 namespace CW4Archipelago.Appliers;
@@ -9,23 +8,22 @@ namespace CW4Archipelago.Appliers;
 /// Nothing here may make a mission unwinnable - no terrain deformation, no
 /// destroying the rift lab, no permanent difficulty change.
 ///
-/// Seven effects, from the traps spike (docs/design/2026-08-26-traps-spike.md):
-/// spore strike, spore scatter, creeper surge, energy drain, emitter burst, unit
-/// stun, weapon drain. Six are fire-and-forget; only the emitter burst carries
-/// state, and ModCore.Tick drives its restore.
+/// Six effects, from the traps spike (docs/design/2026-08-26-traps-spike.md):
+/// spore strike, spore scatter, creeper surge, energy drain, unit stun, weapon
+/// drain. All fire-and-forget, and all depend only on what EVERY mission has
+/// (world grid, energy store, the player's units, the spore system).
 ///
-/// Six depend only on what EVERY mission has (world grid, energy store, the
-/// player's units, the spore system). The emitter burst is the exception: it
-/// no-ops where a mission ships no emitters, which is why it alone is kept out
-/// of the generated pool - see items.POOL_TRAP_ITEMS. Re-fog was the one effect
-/// dropped outright - see the block at the end.
+/// The spike's seventh, the emitter burst, is not here: it no-ops on any mission
+/// that ships no emitters, so Emitter Overdrive Trap is never generated (see
+/// items.POOL_TRAP_ITEMS) and the mod does not apply it. The effect lives on in
+/// the debug plugin's "trap:emit". Re-fog was dropped outright - see the block
+/// at the end.
 ///
 /// THESE RUN IN A PLAYER'S GAME. TrapApplier dispatches every one of them from
-/// received AP items, and six ship in the pool of every seed at
-/// trap_percentage. The debug plugin's "trap:" commands are an additional way in
-/// for testing, not the only one - this summary used to say wiring them to real
-/// AP items was "a separate step", which would tell a reader the whole file is
-/// dev-only scaffolding that cannot reach a player.
+/// received AP items, at trap_percentage. The debug plugin's "trap:" commands
+/// are an additional way in for testing, and everything that exists only for
+/// them - the readbacks, the live tuning parser, the aim experiment - lives in
+/// that plugin, not here.
 /// </summary>
 public static class TrapEffects
 {
@@ -44,59 +42,49 @@ public static class TrapEffects
 
     /// <summary>Spores per strike, and the creeper each carries on impact.
     /// Payload 20 depth is exactly what CW4's own launchers carry.</summary>
-    public static int SporeCount = 2;
-    public static int SporePayload = 20 * Depth;
+    private const int SporeCount = 2;
+    private const int SporePayload = 20 * Depth;
 
     /// <summary>Where a spore strike aims. This is OUR mode, not the game's
     /// enum, because the game's three behaviours do not line up with what a trap
-    /// wants (measured with trap:aim):
+    /// wants (measured with the debug plugin's trap:aim):
     ///   game RANDOM    - an arbitrary map point. Used by Scatter.
     ///   game STRUCTURE - a random building of ANY owner. All 12 test spores
     ///                    landed exactly on a unit, but on story1 the player
     ///                    owned 1 of 36 buildings, so it mostly hits scenery and
     ///                    enemy structures. Not steerable, so not shipped.
     ///   game LOCATION  - aims exactly where told (distance 0, verified). This
-    ///                    is how PlayerBuilding and RiftLab are implemented: we
-    ///                    pick the cell ourselves.
+    ///                    is how PlayerBuilding is implemented: we pick the cell
+    ///                    ourselves.
     /// </summary>
-    public enum SporeAim
+    private enum SporeAim
     {
         /// <summary>Random map points - what CW4's own launchers do.</summary>
         Scatter,
         /// <summary>A random building OF THE PLAYER'S, chosen per spore.</summary>
         PlayerBuilding,
-        /// <summary>Straight at the rift lab. Surgical; available, not shipped.</summary>
-        RiftLab,
     }
-
-    public static SporeAim SporeTargeting = SporeAim.PlayerBuilding;
 
     /// <summary>Creeper surge: depth added per cell, and the radius it covers.
     /// Deliberately small - a trap should sting, not end the mission.</summary>
-    public static int CreepDepth = 2 * Depth;
-    public static int CreepRadius = 3;
+    private const int CreepDepth = 2 * Depth;
+    private const int CreepRadius = 3;
 
     /// <summary>How far from the rift lab the surge lands, in cells. Dropping it
     /// directly on the base is a near-instant loss on an undefended start.</summary>
-    public static int CreepOffset = 12;
+    private const int CreepOffset = 12;
 
     /// <summary>Stun window for the player's units, in seconds. 0 means "use
     /// each unit's own STUN_TIME", which is what the game itself applies when
     /// something stuns a unit - the rift lab reports STUN_TIME = 300 ticks = 10s.
     /// Defaulting to it makes the trap exactly one natural stun rather than a
     /// number I invented (15s was 1.5x the game's own).</summary>
-    public static float StunSeconds = 0f;
+    private const float StunSeconds = 0f;
 
     /// <summary>Fraction of the energy store to take. A flat amount is
     /// invisible (5 off a store of 100 refilled almost instantly), so this is
     /// proportional: 1.0 empties the bank.</summary>
-    public static float EnergyFraction = 1.0f;
-
-    /// <summary>Emitter burst: how long enemy emitters run boosted, and by how
-    /// much. ALWAYS restored from a snapshot - a permanent change would be a
-    /// difficulty edit, not a trap.</summary>
-    public static float EmitSeconds = 20f;
-    public static float EmitMultiplier = 3f;
+    private const float EnergyFraction = 1.0f;
 
     // --- shared guards ----------------------------------------------------
 
@@ -159,14 +147,11 @@ public static class TrapEffects
     public static void SporeStrikeBuilding(int count, int payload)
         => SporeStrike(count, payload, SporeAim.PlayerBuilding);
 
-    public static void SporeStrike(int count, int payload)
-        => SporeStrike(count, payload, SporeTargeting);
-
     /// <summary>Launches a small wave of spores, aimed per aimMode.
     /// SporeLauncher.CreateSpore is static, so this needs no launcher unit and
     /// works on every mission. The player can shoot the spores down, which is
     /// what makes every variant of this the friendliest trap in the set.</summary>
-    public static void SporeStrike(int count, int payload, SporeAim aimMode)
+    private static void SporeStrike(int count, int payload, SporeAim aimMode)
     {
         var gs = Live("spore");
         if (gs == null) return;
@@ -199,15 +184,6 @@ public static class TrapEffects
             {
                 effective = SporeAim.Scatter;
                 ModCore.Log.LogInfo("TRAP spore: player has no buildings yet, falling back to scatter");
-            }
-        }
-        else if (aimMode == SporeAim.RiftLab)
-        {
-            if (BaseCell(gs, out var rbx, out var rby)) aimCells.Add(new Vector2(rbx, rby));
-            else
-            {
-                effective = SporeAim.Scatter;
-                ModCore.Log.LogInfo("TRAP spore: no rift lab to aim at, falling back to scatter");
             }
         }
 
@@ -375,117 +351,6 @@ public static class TrapEffects
             $"summary gs.energyStore={gs.energyStore:0.##} is NOT the field written");
     }
 
-    // --- 5. emitter burst (timed, self-restoring) -------------------------
-
-    private struct EmitterSnapshot
-    {
-        public long BaseAmt;
-        public int Interval;
-        public long BaseAmt2;
-        public int Interval2;
-    }
-
-    private static readonly System.Collections.Generic.Dictionary<IntPtr, EmitterSnapshot> Burst = new();
-    private static float _burstExpiry;
-    private static IntPtr _burstGameSpace = IntPtr.Zero;
-
-    /// <summary>Multiplies every enemy emitter's output for a window, then puts
-    /// the snapshot back. The ONLY trap that carries state, which is why
-    /// ModCore.Tick drives Tick() below - the restore must be guaranteed.
-    ///
-    /// Caveat worth knowing: this no-ops on missions with no emitters. Measured
-    /// absent on story1, story5 and story8; present on story2 (1), story3 (2),
-    /// story4 (4), story6 (3), story7 (2).</summary>
-    public static void Emit(float seconds, float multiplier)
-    {
-        var gs = Live("emit");
-        if (gs == null) return;
-        if (seconds <= 0f) seconds = EmitSeconds;
-        if (multiplier <= 0f) multiplier = EmitMultiplier;
-
-        if (Burst.Count > 0) { ModCore.Log.LogInfo("TRAP emit: burst already running, restoring first"); RestoreBurst(); }
-
-        int n = 0;
-        foreach (var e in gs.emitters)
-        {
-            if (e == null) continue;
-            try
-            {
-                var snap = new EmitterSnapshot
-                {
-                    BaseAmt = e.productionBaseAmt,
-                    Interval = e.productionInterval,
-                    BaseAmt2 = e.productionBaseAmt2,
-                    Interval2 = e.productionInterval2,
-                };
-                Burst[e.Pointer] = snap;
-                e.productionBaseAmt = (long)(snap.BaseAmt * multiplier);
-                e.productionBaseAmt2 = (long)(snap.BaseAmt2 * multiplier);
-                n++;
-                if (n == 1)
-                    ModCore.Log.LogInfo(
-                        $"TRAP emit: first emitter baseAmt {snap.BaseAmt} -> {e.productionBaseAmt}, interval {snap.Interval}");
-            }
-            catch (Exception ex) { ModCore.Log.LogWarning($"TRAP emit: boost failed: {ex.Message}"); }
-        }
-
-        if (n == 0)
-        {
-            ModCore.Log.LogInfo("TRAP emit: no emitters on this map - trap had no effect");
-            Burst.Clear();
-            return;
-        }
-        _burstGameSpace = gs.Pointer;
-        _burstExpiry = Time.time + seconds;
-        ModCore.Log.LogInfo($"TRAP emit: boosted {n} emitter(s) x{multiplier} for {seconds:0.#}s");
-    }
-
-    /// <summary>Reverts a running emitter burst when its window expires, or
-    /// immediately if the mission changed underneath it. Called every frame from
-    /// ModCore.Tick; returns straight away when no burst is active.</summary>
-    public static void Tick()
-    {
-        if (Burst.Count == 0) return;
-
-        var gs = GameSpace.instance;
-        if (gs == null || gs.Pointer != _burstGameSpace)
-        {
-            // Mission torn down mid-burst: drop the snapshot rather than writing
-            // through stale IL2CPP pointers.
-            ModCore.Log.LogInfo($"TRAP emit: mission changed, dropping {Burst.Count} emitter snapshot(s)");
-            Burst.Clear();
-            return;
-        }
-
-        if (Time.time < _burstExpiry) return;
-        RestoreBurst();
-    }
-
-    private static void RestoreBurst()
-    {
-        int n = 0;
-        var gs = GameSpace.instance;
-        if (gs != null)
-        {
-            foreach (var e in gs.emitters)
-            {
-                if (e == null) continue;
-                if (!Burst.TryGetValue(e.Pointer, out var snap)) continue;
-                try
-                {
-                    e.productionBaseAmt = snap.BaseAmt;
-                    e.productionInterval = snap.Interval;
-                    e.productionBaseAmt2 = snap.BaseAmt2;
-                    e.productionInterval2 = snap.Interval2;
-                    n++;
-                }
-                catch (Exception ex) { ModCore.Log.LogWarning($"TRAP emit: restore failed: {ex.Message}"); }
-            }
-        }
-        Burst.Clear();
-        ModCore.Log.LogInfo($"TRAP emit: restored {n} emitter(s)");
-    }
-
     // --- 6. weapon drain --------------------------------------------------
 
     /// <summary>Empties every player weapon. No tuning knob on purpose: "all
@@ -527,231 +392,6 @@ public static class TrapEffects
         ModCore.Log.LogInfo($"TRAP drain: emptied {n} weapon(s), {drained:0.##} ammo removed"
                     + (ghosts > 0 ? $" (skipped {ghosts} still under construction)" : "")
                     + $" [energy stores skipped: {stores}]");
-    }
-
-    // --- readback + live tuning -------------------------------------------
-
-    /// <summary>Dumps what the traps act on, so their numbers can be tuned
-    /// against the game's own values rather than guessed. Reports the real
-    /// SporeLauncher and Emitter settings this mission ships with - those are
-    /// the authoritative "what does a spore normally carry" reference.</summary>
-    public static void Status()
-    {
-        var gs = Live("status");
-        if (gs == null) return;
-
-        int units = 0, foreign = 0, stunned = 0, withAmmo = 0;
-        float ammoTotal = 0f;
-        string sample = "";
-        foreach (var u in gs.units)
-        {
-            if (u == null) continue;
-            try
-            {
-                if (!IsPlayerUnit(u)) { foreign++; continue; }
-                units++;
-                int sc = u.stunnedCount;
-                if (sc > 0) stunned++;
-                float a = u.ammo;
-                if (a > 0f) { withAmmo++; ammoTotal += a; }
-                if (sample.Length < 150)
-                    sample += $"[{u.GetDataName()} stun={sc}/{u.STUN_TIME} canStun={u.CAN_STUN} ammo={a:0.#}]";
-            }
-            catch { }
-        }
-
-        // Type/dataName histogram. This is the diagnostic that catches an
-        // IsPlayerUnit miss: if a player structure shows up on the "-:" side,
-        // the debuff traps would silently do nothing to it.
-        var hist = new System.Collections.Generic.Dictionary<string, int>();
-        foreach (var u in gs.units)
-        {
-            if (u == null) continue;
-            string key;
-            try { key = (IsPlayerUnit(u) ? "P:" : "-:") + u.GetIl2CppType().Name + "/" + u.GetDataName(); } catch { continue; }
-            hist[key] = hist.TryGetValue(key, out var hv) ? hv + 1 : 1;
-        }
-        var histText = string.Join(" ", hist.OrderByDescending(kv => kv.Value).Take(14).Select(kv => $"{kv.Key}={kv.Value}"));
-
-        // The game's own spore settings: the reference for SporePayload.
-        string spores = "none";
-        try
-        {
-            var launchers = UnityEngine.Object.FindObjectsOfType<SporeLauncher>();
-            if (launchers != null && launchers.Length > 0)
-                spores = $"{launchers.Length} launcher(s), first payload={launchers[0].payload} " +
-                         $"interval={launchers[0].sporeProductionInterval} behavior={launchers[0].targetBehavior}";
-        }
-        catch (Exception e) { spores = $"unreadable ({e.Message})"; }
-
-        int emitters = 0; string emSample = "none";
-        foreach (var e in gs.emitters)
-        {
-            if (e == null) continue;
-            emitters++;
-            if (emitters == 1)
-            {
-                try { emSample = $"baseAmt={e.productionBaseAmt} interval={e.productionInterval}"; }
-                catch { emSample = "unreadable"; }
-            }
-        }
-
-        ModCore.Log.LogInfo(
-            $"TRAP status: playerUnits={units} otherUnits={foreign} stunned={stunned} withAmmo={withAmmo} " +
-            $"ammoTotal={ammoTotal:0.#} energy={gs.energyStore:0.##} map={World.WORLD_CELL_WIDTH}x{World.WORLD_CELL_HEIGHT} " +
-            $"emitters={emitters} ({emSample}) burstActive={Burst.Count} {sample}");
-        ModCore.Log.LogInfo($"TRAP status types: {histText}");
-        ModCore.Log.LogInfo($"TRAP status spores: {spores}");
-        ModCore.Log.LogInfo(
-            $"TRAP tuning: spores={SporeCount}x{SporePayload / (float)Depth:0.#}depth target={SporeTargeting} | " +
-            $"creep={CreepDepth / (float)Depth:0.#}depth r={CreepRadius} off={CreepOffset} | " +
-            $"energy={EnergyFraction * 100f:0}% | emit=x{EmitMultiplier}/{EmitSeconds:0.#}s | stun={StunSeconds}s");
-    }
-
-    /// <summary>Coordinate sanity check. GetCellX/GetCellY convert world->cell,
-    /// but the game exposes no inverse, and GetCreeperVertex(cellX, cellY) does
-    /// NOT return a world position - trusting it put spawned test units at
-    /// negative cells. This proves what the mapping actually is.</summary>
-    public static void Coord()
-    {
-        var gs = Live("coord");
-        if (gs == null) return;
-
-        ModCore.Log.LogInfo(
-            $"TRAP coord: GetCellX(0)={UnitManager.GetCellX(0f)} GetCellX(50)={UnitManager.GetCellX(50f)} " +
-            $"GetCellX(100)={UnitManager.GetCellX(100f)} GetCellY(50)={UnitManager.GetCellY(50f)}");
-
-        CommandBase? cb = null;
-        try { cb = gs.commandBase; } catch { }
-        if (cb != null && GameUtil.IsAlive(cb))
-        {
-            var p = cb.transform.position;
-            ModCore.Log.LogInfo(
-                $"TRAP coord: mission commandBase world=({p.x:0.##},{p.y:0.##},{p.z:0.##}) " +
-                $"cell=({UnitManager.GetCellX(p.x)},{UnitManager.GetCellY(p.z)})");
-        }
-        else ModCore.Log.LogInfo("TRAP coord: no live commandBase to calibrate against");
-
-        var w = gs.world;
-        if (w != null)
-        {
-            var v = w.GetCreeperVertex(50, 50);
-            ModCore.Log.LogInfo(
-                $"TRAP coord: GetCreeperVertex(50,50)=({v.x:0.##},{v.y:0.##},{v.z:0.##}) " +
-                $"-> cell=({UnitManager.GetCellX(v.x)},{UnitManager.GetCellY(v.z)})  [if this is not (50,50) it is not world space]");
-        }
-    }
-
-    /// <summary>Spike experiment: fire a wave in one targeting mode and report
-    /// where each live spore is actually aimed, as a distance to the nearest
-    /// player structure. This is how RANDOM vs STRUCTURE was settled - a
-    /// screenshot cannot tell you what a spore is aiming AT.</summary>
-    public static void Aim(string mode)
-    {
-        var gs = Live("aim");
-        if (gs == null) return;
-
-        if (!string.IsNullOrEmpty(mode)) Set(new[] { "target=" + mode });
-
-        // Two reference sets: the PLAYER's structures, and EVERY unit. If
-        // STRUCTURE means "a random building" rather than "a player building",
-        // its targets will sit on top of units in the second set while being far
-        // from the first - which is exactly what a lopsided map hides.
-        var targets = new System.Collections.Generic.List<Vector2>();
-        var allUnits = new System.Collections.Generic.List<Vector2>();
-        foreach (var u in gs.units)
-        {
-            if (u == null) continue;
-            try
-            {
-                var p = u.transform.position;
-                var cell = new Vector2(UnitManager.GetCellX(p.x), UnitManager.GetCellY(p.z));
-                allUnits.Add(cell);
-                if (IsPlayerUnit(u)) targets.Add(cell);
-            }
-            catch { }
-        }
-
-        SporeStrike(0, 0, SporeTargeting);
-
-        int n = 0; float sum = 0f, sumAny = 0f; string detail = "";
-        try
-        {
-            foreach (var sp in UnityEngine.Object.FindObjectsOfType<global::Spore>())
-            {
-                if (sp == null) continue;
-                var tp = sp.targetPosition;
-                int tx = UnitManager.GetCellX(tp.x), ty = UnitManager.GetCellY(tp.z);
-                var cell = new Vector2(tx, ty);
-                float best = -1f, bestAny = -1f;
-                foreach (var t in targets)
-                {
-                    float d = Vector2.Distance(cell, t);
-                    if (best < 0f || d < best) best = d;
-                }
-                foreach (var t in allUnits)
-                {
-                    float d = Vector2.Distance(cell, t);
-                    if (bestAny < 0f || d < bestAny) bestAny = d;
-                }
-                n++;
-                if (best >= 0f) sum += best;
-                if (bestAny >= 0f) sumAny += bestAny;
-                if (detail.Length < 160)
-                    detail += $"[{sp.targetBehavior}->({tx},{ty}) dPlayer={best:0.#} dAnyUnit={bestAny:0.#}]";
-            }
-        }
-        catch (Exception e) { ModCore.Log.LogWarning($"TRAP aim: {e.Message}"); }
-
-        var where = string.Join(",", targets.Take(6).Select(t => $"({t.x:0},{t.y:0})"));
-        ModCore.Log.LogInfo(
-            $"TRAP aim: setting={SporeTargeting} (per-spore mode below is what actually applied) " +
-            $"liveSpores={n} playerStructures={targets.Count} at [{where}] allUnits={allUnits.Count} " +
-            $"avgDistToPlayer={(n > 0 ? sum / n : -1f):0.#} avgDistToAnyUnit={(n > 0 ? sumAny / n : -1f):0.#} cells {detail}");
-    }
-
-    /// <summary>Live tuning from the debug channel: "trap:set spores=4 payload=8
-    /// depth=2 radius=3 offset=12 stun=15". Amounts are in DEPTH UNITS, not raw
-    /// fixed-point, so the numbers stay readable.</summary>
-    public static void Set(string[] tokens)
-    {
-        foreach (var t in tokens)
-        {
-            var kv = t.Split('=');
-            if (kv.Length != 2) continue;
-            var key = kv[0].ToLowerInvariant();
-            var raw = kv[1];
-
-            // target= takes a word, everything else a number.
-            if (key == "target")
-            {
-                switch (raw.ToLowerInvariant())
-                {
-                    case "scatter": case "random": SporeTargeting = SporeAim.Scatter; break;
-                    case "player": case "building": SporeTargeting = SporeAim.PlayerBuilding; break;
-                    case "riftlab": case "base": SporeTargeting = SporeAim.RiftLab; break;
-                    default: ModCore.Log.LogWarning($"trap:set target='{raw}' - expected scatter|player|riftlab"); break;
-                }
-                continue;
-            }
-
-            if (!float.TryParse(raw, System.Globalization.NumberStyles.Float,
-                    System.Globalization.CultureInfo.InvariantCulture, out var v)) continue;
-            switch (key)
-            {
-                case "spores": SporeCount = (int)v; break;
-                case "payload": SporePayload = (int)(v * Depth); break;
-                case "depth": CreepDepth = (int)(v * Depth); break;
-                case "radius": CreepRadius = (int)v; break;
-                case "offset": CreepOffset = (int)v; break;
-                case "energy": EnergyFraction = Mathf.Clamp01(v > 1f ? v / 100f : v); break;
-                case "emitmul": EmitMultiplier = v; break;
-                case "emitsec": EmitSeconds = v; break;
-                case "stun": StunSeconds = v; break;
-                default: ModCore.Log.LogWarning($"trap:set unknown key '{key}'"); break;
-            }
-        }
-        Status();
     }
 
     // ---------------------------------------------------------------------

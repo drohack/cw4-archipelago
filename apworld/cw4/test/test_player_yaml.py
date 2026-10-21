@@ -4,8 +4,9 @@ player.yaml is a release asset - one of the three files a player is handed - and
 it is written by hand, so it is the file that rots. A yaml that quietly omits an
 option is not obviously broken: generation succeeds on the default, and the
 player never learns the setting exists. A yaml naming an option that has been
-REMOVED is worse, because Archipelago rejects it and the player has no idea
-which line to delete. So it is pinned to CW4Options here, in both directions.
+REMOVED is worse: Archipelago logs a warning, ignores the line and generates
+anyway, so the player's setting silently does nothing. So it is pinned to
+CW4Options here, in both directions.
 
 It replaced the template Archipelago generates from the option docstrings
 (2026-10-06, droha: "there's way too much info in the comments"). The same
@@ -68,8 +69,8 @@ class TestPlayerYaml(unittest.TestCase):
         self.assertFalse(missing, f"player.yaml does not mention {missing}")
 
     def test_nothing_is_offered_that_does_nothing(self) -> None:
-        """An unknown key makes Archipelago reject the yaml, and a hidden one
-        is an option that currently has no effect."""
+        """An unknown key is ignored by Archipelago with only a warning, and a
+        hidden one is an option that currently has no effect."""
         extra = sorted(set(self.section) - self.shown - self.common)
         self.assertFalse(extra, f"player.yaml offers {extra}, which is unknown or hidden")
 

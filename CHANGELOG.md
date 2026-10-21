@@ -3,6 +3,40 @@
 Versions follow semantic versioning. The plugin and the apworld share one number,
 so a release is a matched pair - if you update one, update the other.
 
+## v0.2.2 - Only what a player uses
+
+- **The mod no longer carries debug code.** When the debug channel became its
+  own plugin (2026-09-03), its commands moved but the counters, readbacks and
+  tuning code they drove stayed inside the mod, and later debug features
+  followed the same pattern. All of it is in the debug plugin now, which ships
+  in no release. That removes a Harmony patch, a per-frame check and extra reads
+  on every planet repaint that ran in every player's game for nobody's benefit.
+  Nothing a player sees changes.
+- **Retired items do nothing.** `Build Limit +1 (Tower)`, `(Cannon)` and
+  `(Mortar)`, `Emitter Overdrive Trap` and `Greenar Refinery` have not been
+  generated for several releases; their names stay so item ids do not move. The
+  mod no longer applies them, so one handed out by `start_inventory`, plando or
+  `/send` is ignored. Factory still unlocks the greenar refinery.
+- **Removed four hidden options that did nothing:**
+  `trap_weight_emitter_overdrive`, `filler_energy_storage_weight`,
+  `filler_base_generation_weight` and `filler_build_limit_weight`. A yaml that
+  still names one generates normally, with a warning.
+- **Slot data no longer sends** `mission_titles`, `span_missions`,
+  `mission_requirements` or `ern_per_item`, none of which the mod read. The mod
+  ignores them in an older seed. Placements are unchanged: checked old against
+  new on the same seed for default, SPAN and casual logic.
+- **The apworld no longer carries test-only code.** The tests and audit tools
+  record what the world placed from outside it, and the hooks the world kept
+  for them are gone. SPAN map notes moved from the shipped `span_data.py` to the
+  tools-side `tools/span_notes.py`.
+- **The game page** lists all three recommended options and describes the
+  `easy` logic tier.
+- **Release checks are exact.** `tools/check_release.py` holds the mod zip and
+  the `.apworld` to exact file lists instead of a blocklist, and reads the
+  shipped DLLs' metadata for the debug-only names removed here.
+- **Corrected comments that were wrong**, among them a tracker colour that never
+  existed: a mission with some checks reachable and some not is drawn green.
+
 ## v0.2.1 - Early Weapon does what it says, and a yaml you can read
 
 - **Fixed: `early_weapon` did nothing when every player was Creeper World 4**,

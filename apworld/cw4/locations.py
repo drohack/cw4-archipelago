@@ -144,7 +144,7 @@ ALL_MISSION_NUMBERS = tuple(range(1, 21)) + SPAN_MISSION_NUMBERS
 # only extra objective is a Hold simply requires one objective fewer here. That
 # under-requires rather than over-requires, which is the wrong direction, but the
 # alternative is inventing a location for an objective the model cannot express.
-# The four maps affected are listed in span_data.SPAN_NOTES.
+# The four maps affected are listed in tools/span_notes.py.
 ALL_REQUIRED_OBJECTIVES = dict(REQUIRED_OBJECTIVES)
 ALL_REQUIRED_OBJECTIVES.update(
     {n: sorted(slots) for n, slots in SPAN_OBJECTIVE_SLOTS.items()})

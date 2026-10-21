@@ -16,9 +16,9 @@ namespace CW4Archipelago.Appliers;
 ///   storage    commandBase.MAX_AMMO   the ceiling construction draws from
 ///   generation commandBase.ammo       topped up each frame
 ///
-/// Storage follows the UnitGate.ApplyLimits pattern: capture the mission's own
-/// ceiling once, then set base + bonus every frame, so nothing accumulates frame
-/// over frame and the mission's value is restored when the bonus goes away.
+/// Storage captures the mission's own ceiling once, then sets base + bonus every
+/// frame, so nothing accumulates frame over frame and the mission's value is
+/// restored when the bonus goes away.
 ///
 /// Generation is a grant and is deliberately NOT reverted - a player cannot
 /// un-spend energy, and clawing it back mid-mission would read as a bug.

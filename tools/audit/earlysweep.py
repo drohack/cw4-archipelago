@@ -322,6 +322,10 @@ def main():
     root.setLevel(logging.WARNING)
 
     import worlds.cw4.opening as cw4_opening
+    # What pre_fill placed is recorded from outside the World - the World keeps
+    # none of it. Installed before the first generate() so every seed has one.
+    from worlds.cw4.test import recorder
+    recorder.install()
     with open(cw4_opening.__file__, "rb") as f:
         code_sha = hashlib.sha256(f.read()).hexdigest()[:12]
     from settings import get_settings
@@ -430,8 +434,10 @@ def main():
                        "early_weapon_resolved": asked,
                        "starters": list(world.starter_missions),
                        "needs_bootstrap": world.needs_bootstrap(),
-                       "bootstrapped": len(getattr(world, "bootstrapped", []) or []),
-                       "own_fill_attempts": getattr(world, "own_fill_attempts", None),
+                       "bootstrapped": len(recorder.of(world).bootstrapped),
+                       # None, not 0, when the own fill stood down - the value
+                       # these rows carried before the recorder existed.
+                       "own_fill_attempts": recorder.of(world).own_fill_attempts or None,
                        "weapon_requested": w_req, "unlock_requested": unlock}
                 a, b, c = sets[p]
                 if not (a == b and (c is None or a == c)):

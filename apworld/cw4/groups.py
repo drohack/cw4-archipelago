@@ -22,6 +22,7 @@ from .items import ALL_MISSION_TITLES
 from .locations import (
     ALL_CUSTOM_MISSIONS,
     ALL_INSTANCE_COUNTS,
+    ALL_MISSION_NUMBERS,
     ALL_RECLAIM_MISSIONS,
     FINAL_MISSION,
     instance_location_name,
@@ -52,9 +53,6 @@ ITEM_NAME_GROUPS = {
     # the POOL_ tables for exactly this reason, the way "Traps" does.
     "Upgrades": {ENERGY_STORAGE_ITEM, BASE_GENERATION_ITEM, PROGRESSIVE_ERN},
 }
-
-
-ALL_MISSION_NUMBERS = tuple(sorted(ALL_MISSION_TITLES))
 
 
 def _mission_locations(n: int) -> set:

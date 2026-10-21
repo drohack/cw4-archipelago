@@ -12,8 +12,6 @@ docs/design/span-survey.md and docs/design/span-requirements.md for how,
 and what each measurement can and cannot support.
 """
 
-FIRST_SPAN_MISSION = 21
-
 # mission -> (guid, title). The guid IS the launch specifier: verified by
 # booting all 26, specifier == guid on every one.
 SPAN_MISSIONS = {
@@ -153,14 +151,5 @@ SPAN_NEEDS_MOVER = {
     31,  # Creepers Pieces
     33,  # Highway to helheim
     40,  # Invasion
-}
-
-# Maps carrying something the model does not express. Recorded rather
-# than silently dropped.
-SPAN_NOTES = {
-    24: 'Hold/Survive objective present; no location is created for it',
-    41: 'Hold/Survive objective present; no location is created for it',
-    42: 'Hold/Survive objective present; no location is created for it',
-    46: 'Hold/Survive objective present; no location is created for it',
 }
 

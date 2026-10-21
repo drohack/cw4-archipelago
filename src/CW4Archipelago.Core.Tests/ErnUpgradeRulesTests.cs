@@ -32,7 +32,7 @@ public class ErnUpgradeRulesTests
     [Fact]
     public void EachCopyAddsAQuarter()
     {
-        var item = ErnUpgradeRules.CapItem("Fire Range");
+        var item = ErnItems.CapItem("Fire Range");
         Assert.Equal(1.25f, ErnUpgradeRules.EfficiencyCap(WithItems(Copies(item, 1)), FireRange), 3);
         Assert.Equal(1.50f, ErnUpgradeRules.EfficiencyCap(WithItems(Copies(item, 2)), FireRange), 3);
         Assert.Equal(1.75f, ErnUpgradeRules.EfficiencyCap(WithItems(Copies(item, 3)), FireRange), 3);
@@ -44,11 +44,11 @@ public class ErnUpgradeRulesTests
     {
         // The whole reason the cap lives in the rules: the pool must not generate
         // a copy that cannot do anything, which is what build limits were.
-        var item = ErnUpgradeRules.CapItem("Fire Range");
+        var item = ErnItems.CapItem("Fire Range");
         var four = ErnUpgradeRules.EfficiencyCap(WithItems(Copies(item, 4)), FireRange);
         var nine = ErnUpgradeRules.EfficiencyCap(WithItems(Copies(item, 9)), FireRange);
         Assert.Equal(four, nine, 3);
-        Assert.Equal(ErnUpgradeRules.MaxMultiplier, nine, 3);
+        Assert.Equal(ErnItems.MaxCapMultiplier, nine, 3);
     }
 
     [Fact]
@@ -56,15 +56,15 @@ public class ErnUpgradeRulesTests
     {
         // Two separate items on the same upgrade. Holding one must not move the
         // other, or "fills faster" and "reaches higher" stop being distinct.
-        var s = WithItems(Copies(ErnUpgradeRules.RateItem("Fire Range"), 4));
-        Assert.Equal(ErnUpgradeRules.MaxRateMultiplier, ErnUpgradeRules.RateMultiplier(s, FireRange), 3);
+        var s = WithItems(Copies(ErnItems.RateItem("Fire Range"), 4));
+        Assert.Equal(ErnItems.MaxRateMultiplier, ErnUpgradeRules.RateMultiplier(s, FireRange), 3);
         Assert.Equal(1f, ErnUpgradeRules.EfficiencyCap(s, FireRange), 3);
     }
 
     [Fact]
     public void ItemsOnlyAffectTheirOwnUpgrade()
     {
-        var s = WithItems(Copies(ErnUpgradeRules.CapItem("Fire Range"), 4));
+        var s = WithItems(Copies(ErnItems.CapItem("Fire Range"), 4));
         for (int i = 0; i < ErnUpgradeRules.UpgradeNames.Length; i++)
         {
             var expected = i == FireRange ? 2f : 1f;
@@ -83,7 +83,7 @@ public class ErnUpgradeRulesTests
     [Fact]
     public void TwelveItemNames_SixPerKind_AllDistinct()
     {
-        var all = ErnUpgradeRules.AllItemNames().ToList();
+        var all = ErnItems.AllItemNames().ToList();
         Assert.Equal(12, all.Count);
         Assert.Equal(12, all.Distinct().Count());
         Assert.Equal(6, all.Count(n => n.StartsWith(ErnUpgradeRules.RatePrefix)));
@@ -93,7 +93,7 @@ public class ErnUpgradeRulesTests
     [Fact]
     public void OutOfRangeIndexIsInert()
     {
-        var s = WithItems(Copies(ErnUpgradeRules.CapItem("Fire Range"), 4));
+        var s = WithItems(Copies(ErnItems.CapItem("Fire Range"), 4));
         Assert.Equal(1f, ErnUpgradeRules.EfficiencyCap(s, -1));
         Assert.Equal(1f, ErnUpgradeRules.EfficiencyCap(s, 99));
         Assert.Equal(1f, ErnUpgradeRules.EfficiencyCap(null!, 0));
@@ -116,12 +116,12 @@ public class ErnUpgradeRulesTests
         // base and dwarfs every other upgrade. The designer's target is double
         // the 100 percent rate.
         var build = ErnUpgradeRules.CeilingFor(BuildSpeed, 200, 150);
-        Assert.True(build < ErnUpgradeRules.MaxMultiplier,
-            $"Build Speed ceiling {build} should be below the usual {ErnUpgradeRules.MaxMultiplier}");
+        Assert.True(build < ErnItems.MaxCapMultiplier,
+            $"Build Speed ceiling {build} should be below the usual {ErnItems.MaxCapMultiplier}");
         for (int i = 0; i < ErnUpgradeRules.UpgradeNames.Length; i++)
         {
             if (i == BuildSpeed) continue;
-            Assert.Equal(ErnUpgradeRules.MaxMultiplier, ErnUpgradeRules.CeilingFor(i, 200, 150), 3);
+            Assert.Equal(ErnItems.MaxCapMultiplier, ErnUpgradeRules.CeilingFor(i, 200, 150), 3);
         }
     }
 
@@ -134,7 +134,7 @@ public class ErnUpgradeRulesTests
         // limits removed from the pool.
         for (int i = 0; i < ErnUpgradeRules.UpgradeNames.Length; i++)
         {
-            var item = ErnUpgradeRules.CapItem(ErnUpgradeRules.UpgradeNames[i]);
+            var item = ErnItems.CapItem(ErnUpgradeRules.UpgradeNames[i]);
             var full = WithItems(Copies(item, ErnUpgradeRules.MaxCopies));
             Assert.Equal(ErnUpgradeRules.CeilingFor(i, 200, 150), ErnUpgradeRules.EfficiencyCap(full, i), 3);
 
@@ -158,7 +158,7 @@ public class ErnUpgradeRulesTests
         Assert.Equal(1.50f, ErnUpgradeRules.CeilingFor(BuildSpeed, 200, 150), 3);
 
         // +12.5 percent per copy, four copies, landing exactly on the ceiling.
-        var item = ErnUpgradeRules.CapItem("Build Speed");
+        var item = ErnItems.CapItem("Build Speed");
         Assert.Equal(1.125f, ErnUpgradeRules.EfficiencyCap(WithItems(Copies(item, 1)), BuildSpeed), 3);
         Assert.Equal(1.250f, ErnUpgradeRules.EfficiencyCap(WithItems(Copies(item, 2)), BuildSpeed), 3);
         Assert.Equal(1.375f, ErnUpgradeRules.EfficiencyCap(WithItems(Copies(item, 3)), BuildSpeed), 3);
@@ -171,8 +171,8 @@ public class ErnUpgradeRulesTests
         // The rate axis only shortens the WAIT, never the strength, so it is
         // deliberately more generous than the cap: 3600 ticks to fill becomes
         // 900. Every copy must still move the number.
-        var item = ErnUpgradeRules.RateItem("Fire Range");
-        Assert.Equal(4f, ErnUpgradeRules.MaxRateMultiplier, 3);
+        var item = ErnItems.RateItem("Fire Range");
+        Assert.Equal(4f, ErnItems.MaxRateMultiplier, 3);
         Assert.Equal(1.75f, ErnUpgradeRules.RateMultiplier(WithItems(Copies(item, 1)), FireRange), 3);
         Assert.Equal(2.50f, ErnUpgradeRules.RateMultiplier(WithItems(Copies(item, 2)), FireRange), 3);
         Assert.Equal(3.25f, ErnUpgradeRules.RateMultiplier(WithItems(Copies(item, 3)), FireRange), 3);
@@ -189,8 +189,8 @@ public class ErnUpgradeRulesTests
         // problem - waiting less is waiting less.
         for (int i = 0; i < ErnUpgradeRules.UpgradeNames.Length; i++)
         {
-            var item = ErnUpgradeRules.RateItem(ErnUpgradeRules.UpgradeNames[i]);
-            Assert.Equal(ErnUpgradeRules.MaxRateMultiplier,
+            var item = ErnItems.RateItem(ErnUpgradeRules.UpgradeNames[i]);
+            Assert.Equal(ErnItems.MaxRateMultiplier,
                 ErnUpgradeRules.RateMultiplier(WithItems(Copies(item, 4)), i), 3);
         }
     }
@@ -201,11 +201,11 @@ public class ErnUpgradeRulesTests
         // The player configures these in yaml and they arrive in slot_data, so
         // the rules must read them rather than bake them in. Defaults are the
         // measured values.
-        var s = WithItems(Copies(ErnUpgradeRules.CapItem("Fire Range"), 4));
+        var s = WithItems(Copies(ErnItems.CapItem("Fire Range"), 4));
         s.Hints.ErnCapMaxPercent = 300;
         Assert.Equal(3f, ErnUpgradeRules.EfficiencyCap(s, FireRange), 3);
 
-        var r = WithItems(Copies(ErnUpgradeRules.RateItem("Fire Range"), 4));
+        var r = WithItems(Copies(ErnItems.RateItem("Fire Range"), 4));
         r.Hints.ErnRateMaxPercent = 800;
         Assert.Equal(8f, ErnUpgradeRules.RateMultiplier(r, FireRange), 3);
     }
@@ -213,7 +213,7 @@ public class ErnUpgradeRulesTests
     [Fact]
     public void BuildSpeedTakesItsOwnConfiguredCeiling()
     {
-        var s = WithItems(Copies(ErnUpgradeRules.CapItem("Build Speed"), 4));
+        var s = WithItems(Copies(ErnItems.CapItem("Build Speed"), 4));
         s.Hints.ErnCapMaxPercent = 200;
         s.Hints.ErnCapMaxBuildSpeedPercent = 150;
         Assert.Equal(1.5f, ErnUpgradeRules.EfficiencyCap(s, BuildSpeed), 3);
@@ -229,11 +229,11 @@ public class ErnUpgradeRulesTests
         // A ceiling under 100 percent would make the item a PENALTY, and a rate
         // under 100 percent would SLOW the ramp. A filler item may do nothing;
         // it may not do harm.
-        var s = WithItems(Copies(ErnUpgradeRules.CapItem("Fire Range"), 4));
+        var s = WithItems(Copies(ErnItems.CapItem("Fire Range"), 4));
         s.Hints.ErnCapMaxPercent = 25;
         Assert.Equal(1f, ErnUpgradeRules.EfficiencyCap(s, FireRange), 3);
 
-        var r = WithItems(Copies(ErnUpgradeRules.RateItem("Fire Range"), 4));
+        var r = WithItems(Copies(ErnItems.RateItem("Fire Range"), 4));
         r.Hints.ErnRateMaxPercent = 10;
         Assert.Equal(1f, ErnUpgradeRules.RateMultiplier(r, FireRange), 3);
     }
@@ -268,7 +268,7 @@ public class ErnUpgradeCopiesTests
     [Fact]
     public void TwoCopiesStillReachTheFullCap()
     {
-        var item = ErnUpgradeRules.CapItem("Fire Range");
+        var item = ErnItems.CapItem("Fire Range");
         // Two copies, two steps of 50 percent, landing exactly on 2.0.
         Assert.Equal(1.5f, ErnUpgradeRules.EfficiencyCap(WithCopies(item, 1, 2), FireRange), 3);
         Assert.Equal(2.0f, ErnUpgradeRules.EfficiencyCap(WithCopies(item, 2, 2), FireRange), 3);
@@ -277,7 +277,7 @@ public class ErnUpgradeCopiesTests
     [Fact]
     public void TwoCopiesStillReachTheFullRate()
     {
-        var item = ErnUpgradeRules.RateItem("Fire Range");
+        var item = ErnItems.RateItem("Fire Range");
         Assert.Equal(2.5f, ErnUpgradeRules.RateMultiplier(WithCopies(item, 1, 2), FireRange), 3);
         Assert.Equal(4.0f, ErnUpgradeRules.RateMultiplier(WithCopies(item, 2, 2), FireRange), 3);
     }
@@ -285,7 +285,7 @@ public class ErnUpgradeCopiesTests
     [Fact]
     public void ExtraCopiesBeyondTheCountDoNothing()
     {
-        var item = ErnUpgradeRules.CapItem("Fire Range");
+        var item = ErnItems.CapItem("Fire Range");
         Assert.Equal(2.0f, ErnUpgradeRules.EfficiencyCap(WithCopies(item, 5, 2), FireRange), 3);
     }
 
@@ -294,19 +294,19 @@ public class ErnUpgradeCopiesTests
     {
         // The compatibility path: a seed generated before the key existed sends
         // nothing, and those seeds were built with four copies.
-        var item = ErnUpgradeRules.CapItem("Fire Range");
+        var item = ErnItems.CapItem("Fire Range");
         var s = new SlotState();
         s.ApplyReceivedItems(System.Linq.Enumerable.Repeat(item, 2).ToArray());
-        Assert.Equal(4, SlotData.Empty.ErnUpgradeCopies);
+        Assert.Equal(4, new SlotData().ErnUpgradeCopies);
         Assert.Equal(1.5f, ErnUpgradeRules.EfficiencyCap(s, FireRange), 3);
     }
 
     [Fact]
     public void AZeroCountIsNeverADivideByZero()
     {
-        var item = ErnUpgradeRules.CapItem("Fire Range");
+        var item = ErnItems.CapItem("Fire Range");
         Assert.Equal(1f, ErnUpgradeRules.EfficiencyCap(WithCopies(item, 3, 0), FireRange), 3);
         Assert.Equal(1f, ErnUpgradeRules.RateMultiplier(
-            WithCopies(ErnUpgradeRules.RateItem("Fire Range"), 3, 0), FireRange), 3);
+            WithCopies(ErnItems.RateItem("Fire Range"), 3, 0), FireRange), 3);
     }
 }

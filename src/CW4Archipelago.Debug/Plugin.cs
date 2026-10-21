@@ -49,6 +49,9 @@ public class Plugin : BasePlugin
         }
 
         DebugTick.Init(Log);
+        // After the mod's Load (BepInDependency) and before any patched method
+        // first runs - see ModHooks for why that ordering matters.
+        CW4Archipelago.Appliers.ModHooks.Install(Log);
         Log.LogInfo($"CW4 Archipelago Debug loaded, watching {CW4Archipelago.Appliers.DebugChannel.FilePath}");
     }
 }
@@ -65,7 +68,8 @@ public class DebugBehaviour : MonoBehaviour
     private void Update() => DebugTick.SafeTick();
 }
 
-/// <summary>Drives the two things that used to hang off ModCore.Tick.</summary>
+/// <summary>Drives this plugin's per-frame work. None of it hangs off the
+/// mod's tick any more.</summary>
 public static class DebugTick
 {
     private static BepInEx.Logging.ManualLogSource _log = null!;
@@ -75,10 +79,17 @@ public static class DebugTick
 
     public static void SafeTick()
     {
-        // Two independent try blocks: a throw in the command channel must not
-        // stop the stopwatches, and vice versa. Same shape as ModCore.SafeTick.
+        // Independent try blocks: a throw in any one of these must not stop the
+        // others. Same shape as ModCore.SafeTick.
         try { CW4Archipelago.Appliers.MeasureProbe.Tick(); }
         catch (Exception e) { _log.LogError($"measure tick failed: {e.Message}"); }
+
+        // The flash watch samples here, in Update - before the mod's LateUpdate
+        // can correct anything - and the emitter burst restores on time.
+        try { CW4Archipelago.Appliers.ModHooks.Tick(); }
+        catch (Exception e) { _log.LogError($"debug hooks tick failed: {e.Message}"); }
+        try { CW4Archipelago.Appliers.DebugTraps.Tick(); }
+        catch (Exception e) { _log.LogError($"emit restore tick failed: {e.Message}"); }
 
         try { Channel.Tick(); }
         catch (Exception e) { _log.LogError($"debug tick failed: {e.Message}"); }

@@ -40,9 +40,10 @@ from .rules import OFFENSE, is_casual, location_requirements
 # Archon is excluded despite waiving the weapon, because its caches are buried:
 # they need a Terp and a Pylon, so they are not free.
 #
-# Kept in step with rules.WAIVES_MISSION_REQUIREMENTS and rules.WAIVES_INSTANCE
-# by a test - rules.py cannot be imported here without a cycle (locations imports
-# items).
+# Written out rather than derived, so the set reads at a glance.
+# test_starter_eligibility_matches_the_logic derives it from
+# rules.WAIVES_MISSION_REQUIREMENTS and rules.WAIVES_INSTANCE - a waived cache
+# with no requirement of its own - and fails on any difference.
 STARTER_ELIGIBLE = (1, 2, 3, 4, 5, 7, 10, 11, 13, 14)
 # SPAN missions whose cache could open a seed. Exactly one qualifies: Far York
 # Farm is the ONLY map in the whole 26 with a cache at all, and it is exposed
@@ -133,7 +134,7 @@ def mission_roster(world) -> list:
     need = max(0, 20 - len(chosen))
     chosen |= set(world.random.sample(pool, min(need, len(pool))))
 
-    casual = _is_casual(world)
+    casual = is_casual(world)
     if roster_breadth(chosen, casual) < MIN_ROSTER_BREADTH:
         chosen = _widen_roster(world, chosen, fixed, casual)
     return _slot_order(chosen)
@@ -166,10 +167,6 @@ def _slot_order(chosen: set) -> list:
         return rest
     index = min(GOAL_SLOT - 1, len(rest))
     return rest[:index] + [FINAL_MISSION] + rest[index:]
-
-
-def _is_casual(world) -> bool:
-    return is_casual(world)
 
 
 def roster_breadth(roster, casual: bool = False) -> int:

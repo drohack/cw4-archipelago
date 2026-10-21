@@ -94,30 +94,8 @@ public static class InstanceIndex
         return false;
     }
 
-    /// <summary>A cell as a persistable key.</summary>
+    /// <summary>A cell as a key, in the form MapCells writes it.</summary>
     public static string Key(int x, int y) => x + "," + y;
-
-    /// <summary>The cells in INSTANCE ORDER, as keys, ready to be remembered.
-    /// Entry 0 is instance 1.</summary>
-    public static List<string> Remember(IReadOnlyList<(int X, int Y)> cells)
-    {
-        var result = new List<string>();
-        if (cells == null || cells.Count == 0)
-            return result;
-        foreach (var c in cells)
-            if (c.X < 0 || c.Y < 0)
-                return new List<string>();      // same all-or-nothing rule as Assign
-        var sorted = new List<(int X, int Y)>(cells);
-        sorted.Sort((a, b) =>
-        {
-            int cy = a.Y.CompareTo(b.Y);
-            if (cy != 0) return cy;
-            return a.X.CompareTo(b.X);
-        });
-        foreach (var c in sorted)
-            result.Add(Key(c.X, c.Y));
-        return result;
-    }
 
     /// <summary>Instances done, for structures that DISAPPEAR when completed.
     ///
@@ -132,9 +110,9 @@ public static class InstanceIndex
     /// a hands-on pickup cannot be scripted, so that is as close as automation
     /// reaches.)
     ///
-    /// Hence remembering. `remembered` is the full cell list in instance order,
-    /// recorded when the mission was first seen intact, and anything in it that
-    /// is no longer present has been taken. Only Farsite, Archon and Sequence
+    /// Hence a known list. `remembered` is the full cell list in instance order,
+    /// from MapCells, and anything in it that is no longer present has been
+    /// taken. Only Farsite, Archon and Sequence
     /// have two caches at all; the other 17 missions have one, where this
     /// degenerates to "the single cache, taken or not".</summary>
     public static List<int> DoneFromRemembered(

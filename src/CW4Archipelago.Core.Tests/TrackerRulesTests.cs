@@ -73,8 +73,8 @@ public class TrackerRulesTests
         var s = Make();
         Assert.Equal(TrackerStatus.InLogic, TrackerRules.LocationStatus(s, 1, "Farsite - Cache 1"));
         Assert.Equal(TrackerStatus.Locked, TrackerRules.LocationStatus(s, 1, "Farsite - Cache 2"));
-        // One takeable check and one unreachable one is ORANGE, not red: the map
-        // must not hide the check that can be taken right now.
+        // One takeable check and one unreachable one is Partial (drawn green),
+        // not red: the map must not hide the check that can be taken right now.
         Assert.Equal(TrackerStatus.Partial, TrackerRules.MissionStatus(s, 1));
     }
 
@@ -127,7 +127,7 @@ public class TrackerRulesTests
         var s = Make("Mission Unlock: Home", "Cannon");
         s.MarkChecked("Home - Nullify", true);
         Assert.Equal(TrackerStatus.Done, TrackerRules.LocationStatus(s, 2, "Home - Nullify"));
-        // remaining (Totems, Collect, Complete) are all in logic -> green, not orange
+        // remaining (Totems, Collect, Complete) are all in logic -> InLogic, not Partial
         Assert.Equal(TrackerStatus.InLogic, TrackerRules.MissionStatus(s, 2));
 
         foreach (var l in MissionRules.LocationsFor(s, 2))

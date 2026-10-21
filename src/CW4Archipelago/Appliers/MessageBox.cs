@@ -43,13 +43,11 @@ public sealed class ApMessageBox
     // Box geometry in 1080p-reference pixels (multiplied by the live UI scale).
     // WidthRef ~= the combined width of the bottom-left HUD readout cluster
     // (terrain height / creeper coverage / progression), measured via hud:dump.
-    // Mutable so they can be tuned live via the msgbox:set debug command; the
-    // final values are baked back into these defaults.
-    public static float WidthRef = 332f;       // matches the bottom-left readout cluster width
-    public static float BaseHeightRef = 190f;  // box height (includes the always-on input row)
-    public static float LeftInsetRef = 0f;     // flush to the left screen edge
-    public static float BottomInsetRef = 126f; // box bottom, rests on top of the readout cluster
-    public static float BgAlpha = 0.5f;        // panel background transparency
+    private const float WidthRef = 332f;       // matches the bottom-left readout cluster width
+    private const float BaseHeightRef = 190f;  // box height (includes the always-on input row)
+    private const float LeftInsetRef = 0f;     // flush to the left screen edge
+    private const float BottomInsetRef = 126f; // box bottom, rests on top of the readout cluster
+    private const float BgAlpha = 0.5f;        // panel background transparency
     public static bool ShowAll = false;        // false = relevant-only (default); true = every message
 
     private GameObject? _canvasGo;
@@ -60,7 +58,6 @@ public sealed class ApMessageBox
     private Canvas? _hostCanvas;
     private TextMeshProUGUI? _title;
     private TextMeshProUGUI? _showAllLabel;
-    private RectTransform? _bodyRt;
     private TMP_InputField? _input;
     private GameObject? _inputGo;
     private bool _gameInputBlocked;
@@ -352,7 +349,6 @@ public sealed class ApMessageBox
         // Body: viewport + content (scroll) + scrollbar + up/down buttons
         _body = MakePanelChild("Body", new Vector2(0f, 0f), new Vector2(1f, 1f), new Vector2(0.5f, 0.5f));
         var brt = _body.GetComponent<RectTransform>();
-        _bodyRt = brt;
         brt.offsetMin = new Vector2(0f, InputHeight); brt.offsetMax = new Vector2(0f, -20f);   // below header, above the always-on input row
 
         _scroll = _body.AddComponent<ScrollRect>();
@@ -620,32 +616,6 @@ public sealed class ApMessageBox
         }
     }
 
-    /// <summary>Where the view is, for tests: 0 is the bottom (newest), 1 the
-     /// top, -1 if there is no scroll rect. Exposed because "the log opened
-     /// half way up" was otherwise only checkable by eye, and the cause was a
-     /// timing bug that an eye can easily miss on a short history.</summary>
-    internal float ScrollPosition
-    {
-        get
-        {
-            try { return _scroll == null ? -1f : _scroll.verticalNormalizedPosition; }
-            catch { return -1f; }
-        }
-    }
-
-    /// <summary>Whether the box is still following new lines.</summary>
-    internal bool AutoScroll => _autoScroll;
-
-    /// <summary>Lines currently rendered, as opposed to lines in history.</summary>
-    internal int RenderedLines
-    {
-        get
-        {
-            try { return _content == null ? -1 : _content.childCount; }
-            catch { return -1; }
-        }
-    }
-
     /// <summary>Go to the bottom now, and start following again.
     ///
     /// Called when the whole log is re-rendered, and when a line is appended
@@ -724,6 +694,6 @@ public sealed class ApMessageBox
         try { if (_canvasGo != null) UnityEngine.Object.Destroy(_canvasGo); } catch { }
         _canvasGo = null; _containerRt = null; _panel = null; _panelRt = null; _panelImg = null;
         _hostCanvas = null; _title = null; _showAllLabel = null; _content = null; _scroll = null; _body = null;
-        _bodyRt = null; _input = null; _inputGo = null;
+        _input = null; _inputGo = null;
     }
 }

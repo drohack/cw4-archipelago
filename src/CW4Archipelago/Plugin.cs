@@ -72,7 +72,6 @@ public class Plugin : BasePlugin
         TryPatch("planet refresh", typeof(Appliers.PlanetRefreshPatch));
         TryPatch("totem complete", typeof(Appliers.TotemCompletePatch));
         TryPatch("cache destroyed", typeof(Appliers.CacheDestroyedPatch));
-        TryPatch("planet unlocked set", typeof(Appliers.PlanetUnlockedSetPatch));
         // Refuse a mission's grant of a locked unit at source, rather than
         // rebuilding the build strip to remove a button that should never have
         // been created.

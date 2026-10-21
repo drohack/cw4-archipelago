@@ -76,10 +76,4 @@ public static class EnergyRules
         if (held > copiesForMax) held = copiesForMax;
         return (float)maxTotal * held / copiesForMax;
     }
-
-    /// <summary>How many copies are worth generating - which is simply the
-    /// count that reaches the maximum. The apworld generates exactly this many,
-    /// so no copy is ever inert.</summary>
-    public static int UsefulCopies(int copiesForMax)
-        => copiesForMax < 0 ? 0 : copiesForMax;
 }
