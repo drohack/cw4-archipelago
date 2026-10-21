@@ -159,10 +159,17 @@ try {
     # It arrived after that release, so passing it made argparse reject the whole
     # invocation ("unrecognized arguments") and the packager threw. Nothing
     # caught it because the clone was moved from main to 0.6.7 and no release has
-    # been cut since. 0.6.7's builder takes only the world names, positionally,
-    # and pops the output folder open when it finishes - cosmetic, and the price
-    # of packaging with the version we actually support.
-    python Launcher.py "Build APWorlds" -- "Creeper World 4"
+    # been cut since.
+    #
+    # 0.6.7's builder (worlds/LauncherComponents.py, _build_apworlds) ends with
+    # an unconditional open_folder() that pops build\apworlds open in Explorer
+    # on every release. So this runs the SAME component - Archipelago's own
+    # builder, its own apignore handling and manifest - with Launcher.open_folder
+    # replaced by a no-op first. The builder imports open_folder from Launcher
+    # inside its own body, so the replacement is what it finds. Importing
+    # Launcher as a module, rather than running it, skips only its pip update
+    # and logging setup, which SKIP_REQUIREMENTS_UPDATE already turned off.
+    python -c "import Launcher; Launcher.open_folder = lambda *a, **k: print('not opening', *a); from worlds.LauncherComponents import components; Launcher.run_component(next(c for c in components if c.display_name == 'Build APWorlds'), 'Creeper World 4')"
     if ($LASTEXITCODE -ne 0) { throw "Build APWorlds failed" }
 } finally { Pop-Location }
 if (-not (Test-Path $built)) {
