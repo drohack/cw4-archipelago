@@ -154,5 +154,45 @@ class MetadataNames(Base):
         self.assertEqual(cr.FAILURES, [])
 
 
+class ChangelogRule(Base):
+    """A section for the version on every push; a WRITTEN one to release."""
+
+    OPENED = "# Changelog\n\n## v9.9.9 - Unreleased\n\n## v9.9.8 - Old\n\n- old notes\n"
+    WRITTEN = "# Changelog\n\n## v9.9.9 - A title\n\n- a note\n\n## v9.9.8 - Old\n\n- old\n"
+
+    def check(self, text, releasing):
+        path = os.path.join(self.tmp.name, "CHANGELOG.md")
+        with open(path, "w", encoding="utf-8", newline="") as f:
+            f.write(text)
+        real = cr.CHANGELOG
+        cr.CHANGELOG = path
+        try:
+            cr.check_changelog("9.9.9", releasing=releasing)
+        finally:
+            cr.CHANGELOG = real
+        return self.rules_failed()
+
+    def test_missing_section_fails_on_every_push(self):
+        self.assertIn("changelog section", self.check("# Changelog\n\n## v9.9.8 - Old\n", False))
+
+    def test_the_bump_placeholder_passes_between_releases(self):
+        # What the post-release bump writes, so main is green after a release.
+        self.assertEqual(self.check(self.OPENED, False), set())
+
+    def test_the_placeholder_cannot_be_released(self):
+        self.assertIn("changelog section", self.check(self.OPENED, True))
+
+    def test_a_titled_but_empty_section_cannot_be_released(self):
+        text = "# Changelog\n\n## v9.9.9 - A title\n\n## v9.9.8 - Old\n\n- old\n"
+        self.assertIn("changelog section", self.check(text, True))
+
+    def test_a_written_section_releases(self):
+        self.assertEqual(self.check(self.WRITTEN, True), set())
+
+    def test_crlf_does_not_hide_the_placeholder(self):
+        self.assertIn("changelog section",
+                      self.check(self.OPENED.replace("\n", "\r\n"), True))
+
+
 if __name__ == "__main__":
     unittest.main()

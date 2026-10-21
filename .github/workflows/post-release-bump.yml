@@ -130,6 +130,21 @@ jobs:
                   sys.exit(f"{path}: expected exactly one version to rewrite, got {n}")
               io.open(path, "w", encoding="utf-8", newline="").write(new)
               print(f"{path} -> {nxt}")
+
+          # OPEN THE NEXT SECTION. check_release.py wants a CHANGELOG section
+          # for the version main is at, on every push. This bump used to move
+          # the version and leave the CHANGELOG alone, so the first push after
+          # every release failed CI until someone added the heading by hand
+          # (first seen after v0.2.2). The placeholder title is refused when
+          # packaging, so it cannot ship as release notes.
+          cl = io.open("CHANGELOG.md", encoding="utf-8").read()
+          if not re.search(rf"^##\s+v{re.escape(nxt)}\b", cl, re.M):
+              first = re.search(r"^## v", cl, re.M)
+              if not first:
+                  sys.exit("CHANGELOG.md: no '## v' heading to open the next section above")
+              cl = cl[:first.start()] + f"## v{nxt} - Unreleased\n\n" + cl[first.start():]
+              io.open("CHANGELOG.md", "w", encoding="utf-8", newline="").write(cl)
+              print(f"CHANGELOG.md -> opened ## v{nxt} - Unreleased")
           PY
 
       - name: Check they agree, then commit
@@ -152,6 +167,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add src/CW4Archipelago/CW4Archipelago.csproj \
                   src/CW4Archipelago/Plugin.cs \
-                  apworld/cw4/archipelago.json
+                  apworld/cw4/archipelago.json \
+                  CHANGELOG.md
           git commit -m "Bump to $NEXT after releasing ${GITHUB_REF_NAME}"
           git push origin HEAD:main

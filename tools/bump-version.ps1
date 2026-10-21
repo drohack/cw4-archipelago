@@ -89,8 +89,22 @@ Write-NoBom $worldPath ($worldText -replace """world_version""\s*:\s*""$([regex]
 
 Write-Output "bumped $current -> $next in all three files"
 
+# Open the next CHANGELOG section, as post-release-bump.yml does - CI's
+# check_release.py wants a section for the version main is at, on every push.
+# The placeholder title is refused when packaging, so it cannot ship.
+$changelogPath = Join-Path $repo "CHANGELOG.md"
+$changelog = [System.IO.File]::ReadAllText($changelogPath)
+if ($changelog -notmatch "(?m)^##\s+v$([regex]::Escape($next))\b") {
+    $first = [regex]::Match($changelog, "(?m)^## v")
+    if (-not $first.Success) { throw "CHANGELOG.md: no '## v' heading to open the next section above" }
+    $nl = if ($changelog.Contains("`r`n")) { "`r`n" } else { "`n" }
+    $changelog = $changelog.Insert($first.Index, "## v$next - Unreleased$nl$nl")
+    Write-NoBom $changelogPath $changelog
+    Write-Output "opened ## v$next - Unreleased in CHANGELOG.md"
+}
+
 if ($Commit) {
-    & git -C $repo add $csprojPath $pluginPath $worldPath
+    & git -C $repo add $csprojPath $pluginPath $worldPath $changelogPath
     & git -C $repo commit -m "Bump to $next after releasing v$current"
     if ($LASTEXITCODE -ne 0) { throw "commit failed" }
     Write-Output "committed"

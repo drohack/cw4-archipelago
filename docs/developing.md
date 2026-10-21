@@ -1034,8 +1034,10 @@ automated plugin build is a self-hosted runner on a machine that owns the game.
    changed to read `Plugin.Version`; the real line is
    `public const string Version` in `src/CW4Archipelago/Plugin.cs`. Following it
    literally found nothing to edit and double-bumped anyone who persevered.
-8. Add the version's section to `CHANGELOG.md`. The release notes ARE that
-   section, so it has to exist before step 12.
+8. Write the version's section in `CHANGELOG.md`. The post-release bump opened
+   it as `## vX.Y.Z - Unreleased`; give it the release's title and its notes.
+   The release notes ARE that section, so it has to be written before step 12 -
+   `package-release.ps1` refuses the placeholder title and an empty section.
 9. `tools/package-release.ps1` - writes all three assets into `dist/`:
    `CW4Archipelago-vX.Y.Z.zip`, `cw4.apworld` and `Creeper World 4.yaml`.
 10. Sanity-check the yaml asset by generating from it, solo and multiworld. It is

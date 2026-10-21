@@ -25,7 +25,10 @@ WHAT IT CHECKS, and why each rule earned its place rather than being a tidy idea
 
   changelog section     The release notes ARE the CHANGELOG section for the
                         version. Nothing read the file, so a release could ship
-                        with its top section naming a different version.
+                        with its top section naming a different version. The
+                        version bump opens the next section as "Unreleased" so
+                        main always has one; packaging (--zip) refuses that
+                        title, and a section with no notes in it.
 
   dev plugin versions   CW4Archipelago.Debug and CW4DevTools each state their
                         version twice - csproj and [BepInPlugin]. Both now read
@@ -195,16 +198,33 @@ def check_ap_pin():
         ok("ap pin matches", "%s in archipelago.json and all %d ci.yml pin(s)" % (declared, len(pins)))
 
 
-def check_changelog(version):
+def check_changelog(version, releasing=False):
+    """A section for the version must exist on every push. When RELEASING it
+    must also be written: not the bump's "Unreleased" placeholder, and not
+    empty, because it is pasted as the release notes."""
     if version is None:
         return
     text = read(CHANGELOG)
-    if re.search(r"^##\s+v%s\b" % re.escape(version), text, re.M):
-        ok("changelog section", "## v%s present" % version)
-    else:
+    m = re.search(r"^##\s+v%s\b(.*)$" % re.escape(version), text, re.M)
+    if not m:
         fail("changelog section",
              "no '## v%s' heading in CHANGELOG.md - the release notes are that section"
              % version)
+        return
+    if not releasing:
+        ok("changelog section", "## v%s present" % version)
+        return
+    title = m.group(1).strip().strip("-").strip()
+    rest = text[m.end():]
+    nxt = re.search(r"^## ", rest, re.M)
+    body = (rest[:nxt.start()] if nxt else rest).strip()
+    if not title or title.lower() == "unreleased":
+        fail("changelog section",
+             "## v%s is still titled '%s' - give the release its title" % (version, title or ""))
+    elif not body:
+        fail("changelog section", "## v%s has no notes under it - they are the release notes" % version)
+    else:
+        ok("changelog section", "## v%s - %s (%d lines of notes)" % (version, title, len(body.splitlines())))
 
 
 def check_dev_plugins():
@@ -375,7 +395,7 @@ def main():
     print("check-release: source rules", flush=True)
     version = check_versions_agree()
     check_ap_pin()
-    check_changelog(version)
+    check_changelog(version, releasing=bool(args.zip_path))
     check_dev_plugins()
 
     if args.apworld or args.zip_path:
