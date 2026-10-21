@@ -3,6 +3,8 @@
 Versions follow semantic versioning. The plugin and the apworld share one number,
 so a release is a matched pair - if you update one, update the other.
 
+## v0.2.4 - Unreleased
+
 ## v0.2.3 - The map's completion display follows the multiworld
 
 - **The mission map's completion display follows the multiworld for every
